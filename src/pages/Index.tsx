@@ -5,23 +5,28 @@ import { IssueList } from '@/components/issues/IssueList';
 import { IssueBoard } from '@/components/issues/IssueBoard';
 import { CreateIssueDialog } from '@/components/issues/CreateIssueDialog';
 import { CommandPalette } from '@/components/CommandPalette';
+import { IssueDetailPanel } from '@/components/issues/IssueDetailPanel';
+import { FilterBar } from '@/components/filters/FilterBar';
+import { InsightsView } from '@/components/insights/InsightsView';
+import { InboxView } from '@/components/inbox/InboxView';
+import { SettingsView } from '@/components/settings/SettingsView';
+import { MyIssuesView } from '@/components/myissues/MyIssuesView';
+import { CycleView } from '@/components/cycles/CycleView';
 import { useIssueStore } from '@/store/issueStore';
 
 const Index = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const { viewMode } = useIssueStore();
+  const { viewMode, currentView } = useIssueStore();
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl + K for command palette
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setCommandPaletteOpen(true);
       }
       
-      // C for create issue (when not in an input)
       if (e.key === 'c' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
         e.preventDefault();
         setCreateDialogOpen(true);
@@ -32,18 +37,43 @@ const Index = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const renderMainContent = () => {
+    switch (currentView) {
+      case 'insights':
+        return <InsightsView />;
+      case 'inbox':
+        return <InboxView />;
+      case 'settings':
+        return <SettingsView />;
+      case 'my-issues':
+        return <MyIssuesView />;
+      case 'cycle':
+        return <CycleView />;
+      case 'all':
+      default:
+        return (
+          <>
+            <FilterBar />
+            {viewMode === 'list' ? <IssueList /> : <IssueBoard />}
+          </>
+        );
+    }
+  };
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
       <AppSidebar onOpenCommandPalette={() => setCommandPaletteOpen(true)} />
       
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header 
-          onCreateIssue={() => setCreateDialogOpen(true)}
-          onOpenCommandPalette={() => setCommandPaletteOpen(true)}
-        />
+        {currentView === 'all' && (
+          <Header 
+            onCreateIssue={() => setCreateDialogOpen(true)}
+            onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+          />
+        )}
         
-        <main className="flex-1 overflow-hidden">
-          {viewMode === 'list' ? <IssueList /> : <IssueBoard />}
+        <main className="flex-1 overflow-hidden flex flex-col">
+          {renderMainContent()}
         </main>
       </div>
 
@@ -60,6 +90,8 @@ const Index = () => {
           setCreateDialogOpen(true);
         }}
       />
+      
+      <IssueDetailPanel />
     </div>
   );
 };

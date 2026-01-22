@@ -120,17 +120,9 @@ function BoardColumn({ status, issues }: BoardColumnProps) {
 }
 
 export function IssueBoard() {
-  const { issues, selectedProjectId, searchQuery } = useIssueStore();
+  const { getFilteredIssues } = useIssueStore();
 
-  const filteredIssues = useMemo(() => {
-    return issues.filter((issue) => {
-      const matchesProject = !selectedProjectId || issue.projectId === selectedProjectId;
-      const matchesSearch = !searchQuery || 
-        issue.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        issue.identifier.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesProject && matchesSearch;
-    });
-  }, [issues, selectedProjectId, searchQuery]);
+  const filteredIssues = getFilteredIssues();
 
   const groupedIssues = useMemo(() => {
     const groups: Record<IssueStatus, typeof filteredIssues> = {
