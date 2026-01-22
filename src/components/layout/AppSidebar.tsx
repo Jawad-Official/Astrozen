@@ -8,11 +8,14 @@ import {
   Settings,
   ChevronDown,
   Plus,
-  BarChart3
+  BarChart3,
+  Target,
+  User,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIssueStore } from '@/store/issueStore';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Collapsible,
   CollapsibleContent,
@@ -25,9 +28,10 @@ interface NavItemProps {
   active?: boolean;
   onClick?: () => void;
   shortcut?: string;
+  badge?: number;
 }
 
-function NavItem({ icon, label, active, onClick, shortcut }: NavItemProps) {
+function NavItem({ icon, label, active, onClick, shortcut, badge }: NavItemProps) {
   return (
     <button
       onClick={onClick}
@@ -39,6 +43,9 @@ function NavItem({ icon, label, active, onClick, shortcut }: NavItemProps) {
     >
       <span className="flex h-4 w-4 items-center justify-center">{icon}</span>
       <span className="flex-1 text-left">{label}</span>
+      {badge !== undefined && badge > 0 && (
+        <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">{badge}</Badge>
+      )}
       {shortcut && (
         <span className="text-xs text-muted-foreground">{shortcut}</span>
       )}
@@ -51,8 +58,21 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ onOpenCommandPalette }: AppSidebarProps) {
-  const { projects, selectedProjectId, setSelectedProject } = useIssueStore();
+  const { 
+    projects, 
+    cycles,
+    selectedProjectId, 
+    setSelectedProject, 
+    currentView,
+    setCurrentView,
+    getTriageIssues,
+    setSelectedCycle,
+  } = useIssueStore();
   const [projectsOpen, setProjectsOpen] = useState(true);
+  const [cyclesOpen, setCyclesOpen] = useState(true);
+  
+  const triageCount = getTriageIssues().length;
+  const activeCycles = cycles.filter(c => c.status === 'active' || c.status === 'upcoming');
 
   return (
     <div className="flex h-full w-56 flex-col border-r border-border bg-sidebar">
@@ -84,22 +104,52 @@ export function AppSidebar({ onOpenCommandPalette }: AppSidebarProps) {
           <NavItem
             icon={<Inbox className="h-4 w-4" />}
             label="Inbox"
+            active={currentView === 'inbox'}
+            onClick={() => setCurrentView('inbox')}
+            badge={triageCount}
           />
           <NavItem
-            icon={<CircleDot className="h-4 w-4" />}
+            icon={<User className="h-4 w-4" />}
             label="My Issues"
+            active={currentView === 'my-issues'}
+            onClick={() => setCurrentView('my-issues')}
           />
           <NavItem
             icon={<LayoutGrid className="h-4 w-4" />}
             label="All Issues"
-            active={!selectedProjectId}
-            onClick={() => setSelectedProject(null)}
+            active={currentView === 'all' && !selectedProjectId}
+            onClick={() => { setCurrentView('all'); setSelectedProject(null); }}
           />
           <NavItem
             icon={<BarChart3 className="h-4 w-4" />}
             label="Insights"
+            active={currentView === 'insights'}
+            onClick={() => setCurrentView('insights')}
           />
         </div>
+
+        {/* Cycles */}
+        <Collapsible open={cyclesOpen} onOpenChange={setCyclesOpen} className="mt-4">
+          <div className="flex items-center justify-between px-3">
+            <CollapsibleTrigger className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
+              <ChevronDown className={cn('h-3 w-3 transition-transform', !cyclesOpen && '-rotate-90')} />
+              Cycles
+            </CollapsibleTrigger>
+          </div>
+          <CollapsibleContent>
+            <div className="mt-1">
+              {activeCycles.map((cycle) => (
+                <NavItem
+                  key={cycle.id}
+                  icon={<Target className="h-4 w-4" />}
+                  label={cycle.name}
+                  active={currentView === 'cycle' && cycle.id === useIssueStore.getState().selectedCycleId}
+                  onClick={() => { setSelectedCycle(cycle.id); setCurrentView('cycle'); }}
+                />
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
         {/* Projects */}
         <Collapsible open={projectsOpen} onOpenChange={setProjectsOpen} className="mt-4">
@@ -108,9 +158,6 @@ export function AppSidebar({ onOpenCommandPalette }: AppSidebarProps) {
               <ChevronDown className={cn('h-3 w-3 transition-transform', !projectsOpen && '-rotate-90')} />
               Projects
             </CollapsibleTrigger>
-            <Button variant="ghost" size="icon" className="h-5 w-5">
-              <Plus className="h-3 w-3" />
-            </Button>
           </div>
           <CollapsibleContent>
             <div className="mt-1">
@@ -119,8 +166,8 @@ export function AppSidebar({ onOpenCommandPalette }: AppSidebarProps) {
                   key={project.id}
                   icon={<span>{project.icon}</span>}
                   label={project.name}
-                  active={selectedProjectId === project.id}
-                  onClick={() => setSelectedProject(project.id)}
+                  active={currentView === 'all' && selectedProjectId === project.id}
+                  onClick={() => { setCurrentView('all'); setSelectedProject(project.id); }}
                 />
               ))}
             </div>
@@ -133,6 +180,8 @@ export function AppSidebar({ onOpenCommandPalette }: AppSidebarProps) {
         <NavItem
           icon={<Settings className="h-4 w-4" />}
           label="Settings"
+          active={currentView === 'settings'}
+          onClick={() => setCurrentView('settings')}
         />
       </div>
     </div>

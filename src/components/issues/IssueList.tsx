@@ -4,17 +4,9 @@ import { IssueRow } from './IssueRow';
 import { STATUS_CONFIG, IssueStatus } from '@/types/issue';
 
 export function IssueList() {
-  const { issues, selectedProjectId, searchQuery } = useIssueStore();
+  const { getFilteredIssues, setSelectedIssue } = useIssueStore();
 
-  const filteredIssues = useMemo(() => {
-    return issues.filter((issue) => {
-      const matchesProject = !selectedProjectId || issue.projectId === selectedProjectId;
-      const matchesSearch = !searchQuery || 
-        issue.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        issue.identifier.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesProject && matchesSearch;
-    });
-  }, [issues, selectedProjectId, searchQuery]);
+  const filteredIssues = getFilteredIssues();
 
   const groupedIssues = useMemo(() => {
     const groups: Record<IssueStatus, typeof filteredIssues> = {
@@ -51,7 +43,11 @@ export function IssueList() {
               </span>
             </div>
             {statusIssues.map((issue) => (
-              <IssueRow key={issue.id} issue={issue} />
+              <IssueRow 
+                key={issue.id} 
+                issue={issue} 
+                onClick={() => setSelectedIssue(issue.id)}
+              />
             ))}
           </div>
         );
