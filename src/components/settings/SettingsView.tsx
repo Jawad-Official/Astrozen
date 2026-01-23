@@ -205,7 +205,17 @@ export function SettingsView() {
   };
   
   const handleCreateProject = (name: string, icon: string) => {
-    addProject({ name, icon, color: 'blue' });
+    addProject({ 
+      name, 
+      icon, 
+      color: 'blue',
+      status: 'backlog',
+      health: 'no_updates',
+      members: [],
+      milestones: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
   };
   
   const handleUpdateProject = (name: string, icon: string) => {

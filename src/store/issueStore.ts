@@ -1,6 +1,8 @@
 import { create } from 'zustand';
-import { Issue, IssueStatus, IssuePriority, Label, Project, Cycle, Comment, Activity, SavedFilter, FilterState, TriageStatus } from '@/types/issue';
+import { Issue, IssueStatus, IssuePriority, Label, Project, Cycle, Comment, Activity, SavedFilter, FilterState, TriageStatus, CustomView } from '@/types/issue';
 import { addDays, subDays, startOfWeek, endOfWeek, addWeeks } from 'date-fns';
+
+type ViewType = 'all' | 'my-issues' | 'inbox' | 'insights' | 'settings' | 'cycle' | 'projects' | 'project-detail' | 'views' | 'custom-view';
 
 interface IssueStore {
   issues: Issue[];
@@ -10,12 +12,14 @@ interface IssueStore {
   comments: Comment[];
   activities: Activity[];
   savedFilters: SavedFilter[];
+  customViews: CustomView[];
   
   selectedProjectId: string | null;
   selectedCycleId: string | null;
   selectedIssueId: string | null;
+  selectedCustomViewId: string | null;
   viewMode: 'list' | 'board';
-  currentView: 'all' | 'my-issues' | 'inbox' | 'insights' | 'settings' | 'cycle';
+  currentView: ViewType;
   searchQuery: string;
   activeFilters: FilterState;
   currentUser: string;
@@ -57,8 +61,9 @@ interface IssueStore {
   setSelectedProject: (projectId: string | null) => void;
   setSelectedCycle: (cycleId: string | null) => void;
   setSelectedIssue: (issueId: string | null) => void;
+  setSelectedCustomView: (viewId: string | null) => void;
   setViewMode: (mode: 'list' | 'board') => void;
-  setCurrentView: (view: 'all' | 'my-issues' | 'inbox' | 'insights' | 'settings' | 'cycle') => void;
+  setCurrentView: (view: ViewType) => void;
   setSearchQuery: (query: string) => void;
   
   // Selectors
@@ -83,13 +88,72 @@ const defaultLabels: Label[] = [
   { id: '6', name: 'Performance', color: 'orange' },
 ];
 
+const today = new Date();
 const defaultProjects: Project[] = [
-  { id: '1', name: 'Frontend', icon: '🎨', color: 'blue' },
-  { id: '2', name: 'Backend', icon: '⚡', color: 'green' },
-  { id: '3', name: 'Mobile', icon: '📱', color: 'purple' },
+  { 
+    id: '1', 
+    name: 'Frontend', 
+    icon: '🎨', 
+    color: 'blue',
+    status: 'in_progress',
+    health: 'on_track',
+    lead: 'John Doe',
+    members: ['John Doe', 'Jane Smith'],
+    milestones: [],
+    createdAt: subDays(today, 30),
+    updatedAt: subDays(today, 1),
+  },
+  { 
+    id: '2', 
+    name: 'Backend', 
+    icon: '⚡', 
+    color: 'green',
+    status: 'in_progress',
+    health: 'no_updates',
+    members: ['Jane Smith'],
+    milestones: [],
+    createdAt: subDays(today, 60),
+    updatedAt: subDays(today, 10),
+  },
+  { 
+    id: '3', 
+    name: 'Mobile', 
+    icon: '📱', 
+    color: 'purple',
+    status: 'planned',
+    health: 'on_track',
+    lead: 'Jane Smith',
+    members: ['Jane Smith'],
+    targetDate: addDays(today, 30),
+    milestones: [],
+    createdAt: subDays(today, 14),
+    updatedAt: today,
+  },
 ];
 
-const today = new Date();
+const defaultCustomViews: CustomView[] = [
+  {
+    id: '1',
+    name: 'My Active Work',
+    icon: '🔥',
+    type: 'issues',
+    owner: 'jawadcoder0',
+    visibility: 'personal',
+    filters: {
+      statuses: ['todo', 'in_progress'],
+      priorities: [],
+      labels: [],
+      projects: [],
+      cycles: [],
+      assignees: ['John Doe'],
+      hasNoCycle: false,
+      hasNoAssignee: false,
+    },
+    layout: 'board',
+    createdAt: subDays(today, 7),
+  },
+];
+
 const defaultCycles: Cycle[] = [
   { 
     id: '1', 
@@ -285,10 +349,12 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
   comments: defaultComments,
   activities: defaultActivities,
   savedFilters: [],
+  customViews: defaultCustomViews,
   
   selectedProjectId: null,
   selectedCycleId: null,
   selectedIssueId: null,
+  selectedCustomViewId: null,
   viewMode: 'list',
   currentView: 'all',
   searchQuery: '',
@@ -545,6 +611,10 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
 
   setSelectedIssue: (issueId) => {
     set({ selectedIssueId: issueId });
+  },
+
+  setSelectedCustomView: (viewId) => {
+    set({ selectedCustomViewId: viewId });
   },
 
   setViewMode: (mode) => {

@@ -10,11 +10,44 @@ export interface Label {
   color: 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink';
 }
 
+export type ProjectStatus = 'backlog' | 'planned' | 'in_progress' | 'paused' | 'completed' | 'cancelled';
+export type ProjectHealth = 'on_track' | 'at_risk' | 'off_track' | 'no_updates';
+
+export interface Milestone {
+  id: string;
+  name: string;
+  description?: string;
+  targetDate?: Date;
+  completed: boolean;
+}
+
 export interface Project {
   id: string;
   name: string;
   icon: string;
   color: string;
+  description?: string;
+  status: ProjectStatus;
+  health: ProjectHealth;
+  lead?: string;
+  members: string[];
+  targetDate?: Date;
+  startDate?: Date;
+  milestones: Milestone[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CustomView {
+  id: string;
+  name: string;
+  icon: string;
+  type: 'issues' | 'projects';
+  owner: string;
+  visibility: 'personal' | 'team';
+  filters: FilterState;
+  layout: 'list' | 'board';
+  createdAt: Date;
 }
 
 export interface Cycle {

@@ -12,6 +12,10 @@ import { InboxView } from '@/components/inbox/InboxView';
 import { SettingsView } from '@/components/settings/SettingsView';
 import { MyIssuesView } from '@/components/myissues/MyIssuesView';
 import { CycleView } from '@/components/cycles/CycleView';
+import { ProjectsView } from '@/components/projects/ProjectsView';
+import { ProjectDetailView } from '@/components/projects/ProjectDetailView';
+import { ViewsListView } from '@/components/views/ViewsListView';
+import { CustomViewView } from '@/components/views/CustomViewView';
 import { useIssueStore } from '@/store/issueStore';
 
 const Index = () => {
@@ -49,6 +53,14 @@ const Index = () => {
         return <MyIssuesView />;
       case 'cycle':
         return <CycleView />;
+      case 'projects':
+        return <ProjectsView />;
+      case 'project-detail':
+        return <ProjectDetailView />;
+      case 'views':
+        return <ViewsListView />;
+      case 'custom-view':
+        return <CustomViewView />;
       case 'all':
       default:
         return (
@@ -62,7 +74,10 @@ const Index = () => {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      <AppSidebar onOpenCommandPalette={() => setCommandPaletteOpen(true)} />
+      <AppSidebar 
+        onOpenCommandPalette={() => setCommandPaletteOpen(true)} 
+        onOpenCreateDialog={() => setCreateDialogOpen(true)}
+      />
       
       <div className="flex flex-1 flex-col overflow-hidden">
         {currentView === 'all' && (
