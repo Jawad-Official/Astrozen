@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useIssueStore } from '@/store/issueStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -55,10 +55,18 @@ const statusConfig: Record<ProjectStatus, { label: string; color: string }> = {
 };
 
 function ProjectRow({ project, onClick }: ProjectRowProps) {
-  const issues = useIssueStore(state => state.issues.filter(i => i.projectId === project.id));
-  const completedIssues = issues.filter(i => i.status === 'done').length;
-  const totalIssues = issues.length;
-  const progressPercent = totalIssues > 0 ? Math.round((completedIssues / totalIssues) * 100) : 0;
+  const allIssues = useIssueStore(state => state.issues);
+  
+  const { completedIssues, totalIssues, progressPercent } = useMemo(() => {
+    const projectIssues = allIssues.filter(i => i.projectId === project.id);
+    const completed = projectIssues.filter(i => i.status === 'done').length;
+    const total = projectIssues.length;
+    return {
+      completedIssues: completed,
+      totalIssues: total,
+      progressPercent: total > 0 ? Math.round((completed / total) * 100) : 0,
+    };
+  }, [allIssues, project.id]);
 
   const health = healthConfig[project.health];
   const status = statusConfig[project.status];
