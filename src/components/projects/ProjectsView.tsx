@@ -16,6 +16,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Project, ProjectHealth, ProjectStatus } from '@/types/issue';
 import { format } from 'date-fns';
+import { CreateProjectDialog } from './CreateProjectDialog';
 
 interface ProjectRowProps {
   project: Project;
@@ -137,6 +138,7 @@ function ProjectRow({ project, onClick }: ProjectRowProps) {
 export function ProjectsView() {
   const { projects, setCurrentView, setSelectedProject } = useIssueStore();
   const [activeTab, setActiveTab] = useState<'projects' | 'all'>('all');
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const handleProjectClick = (project: Project) => {
     setSelectedProject(project.id);
@@ -177,7 +179,12 @@ export function ProjectsView() {
           <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-muted-foreground hover:text-foreground">
             <Link2 className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="sm" className="h-8 gap-1.5">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-8 gap-1.5"
+            onClick={() => setCreateDialogOpen(true)}
+          >
             <Plus className="h-3.5 w-3.5" />
             Add project
           </Button>
@@ -218,13 +225,23 @@ export function ProjectsView() {
         {projects.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <p className="text-sm">No projects yet</p>
-            <Button variant="ghost" size="sm" className="mt-2 gap-1.5">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="mt-2 gap-1.5"
+              onClick={() => setCreateDialogOpen(true)}
+            >
               <Plus className="h-4 w-4" />
               Create a project
             </Button>
           </div>
         )}
       </div>
+
+      <CreateProjectDialog 
+        open={createDialogOpen} 
+        onOpenChange={setCreateDialogOpen} 
+      />
     </div>
   );
 }

@@ -622,7 +622,15 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
   },
 
   setCurrentView: (view) => {
-    set({ currentView: view, selectedProjectId: null, selectedCycleId: null });
+    // Don't reset selectedProjectId when going to project-detail, or selectedCycleId when going to cycle
+    const updates: Partial<IssueStore> = { currentView: view };
+    if (view !== 'project-detail') {
+      updates.selectedProjectId = null;
+    }
+    if (view !== 'cycle') {
+      updates.selectedCycleId = null;
+    }
+    set(updates);
   },
 
   setSearchQuery: (query) => {
