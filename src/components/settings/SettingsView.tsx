@@ -211,8 +211,11 @@ export function SettingsView() {
       color: 'blue',
       status: 'backlog',
       health: 'no_updates',
+      priority: 'none',
       members: [],
       milestones: [],
+      updates: [],
+      resources: [],
       createdAt: new Date(),
       updatedAt: new Date(),
     });

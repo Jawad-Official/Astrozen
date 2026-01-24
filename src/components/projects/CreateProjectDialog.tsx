@@ -54,9 +54,12 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
       color: 'blue',
       status,
       health: 'no_updates',
+      priority: 'none',
       lead: lead.trim() || undefined,
       members: lead.trim() ? [lead.trim()] : [],
       milestones: [],
+      updates: [],
+      resources: [],
       createdAt: new Date(),
       updatedAt: new Date(),
     });

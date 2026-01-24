@@ -12,6 +12,7 @@ export interface Label {
 
 export type ProjectStatus = 'backlog' | 'planned' | 'in_progress' | 'paused' | 'completed' | 'cancelled';
 export type ProjectHealth = 'on_track' | 'at_risk' | 'off_track' | 'no_updates';
+export type ProjectPriority = 'urgent' | 'high' | 'medium' | 'low' | 'none';
 
 export interface Milestone {
   id: string;
@@ -19,6 +20,22 @@ export interface Milestone {
   description?: string;
   targetDate?: Date;
   completed: boolean;
+}
+
+export interface ProjectUpdate {
+  id: string;
+  projectId: string;
+  health: ProjectHealth;
+  content: string;
+  author: string;
+  createdAt: Date;
+}
+
+export interface ProjectResource {
+  id: string;
+  name: string;
+  url: string;
+  type: 'link' | 'document';
 }
 
 export interface Project {
@@ -29,11 +46,14 @@ export interface Project {
   description?: string;
   status: ProjectStatus;
   health: ProjectHealth;
+  priority: ProjectPriority;
   lead?: string;
   members: string[];
   targetDate?: Date;
   startDate?: Date;
   milestones: Milestone[];
+  updates: ProjectUpdate[];
+  resources: ProjectResource[];
   createdAt: Date;
   updatedAt: Date;
 }
