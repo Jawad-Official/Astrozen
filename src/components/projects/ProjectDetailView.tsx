@@ -147,7 +147,7 @@ function ProjectUpdate({ health, author, date, content }: ProjectUpdateProps) {
 
 export function ProjectDetailView() {
   const { selectedProjectId, projects, issues, setCurrentView, updateProject, setSelectedIssue } = useIssueStore();
-  const [activeTab, setActiveTab] = useState('issues');
+  const [activeTab, setActiveTab] = useState('overview');
   const [updateContent, setUpdateContent] = useState('');
   const [selectedHealth, setSelectedHealth] = useState<keyof typeof healthBadges>('on_track');
   const [assigneesTab, setAssigneesTab] = useState<'assignees' | 'labels'>('assignees');
@@ -525,13 +525,21 @@ export function ProjectDetailView() {
               </span>
               <Plus className="h-3.5 w-3.5 text-muted-foreground cursor-pointer hover:text-foreground" />
             </div>
-            <div className="flex items-center gap-2 text-sm">
-              <Diamond className="h-4 w-4 text-yellow-400" />
-              <span className="text-xs">phase 1</span>
-              <span className="text-xs text-muted-foreground">0% of 0</span>
-              <div className="flex-1" />
-              <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground cursor-pointer" />
-            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+              Add milestones to organize work within your project and break it into more granular stages.{' '}
+              <span className="text-primary cursor-pointer hover:underline">Learn more</span>
+            </p>
+            {project.milestones && project.milestones.length > 0 ? (
+              project.milestones.map((milestone, idx) => (
+                <div key={idx} className="flex items-center gap-2 text-sm mb-1">
+                  <Diamond className="h-4 w-4 text-yellow-400" />
+                  <span className="text-xs">{milestone.name}</span>
+                  <span className="text-xs text-muted-foreground">0% of 0</span>
+                  <div className="flex-1" />
+                  <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground cursor-pointer" />
+                </div>
+              ))
+            ) : null}
           </div>
 
           <Separator className="bg-border" />
@@ -613,10 +621,10 @@ export function ProjectDetailView() {
               </span>
               <span className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">See all</span>
             </div>
-            <div className="mt-3 text-xs text-muted-foreground">
+            <div className="mt-3 space-y-2 text-xs text-muted-foreground">
               <div className="flex items-start gap-2">
-                <Diamond className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                <span>jawadcoder0 added milestone phase 1 · Jan 23</span>
+                <Layers className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>jawadcoder0 created the project · Jan 21</span>
               </div>
             </div>
           </div>
