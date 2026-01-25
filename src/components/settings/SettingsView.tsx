@@ -213,6 +213,7 @@ export function SettingsView() {
       health: 'no_updates',
       priority: 'none',
       members: [],
+      teams: [],
       milestones: [],
       updates: [],
       resources: [],

@@ -49,6 +49,7 @@ export interface Project {
   priority: ProjectPriority;
   lead?: string;
   members: string[];
+  teams: string[];
   targetDate?: Date;
   startDate?: Date;
   milestones: Milestone[];

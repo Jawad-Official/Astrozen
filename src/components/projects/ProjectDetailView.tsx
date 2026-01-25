@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Plus,
   Users,
+  Users2,
   Calendar,
   Tag,
   PenSquare,
@@ -26,6 +27,7 @@ import {
   X,
   Trash2,
   ExternalLink,
+  User,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -243,6 +245,24 @@ export function ProjectDetailView() {
     const updatedMembers = project.members.filter(m => m !== member);
     updateProject(project.id, { members: updatedMembers, updatedAt: new Date() });
     toast({ title: 'Member removed' });
+  };
+
+  const handleToggleMember = (member: string) => {
+    const isMember = project.members.includes(member);
+    const updatedMembers = isMember 
+      ? project.members.filter(m => m !== member)
+      : [...project.members, member];
+    updateProject(project.id, { members: updatedMembers, updatedAt: new Date() });
+    toast({ title: isMember ? 'Member removed' : 'Member added' });
+  };
+
+  const handleToggleTeam = (team: string) => {
+    const hasTeam = project.teams?.includes(team);
+    const updatedTeams = hasTeam 
+      ? project.teams.filter(t => t !== team)
+      : [...(project.teams || []), team];
+    updateProject(project.id, { teams: updatedTeams, updatedAt: new Date() });
+    toast({ title: hasTeam ? 'Team removed' : 'Team added' });
   };
 
   const handleDateChange = (field: 'startDate' | 'targetDate', date: Date | undefined) => {
@@ -501,6 +521,50 @@ export function ProjectDetailView() {
                       <DropdownMenuItem key={name} onClick={() => handleLeadChange(name)}>
                         {name}
                         {name === project.lead && <Check className="h-3 w-3 ml-auto" />}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Members */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <span className="text-muted-foreground flex items-center gap-1.5 cursor-pointer hover:text-foreground">
+                      <User className="h-3.5 w-3.5" />
+                      {project.members.length > 0 
+                        ? `${project.members.length} member${project.members.length > 1 ? 's' : ''}`
+                        : 'Members'}
+                    </span>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="bg-popover border-border">
+                    {['John Doe', 'Jane Smith', 'jawadcoder0', 'Alex Turner', 'Sarah Connor'].map((name) => (
+                      <DropdownMenuItem key={name} onClick={() => handleToggleMember(name)} className="gap-2">
+                        <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-medium">
+                          {name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        </div>
+                        {name}
+                        {project.members.includes(name) && <Check className="h-3 w-3 ml-auto" />}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Teams */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <span className="text-muted-foreground flex items-center gap-1.5 cursor-pointer hover:text-foreground">
+                      <Users2 className="h-3.5 w-3.5" />
+                      {project.teams?.length > 0 
+                        ? project.teams.join(', ')
+                        : 'Teams'}
+                    </span>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="bg-popover border-border">
+                    {['Engineering', 'Design', 'Product', 'Mobile', 'QA', 'DevOps'].map((team) => (
+                      <DropdownMenuItem key={team} onClick={() => handleToggleTeam(team)} className="gap-2">
+                        <Users2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        {team}
+                        {project.teams?.includes(team) && <Check className="h-3 w-3 ml-auto" />}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
