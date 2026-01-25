@@ -22,6 +22,28 @@ export interface Milestone {
   completed: boolean;
 }
 
+export interface UpdateAttachment {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+}
+
+export interface UpdateComment {
+  id: string;
+  content: string;
+  author: string;
+  createdAt: Date;
+  parentId?: string; // For nested replies
+  attachments?: UpdateAttachment[];
+}
+
+export interface EmojiReaction {
+  emoji: string;
+  users: string[];
+}
+
 export interface ProjectUpdate {
   id: string;
   projectId: string;
@@ -29,6 +51,9 @@ export interface ProjectUpdate {
   content: string;
   author: string;
   createdAt: Date;
+  attachments?: UpdateAttachment[];
+  comments?: UpdateComment[];
+  reactions?: EmojiReaction[];
 }
 
 export interface ProjectResource {
