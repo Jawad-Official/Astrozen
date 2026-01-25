@@ -553,8 +553,8 @@ export function ProjectDetailView() {
                 </Button>
               </div>
 
-              {/* Write update CTA */}
-              {(!project.updates || project.updates.length === 0) && (
+              {/* Write update CTA or Latest Update */}
+              {(!project.updates || project.updates.length === 0) ? (
                 <div 
                   className="bg-card/30 rounded-lg p-6 mb-8 flex items-center justify-center border border-border border-dashed cursor-pointer hover:bg-card/50 transition-colors"
                   onClick={() => setActiveTab('updates')}
@@ -563,6 +563,24 @@ export function ProjectDetailView() {
                     <PenSquare className="h-4 w-4" />
                     Write first project update
                   </Button>
+                </div>
+              ) : (
+                <div className="mb-8">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium">Latest update</h3>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 text-xs gap-1 text-muted-foreground"
+                      onClick={() => setActiveTab('updates')}
+                    >
+                      View all ({project.updates.length})
+                    </Button>
+                  </div>
+                  <ProjectUpdateCard 
+                    update={project.updates[0]} 
+                    onDelete={() => handleDeleteUpdate(project.updates[0].id)} 
+                  />
                 </div>
               )}
 
