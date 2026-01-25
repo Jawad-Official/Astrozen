@@ -57,6 +57,7 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
       priority: 'none',
       lead: lead.trim() || undefined,
       members: lead.trim() ? [lead.trim()] : [],
+      teams: [],
       milestones: [],
       updates: [],
       resources: [],
