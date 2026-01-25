@@ -129,38 +129,7 @@ function StatusGroup({ status, label, issues, onIssueClick, defaultExpanded = tr
   );
 }
 
-// Project update card component
-function ProjectUpdateCard({ update, onDelete }: { update: ProjectUpdateType; onDelete: () => void }) {
-  const health = healthOptions.find(h => h.value === update.health) || healthOptions[3];
-  
-  return (
-    <div className="bg-card/50 rounded-lg border border-border p-4 group">
-      <div className="flex items-center gap-3 mb-3">
-        <Badge variant="outline" className={cn('gap-1.5 text-xs', health.className)}>
-          {health.icon}
-          {health.label}
-        </Badge>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground flex-1">
-          <div className="h-5 w-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-[9px] font-medium">
-            {update.author.split(' ').map(n => n[0]).join('').slice(0, 2)}
-          </div>
-          <span>{update.author}</span>
-          <span>·</span>
-          <span>{format(update.createdAt, 'MMM d')}</span>
-        </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-          onClick={onDelete}
-        >
-          <Trash2 className="h-3 w-3" />
-        </Button>
-      </div>
-      <p className="text-sm text-foreground whitespace-pre-wrap">{update.content}</p>
-    </div>
-  );
-}
+import { ProjectUpdateCard } from './ProjectUpdateCard';
 
 export function ProjectDetailView() {
   const { toast } = useToast();
@@ -356,6 +325,13 @@ export function ProjectDetailView() {
     const updatedUpdates = project.updates.filter(u => u.id !== updateId);
     updateProject(project.id, { updates: updatedUpdates, updatedAt: new Date() });
     toast({ title: 'Update deleted' });
+  };
+
+  const handleUpdateUpdate = (updateId: string, updates: Partial<ProjectUpdateType>) => {
+    const updatedUpdates = project.updates.map(u => 
+      u.id === updateId ? { ...u, ...updates } : u
+    );
+    updateProject(project.id, { updates: updatedUpdates, updatedAt: new Date() });
   };
 
   // Calculate assignee stats
@@ -643,7 +619,9 @@ export function ProjectDetailView() {
                   </div>
                   <ProjectUpdateCard 
                     update={project.updates[0]} 
-                    onDelete={() => handleDeleteUpdate(project.updates[0].id)} 
+                    onDelete={() => handleDeleteUpdate(project.updates[0].id)}
+                    onUpdate={(updates) => handleUpdateUpdate(project.updates[0].id, updates)}
+                    currentUser={currentUser}
                   />
                 </div>
               )}
@@ -740,6 +718,8 @@ export function ProjectDetailView() {
                     key={update.id} 
                     update={update} 
                     onDelete={() => handleDeleteUpdate(update.id)}
+                    onUpdate={(updates) => handleUpdateUpdate(update.id, updates)}
+                    currentUser={currentUser}
                   />
                 ))}
                 
