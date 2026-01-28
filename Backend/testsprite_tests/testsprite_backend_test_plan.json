@@ -1,0 +1,37 @@
+[
+  {
+    "id": "TC001",
+    "title": "user registration with valid data",
+    "description": "Test the /auth/register endpoint to ensure a new user can register successfully with valid email, password, first_name, and last_name, and that the response returns appropriate success status."
+  },
+  {
+    "id": "TC002",
+    "title": "user login with correct credentials",
+    "description": "Test the /auth/login endpoint to verify that a user can log in with valid username and password, and receives a valid JWT access token."
+  },
+  {
+    "id": "TC003",
+    "title": "create organization and default team creation",
+    "description": "Test the /organizations POST endpoint to create a new organization and verify that a default team is automatically created for the user."
+  },
+  {
+    "id": "TC004",
+    "title": "create team with unique identifier",
+    "description": "Test the /teams POST endpoint to create a new team with a unique identifier and name, ensuring that duplicate identifiers are rejected."
+  },
+  {
+    "id": "TC005",
+    "title": "create project with valid team association",
+    "description": "Test the /projects POST endpoint to create a new project linked to an existing team, verifying that the project is created successfully with correct metadata."
+  },
+  {
+    "id": "TC006",
+    "title": "create feature with valid project linkage",
+    "description": "Test the /features POST endpoint to create a new feature associated with a valid project, ensuring status lifecycle values are accepted and enforced."
+  },
+  {
+    "id": "TC007",
+    "title": "create issue with valid feature and status",
+    "description": "Test the /issues POST endpoint to create a new issue linked to an existing feature, verifying that status and priority values are correctly handled."
+  }
+]

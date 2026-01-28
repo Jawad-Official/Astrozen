@@ -1,0 +1,19 @@
+{
+  "status": "commited",
+  "type": "backend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:8000/api/v1",
+  "backendAuthType": "basic token",
+  "backendUsername": "user@example.com",
+  "backendPassword": "string",
+  "executionArgs": {
+    "projectName": "Backend",
+    "projectPath": "C:\\Users\\jawad\\Documents\\Projects\\Linear\\Backend",
+    "testIds": [],
+    "additionalInstruction": "Use correct prefixes (/auth, /organizations, /teams, /projects, /features, /issues).\nRegistration requires: email, password, first_name, last_name.\nLogin requires form-data: username, password.\nIssue status: backlog, todo, in_progress, done, cancelled.\nFeature status: discovery, validated, in_build, in_review, shipped, adopted, killed.\nUse unique identifiers for teams. Note that creating an organization automatically creates a default team.\nCreate organization, then team, then project, then feature, then issue in sequence for dependency resolution.\nEach test case should use unique email/names to avoid conflicts.\nTeam identifier must be max 5 chars.\nIf team identifier exists, try a different one.",
+    "envs": {
+      "API_KEY": "sk-user-Tr8qP4t3p-D6ZU5IMc-t33_-E8vkNJINZEPpjPZxoVgVkIuHi_3FgofFgGC5JPAgUPl0Ju5wtxlGWhHn4-ta5xbAKaMmOcfEbdAJbSQ_AT2967SkDxlFc4yq-ln-_ww-dXU"
+    }
+  },
+  "proxy": "http://88b0205f-5d42-4ad8-ac8f-8d4144e046f7:Tg4Ky1tgxoXsdgVIR6QVvuxjTg7e8G1B@tun.testsprite.com:8080"
+}

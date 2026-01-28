@@ -1,0 +1,32 @@
+﻿============================================================
+COMPREHENSIVE API TEST SUITE
+============================================================
+
+venv\Scripts\python : Traceback (most recent call last):
+At line:1 char:1
++ venv\Scripts\python comprehensive_test.py 2>&1 | 
+Out-File -FilePath t ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback  
+   (most recent call last)::String) [], RemoteExceptio  
+  n
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\jawad\Documents\Projects\Linear\Backend
+\comprehensive_test.py", line 328, in <module>
+    tester.run_all_tests()
+    ~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\jawad\Documents\Projects\Linear\Backend
+\comprehensive_test.py", line 72, in run_all_tests
+    print("\n\U0001f539 DEFAULT ENDPOINTS")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\WindowsApps\PythonSoftwareFound
+ation.Python.3.13_3.13.2544.0_x64__qbz5n2kfra8p0\Lib\enc
+odings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encod
+ing_table)[0]
+           
+~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode 
+character '\U0001f539' in position 2: character maps to 
+<undefined>

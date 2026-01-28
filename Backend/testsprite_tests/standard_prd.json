@@ -1,0 +1,342 @@
+{
+  "meta": {
+    "project": "SwiftFlow Backend API",
+    "date": "2026-01-21",
+    "prepared_by": "Software Development Manager"
+  },
+  "product_overview": "SwiftFlow is a high-performance issue tracking system designed to connect strategic planning with granular execution through a strict hierarchical model of organizations, teams, projects, features, and issues.",
+  "core_goals": [
+    "Implement a secure and scalable backend API to support the hierarchical data model from Organizations down to Issues.",
+    "Ensure strict data integrity enforcing parent-child relationships in the hierarchy, e.g., Issues must belong to Features, Features belong to Projects, and so forth.",
+    "Provide comprehensive user authentication and authorization to isolate data between organizations and enforce role-based access controls.",
+    "Support efficient project, feature, and issue management with precise status and priority states to facilitate high-speed execution and strategic monitoring.",
+    "Deliver robust testing coverage that validates functionality, security, authorization, data integrity, and performance across all API endpoints."
+  ],
+  "key_features": [
+    "User Authentication and Registration supporting JWT-based OAuth2 password flow.",
+    "Organization management with automatic default team creation upon organization creation.",
+    "Team management supporting unique team identifiers and membership roles.",
+    "Project management with metadata and status transitions tied to teams.",
+    "Feature management with strict linkage to projects, encapsulating delivery strategies and status lifecycle.",
+    "Issue tracking strictly dependent on features, supporting status workflows and priority levels.",
+    "Strict hierarchical validation preventing orphan records and enforcing cascade deletes.",
+    "Comprehensive API coverage including endpoints for authentication, organizations, teams, projects, features, and issues."
+  ],
+  "user_flow_summary": [
+    "User registers and logs in to obtain access token.",
+    "User creates an Organization which automatically generates a default Team.",
+    "User can create additional Teams within the Organization, each with unique identifiers.",
+    "User creates Projects assigned to specific Teams.",
+    "Within a Project, the user adds Features describing strategic goals with status tracking.",
+    "User creates Issues linked to Features specifying tasks with statuses and priorities.",
+    "Users interact via secured endpoints ensuring data isolation per organization and role-based permissions.",
+    "Users update statuses of Projects, Features, and Issues reflecting real-time progress and delivery confidence."
+  ],
+  "validation_criteria": [
+    "Authentication endpoints validate correct user registration and login, issuing valid JWT tokens.",
+    "Unauthorized access attempts return proper 401 Unauthorized errors.",
+    "Organizations, Teams, Projects, Features, and Issues can be created, updated, retrieved, and deleted respecting hierarchy constraints.",
+    "Issues cannot exist without associated Features; Features cannot be created without valid Projects, enforcing referential integrity.",
+    "Unique constraints on team identifiers and issue identifiers are respected.",
+    "Users cannot access or manipulate data outside their organization, enforcing cross-org access control.",
+    "Cascade deletes properly remove dependent entities (e.g., deleting a Project removes its Features and their Issues).",
+    "Performance benchmarks ensure GET list endpoints respond within 200 milliseconds under standard load.",
+    "Test coverage meets or exceeds 90% of all API routes with zero flaky tests in stable environments."
+  ],
+  "code_summary": {
+    "tech_stack": [
+      "Python",
+      "FastAPI",
+      "SQLAlchemy",
+      "PostgreSQL",
+      "Alembic",
+      "Pydantic"
+    ],
+    "features": [
+      {
+        "name": "Auth",
+        "description": "User authentication and registration. /login requires application/x-www-form-urlencoded with username and password. /register requires email, password, first_name, and last_name.",
+        "files": [
+          "app/api/v1/auth.py"
+        ],
+        "api_doc": {
+          "openapi": "3.0.0",
+          "paths": {
+            "/auth/register": {
+              "post": {
+                "summary": "Register a new user",
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "required": [
+                          "email",
+                          "password",
+                          "first_name",
+                          "last_name"
+                        ],
+                        "properties": {
+                          "email": {
+                            "type": "string",
+                            "format": "email"
+                          },
+                          "password": {
+                            "type": "string"
+                          },
+                          "first_name": {
+                            "type": "string"
+                          },
+                          "last_name": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "/auth/login": {
+              "post": {
+                "summary": "Login and get access token",
+                "requestBody": {
+                  "content": {
+                    "application/x-www-form-urlencoded": {
+                      "schema": {
+                        "type": "object",
+                        "required": [
+                          "username",
+                          "password"
+                        ],
+                        "properties": {
+                          "username": {
+                            "type": "string"
+                          },
+                          "password": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "Organizations",
+        "description": "Manage organizations. Note: Creating an organization automatically creates a default team for the user.",
+        "files": [
+          "app/api/v1/organizations.py"
+        ],
+        "api_doc": {
+          "openapi": "3.0.0",
+          "paths": {
+            "/organizations": {
+              "post": {
+                "summary": "Create organization",
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "required": [
+                          "name"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "Teams",
+        "description": "Manage teams. Creating an organization already creates a default team. Manual team creation requires a unique 'key' or identifier.",
+        "files": [
+          "app/api/v1/teams.py"
+        ],
+        "api_doc": {
+          "openapi": "3.0.0",
+          "paths": {
+            "/teams": {
+              "post": {
+                "summary": "Create team",
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "required": [
+                          "name",
+                          "identifier"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "identifier": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "Issues",
+        "description": "Manage issues. status: backlog, todo, in_progress, done, cancelled. priority: urgent, high, medium, low, none.",
+        "files": [
+          "app/api/v1/issues.py"
+        ],
+        "api_doc": {
+          "openapi": "3.0.0",
+          "paths": {
+            "/issues": {
+              "post": {
+                "summary": "Create issue",
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "required": [
+                          "title",
+                          "feature_id"
+                        ],
+                        "properties": {
+                          "title": {
+                            "type": "string"
+                          },
+                          "feature_id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "backlog",
+                              "todo",
+                              "in_progress",
+                              "done",
+                              "cancelled"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "Features",
+        "description": "Manage features. status: discovery, validated, in_build, in_review, shipped, adopted, killed.",
+        "files": [
+          "app/api/v1/features.py"
+        ],
+        "api_doc": {
+          "openapi": "3.0.0",
+          "paths": {
+            "/features": {
+              "post": {
+                "summary": "Create feature",
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "required": [
+                          "name",
+                          "project_id"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "project_id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "discovery",
+                              "validated",
+                              "in_build",
+                              "in_review",
+                              "shipped",
+                              "adopted",
+                              "killed"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "Projects",
+        "description": "Manage projects.",
+        "files": [
+          "app/api/v1/projects.py"
+        ],
+        "api_doc": {
+          "openapi": "3.0.0",
+          "paths": {
+            "/projects": {
+              "post": {
+                "summary": "Create project",
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "required": [
+                          "name",
+                          "team_id"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "team_id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}
