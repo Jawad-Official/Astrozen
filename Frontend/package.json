@@ -54,6 +54,7 @@
     "framer-motion": "^11.18.2",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.462.0",
+    "mermaid": "^11.12.2",
     "motion-dom": "^12.29.0",
     "motion-utils": "^12.27.2",
     "next-themes": "^0.3.0",

@@ -1,0 +1,151 @@
+openapi: 3.0.0
+info:
+  title: AI Idea Validator API
+  version: 1.0.0
+paths:
+  /ai/validate:
+    post:
+      summary: Submit idea for validation (Anonymous/Public)
+      operationId: validate_idea
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idea]
+              properties:
+                idea:
+                  type: string
+                  description: Raw project idea description
+      responses:
+        200:
+          description: Validation report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResponse'
+
+  /ideas:
+    post:
+      summary: Save confirmed idea (Requires Auth)
+      security:
+        - bearerAuth: []
+      operationId: save_idea
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveIdeaRequest'
+      responses:
+        201:
+          description: Created idea
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectIdea'
+
+  /ideas/{id}/assets:
+    post:
+      summary: Trigger asset generation
+      security:
+        - bearerAuth: []
+      operationId: generate_assets
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        202:
+          description: Generation started (Async)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task_id:
+                    type: string
+                    format: uuid
+    get:
+      summary: Get generated assets
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: List of assets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectAsset'
+
+components:
+  schemas:
+    ValidationResponse:
+      type: object
+      properties:
+        market_feasibility:
+          type: object
+        improvements:
+          type: array
+          items:
+            type: string
+        core_features:
+          type: array
+          items:
+            type: string
+        tech_stack:
+          type: object
+        pricing_model:
+          type: object
+        refined_description:
+          type: string
+
+    SaveIdeaRequest:
+      type: object
+      required: [raw_input, validation_data]
+      properties:
+        raw_input:
+          type: string
+        validation_data:
+          $ref: '#/components/schemas/ValidationResponse'
+
+    ProjectIdea:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [DRAFT, VALIDATED, CONFIRMED, GENERATED]
+
+    ProjectAsset:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        asset_type:
+          type: string
+        download_url:
+          type: string
+          description: Signed URL (temporary)
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
