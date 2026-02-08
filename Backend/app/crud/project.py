@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import or_, and_
 from app.crud.base import CRUDBase
 from app.models.project import Project, Visibility, ProjectUpdate, ProjectResource, ProjectUpdateComment, ProjectUpdateReaction, ProjectUpdateCommentReaction
+from app.models.project_idea import ProjectIdea
 from app.schemas.project import (
     ProjectCreate, 
     ProjectUpdate as ProjectUpdateSchema, 
@@ -35,7 +36,8 @@ class CRUDProject(CRUDBase[Project, ProjectCreate, ProjectUpdateSchema]):
                 selectinload(ProjectUpdate.reactions).joinedload(ProjectUpdateReaction.user)
             ),
             selectinload(Project.teams),
-            selectinload(Project.members)
+            selectinload(Project.members),
+            selectinload(Project.ai_ideas).selectinload(ProjectIdea.assets)
         ).filter(self.model.id == id).first()
 
     def create_with_relations(
@@ -118,7 +120,8 @@ class CRUDProject(CRUDBase[Project, ProjectCreate, ProjectUpdateSchema]):
             selectinload(Project.team),
             joinedload(Project.lead),
             selectinload(Project.teams),
-            selectinload(Project.members)
+            selectinload(Project.members),
+            selectinload(Project.ai_ideas).selectinload(ProjectIdea.assets)
         )
         
         if is_admin and organization_id:

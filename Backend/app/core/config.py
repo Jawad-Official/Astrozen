@@ -32,8 +32,18 @@ class Settings(BaseSettings):
     PROJECT_NAME: str
     VERSION: str
     API_V1_PREFIX: str
+
+    # Cloudflare R2
+    R2_ACCOUNT_ID: str
+    R2_ACCESS_KEY_ID: str
+    R2_SECRET_ACCESS_KEY: str
+    R2_BUCKET_NAME: str
+
+    # AI Provider (OpenRouter)
+    OPENROUTER_API_KEY: str
+    MODEL_NAME: str = "gpt-oss-120b:nitro"
     
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
     
 
 

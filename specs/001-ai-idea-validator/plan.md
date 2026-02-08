@@ -4,23 +4,20 @@
 **Input**: Feature specification from `specs/001-ai-idea-validator/spec.md`
 
 ## Summary
-This feature implements an AI-driven workflow for validating project ideas and generating technical assets. It includes an interactive Q&A flow, a 6-pillar validation report (Market Feasibility, Tech Stack, etc.), visual User Flow diagrams (Mermaid.js), and downloadable technical documentation (PRD, Schema, etc.) stored in Cloudflare R2. Key technical decisions include mandatory authentication, standard polling for AI tasks, and strictly typed JSON generation with retries.
+This feature implements an AI-driven workflow for validating project ideas and generating technical assets through a structured 4-phase process:
+1. **INPUT PHASE**: Interactive Q&A with a progress bar.
+2. **VALIDATION & ANALYSIS**: 6-pillar report generation.
+3. **VISUAL BLUEPRINT**: User Flow diagram, Kanban tickets, and progress dashboard.
+4. **SEQUENTIAL DOC GENERATION**: PRD -> App Flow -> Tech Stack -> Frontend Guide -> Backend Schema -> Implementation Plan. Each doc leverages previous outputs as context, supports user skipping (AI auto-suggests), and integrates directly into the project page.
 
 ## Technical Context
 
 **Language/Version**: Python 3.11 (Backend), TypeScript 5+ (Frontend)
-**Primary Dependencies**: FastAPI, SQLAlchemy, Pydantic v2, Boto3 (R2), OpenAI SDK, React, Mermaid.js
-**Storage**: PostgreSQL (Metadata), Cloudflare R2 (Document Artifacts)
-**Testing**: pytest (Backend), Vitest (Frontend)
-**Target Platform**: Linux server (Backend), Web Browser (Frontend)
-**Project Type**: Full-stack Web Application (FastAPI + React)
-**Performance Goals**: AI Validation Report generation < 60s
-**Constraints**: Mandatory Auth for all features; 1 hour expiration for download links.
-**Scale/Scope**: Unlimited user input length (chunking required if exceeds context).
-
-## Constitution Check
-
-*GATE: Passed. Feature adheres to Library-First (Services), Test-First, and Integration Testing principles.*
+**Primary Dependencies**: FastAPI, SQLAlchemy, Pydantic v2, Boto3 (R2), OpenAI SDK (via OpenRouter), React, Mermaid.js
+**Storage**: PostgreSQL (Metadata/History), Cloudflare R2 (Document Artifacts)
+**AI Model**: `gpt-oss-120b:nitro` (OpenRouter)
+**Sequential Workflow**: The system manages a state machine for document generation. Doc N depends on Docs 1..N-1.
+**Skip Logic**: If a user skips a question, the `AiService` is prompted to infer the best technical decision based on the existing project context.
 
 ## Project Structure
 
@@ -43,21 +40,15 @@ specs/001-ai-idea-validator/
 Backend/
 ├── app/
 │   ├── api/v1/endpoints/
-│   │   ├── ai.py            # AI validation endpoints
-│   │   └── ideas.py         # Project Idea management
-│   ├── core/
-│   │   └── config.py        # R2/OpenAI Config
-│   ├── models/
-│   │   ├── project_idea.py  # SQLModel entities
-│   │   └── project_asset.py
-│   ├── schemas/
-│   │   └── ai.py            # Pydantic models for AI IO
+│   │   ├── ai.py            # Q&A and validation endpoints
+│   │   ├── ideas.py         # State management
+│   │   └── assets.py        # Individual doc (re)generation
 │   ├── services/
-│   │   ├── ai_service.py    # OpenAI wrapper
-│   │   ├── storage.py       # R2/Boto3 wrapper
-│   │   └── doc_generator.py # PDF/Docx generation
-│   └── tests/
-│       └── ...
+│   │   ├── ai_service.py    # OpenAI/OpenRouter wrapper
+│   │   ├── idea_validator.py # Phase 1 & 2 logic
+│   │   ├── blueprint_gen.py  # Phase 3 logic
+│   │   └── doc_generator.py  # Phase 4 (Sequential loop)
+```
 
 Frontend/
 ├── src/

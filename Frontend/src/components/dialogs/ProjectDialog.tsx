@@ -32,6 +32,7 @@ interface ProjectDialogProps {
     description: string;
     status: ProjectStatus;
     priority: ProjectPriority;
+    planWithAI?: boolean;
   }) => void;
 }
 
@@ -51,7 +52,8 @@ export function ProjectDialog({ open, onOpenChange, project, onSave }: ProjectDi
         color,
         description,
         status,
-        priority
+        priority,
+        planWithAI: false
       });
       // Reset only if not editing
       if (!project) {
@@ -64,6 +66,29 @@ export function ProjectDialog({ open, onOpenChange, project, onSave }: ProjectDi
       }
       onOpenChange(false);
     }
+  };
+
+  const handlePlanWithAI = () => {
+    const finalName = name.trim() || 'Untitled AI Project';
+    onSave({
+      name: finalName,
+      icon,
+      color,
+      description,
+      status,
+      priority,
+      planWithAI: true
+    });
+    // Reset only if not editing
+    if (!project) {
+      setName('');
+      setIcon('📁');
+      setColor('blue');
+      setDescription('');
+      setStatus('planned');
+      setPriority('none');
+    }
+    onOpenChange(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -251,6 +276,15 @@ export function ProjectDialog({ open, onOpenChange, project, onSave }: ProjectDi
               >
                 Cancel
               </Button>
+              {!project && (
+                <Button 
+                  variant="outline"
+                  onClick={handlePlanWithAI}
+                  className="h-9 px-6 text-[11px] font-bold transition-all uppercase tracking-widest rounded-xl border-primary/20 text-primary hover:bg-primary/10"
+                >
+                  Plan with AI
+                </Button>
+              )}
               <Button 
                 variant="glass-primary"
                 onClick={handleSave}

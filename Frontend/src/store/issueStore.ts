@@ -62,7 +62,7 @@ interface IssueStore {
   deleteIssue: (id: string) => Promise<void>;
   
   // Project Actions
-  addProject: (project: Partial<Project>) => Promise<void>;
+  addProject: (project: Partial<Project>) => Promise<Project>;
   updateProject: (id: string, updates: Partial<Project>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   addProjectUpdate: (projectId: string, data: { content: string, health: string }) => Promise<void>;
@@ -292,12 +292,14 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
     }
   },
 
-  addProject: async (projectData) => {
+  addProject: async (projectData: Partial<Project>) => {
     try {
       const newProject = await projectService.create(projectData as any);
       set((state) => ({ projects: [...state.projects, newProject] }));
+      return newProject;
     } catch (error) {
       console.error('Failed to create project', error);
+      throw error;
     }
   },
 

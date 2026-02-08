@@ -68,11 +68,13 @@ export interface ProjectResource {
   type: 'link' | 'document';
 }
 
-export interface IssueResource {
+export interface ProjectAIAsset {
   id: string;
-  name: string;
-  url: string;
-  type: 'link' | 'document';
+  asset_type: 'PRD' | 'APP_FLOW' | 'TECH_STACK' | 'FRONTEND_GUIDE' | 'BACKEND_SCHEMA' | 'IMPLEMENTATION_PLAN' | 'DIAGRAM_MERMAID';
+  storage_path: string;
+  file_format: string;
+  generation_status: 'pending' | 'generating' | 'complete' | 'failed';
+  created_at: string;
 }
 
 export interface Project {
@@ -94,6 +96,7 @@ export interface Project {
   milestones: Milestone[];
   updates: ProjectUpdate[];
   resources: ProjectResource[];
+  ai_assets?: ProjectAIAsset[]; // Added for AI integration
   createdAt: Date;
   updatedAt: Date;
   isFavorite?: boolean; // Added isFavorite

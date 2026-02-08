@@ -144,3 +144,17 @@ def check_can_edit_feature(user: User, feature_id: UUID, db: Session) -> bool:
         
     # Check project management permissions
     return check_can_manage_project(user, feature.project_id, db)
+
+
+from app.services.ai_prompt_manager import PromptManager
+from app.services.ai_service import AiService
+from app.services.storage_service import R2StorageProvider
+
+def get_prompt_manager() -> PromptManager:
+    return PromptManager()
+
+def get_ai_service() -> AiService:
+    return AiService()
+
+def get_storage_provider() -> R2StorageProvider:
+    return R2StorageProvider()

@@ -26,6 +26,8 @@ from app.models.custom_view import (
     CustomView, SavedFilter,
     ViewType, ViewVisibility, ViewLayout
 )
+from app.models.project_idea import ProjectIdea, ValidationReport, IdeaStatus
+from app.models.project_asset import ProjectAsset, AssetType, AssetStatus
 
 __all__ = [
     "Base",
@@ -48,6 +50,9 @@ __all__ = [
     "Activity",
     "CustomView",
     "SavedFilter",
+    "ProjectIdea",
+    "ValidationReport",
+    "ProjectAsset",
     # Enums
     "CycleStatus",
     "ProjectStatus",
@@ -65,6 +70,9 @@ __all__ = [
     "ViewType",
     "ViewVisibility",
     "ViewLayout",
+    "IdeaStatus",
+    "AssetType",
+    "AssetStatus",
     # Association tables
     "team_members",
     "project_members",

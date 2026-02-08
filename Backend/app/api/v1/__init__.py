@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1 import auth, issues, projects, organizations, teams, features
+from app.api.v1 import auth, issues, projects, organizations, teams, features, ideas, assets
 
 api_router = APIRouter()
 
@@ -10,3 +10,5 @@ api_router.include_router(projects.router, prefix="/projects", tags=["projects"]
 api_router.include_router(organizations.router, prefix="/organizations", tags=["organizations"])
 api_router.include_router(teams.router, prefix="/teams", tags=["teams"])
 api_router.include_router(features.router, prefix="/features", tags=["features"])
+api_router.include_router(ideas.router, prefix="/ideas", tags=["ideas"])
+api_router.include_router(assets.router, prefix="/assets", tags=["assets"])

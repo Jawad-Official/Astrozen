@@ -31,6 +31,7 @@ import {
   User,
   Buildings,
   MagnifyingGlass,
+  ClockCounterClockwise,
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -95,6 +96,16 @@ import { PROJECT_STATUS_OPTIONS, PROJECT_HEALTH_OPTIONS } from '@/lib/project-op
 import { teamService } from '@/services/teams';
 import { userService, OrgMember } from '@/services/users';
 import type { Team } from '@/types/auth';
+import { MermaidRenderer } from '@/components/ui/MermaidRenderer';
+import { DocumentList } from '@/components/ai/DocumentList';
+import { BlueprintDashboard } from '@/components/ai/BlueprintDashboard';
+import { 
+  CloudArrowUp,
+  Graph,
+  ProjectorScreenChart,
+  Robot,
+  CircleNotch,
+} from '@phosphor-icons/react';
 
 
 
@@ -115,7 +126,8 @@ const ProjectDetailPage = () => {
     toggleProjectFavorite, fetchProject, addFeature, updateFeature, deleteFeature,
     addFeatureMilestone, updateFeatureMilestone, deleteFeatureMilestone, toggleFeatureMilestone,
     addUpdateComment, deleteUpdateComment, toggleUpdateReaction, toggleUpdateCommentReaction,
-    fetchOrgMembers, fetchTeams, addIssue, selectedIssueId, updateIssue, deleteIssue
+    fetchOrgMembers, fetchTeams, addIssue, selectedIssueId, updateIssue, deleteIssue,
+    isLoading: isProjectLoading
   } = useIssueStore();
   
   const { onCreateSubIssue } = useOutletContext<MainLayoutContext>();
@@ -142,12 +154,37 @@ const ProjectDetailPage = () => {
         const [resourceName, setResourceName] = useState('');
         const [resourceUrl, setResourceUrl] = useState('');
         
-        const [memberSearch, setMemberSearch] = useState('');
+          const [memberSearch, setMemberSearch] = useState('');
+          
+          const [editingDescription, setEditingDescription] = useState(false);
+          const [descriptionDraft, setDescriptionDraft] = useState('');
         
-        const [editingDescription, setEditingDescription] = useState(false);
-        const [descriptionDraft, setDescriptionDraft] = useState('');
-      
-        // Feature specific state
+          // AI Assets state
+          const [mermaidCode, setMermaidCode] = useState<string | null>(null);
+          const [isFetchingMermaid, setIsFetchingMermaid] = useState(false);
+        
+          useEffect(() => {
+            const fetchAIAssets = async () => {
+              const diagramAsset = project?.ai_assets?.find(a => a.asset_type === 'DIAGRAM_MERMAID');
+              if (diagramAsset && !mermaidCode) {
+                setIsFetchingMermaid(true);
+                try {
+                  const { ideaValidatorClient } = await import('@/services/idea-validator');
+                  const code = await ideaValidatorClient.getAssetContent(diagramAsset.id);
+                  setMermaidCode(code);
+                } catch (err) {
+                  console.error('Failed to fetch mermaid code:', err);
+                } finally {
+                  setIsFetchingMermaid(false);
+                }
+              }
+            };
+        
+            if (activeTab === 'ai') {
+              fetchAIAssets();
+            }
+          }, [activeTab, project?.ai_assets, mermaidCode]);
+                // Feature specific state
   const [createFeatureOpen, setCreateFeatureOpen] = useState(false);
   const [newFeatureName, setNewFeatureName] = useState('');
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
@@ -689,7 +726,7 @@ const ProjectDetailPage = () => {
         </div>
 
         <div className="flex items-center gap-1 px-4 h-10 border-b border-border bg-background shrink-0">
-          {['overview', 'updates', 'issues'].map((tab) => (
+          {['overview', 'updates', 'issues', 'ai'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -701,7 +738,8 @@ const ProjectDetailPage = () => {
               {tab === 'overview' && <NotePencil className="h-3.5 w-3.5" />}
               {tab === 'updates' && <ChatTeardropText className="h-3.5 w-3.5" />}
               {tab === 'issues' && <CircleHalf className="h-3.5 w-3.5" />}
-              {tab}
+              {tab === 'ai' && <Robot className="h-3.5 w-3.5" />}
+              {tab === 'ai' ? 'AI Architect' : tab}
               {tab === 'updates' && project.updates?.length > 0 && (
                 <span className="text-xs text-muted-foreground">({project.updates.length})</span>
               )}
@@ -1025,6 +1063,77 @@ const ProjectDetailPage = () => {
                   No issues in this project
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'ai' && (
+            <div className="max-w-5xl mx-auto py-8 px-6 space-y-10 pb-20">
+              <div className="flex justify-between items-center">
+                <div className="flex flex-col gap-2">
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <ProjectorScreenChart className="text-primary h-5 w-5" />
+                    AI Planning Assets
+                  </h2>
+                  <p className="text-sm text-muted-foreground">AI-generated blueprints, navigation flows, and technical documentation for this project.</p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2 border-white/10" 
+                  onClick={() => fetchProject(projectId!)}
+                  disabled={isProjectLoading}
+                >
+                  {isProjectLoading ? <CircleNotch className="h-3 w-3 animate-spin" /> : <ClockCounterClockwise className="h-3 w-3" />}
+                  Refresh
+                </Button>
+              </div>
+
+              {/* Blueprint Summary */}
+              <BlueprintDashboard 
+                assets={project.ai_assets || []} 
+                featureCount={projectFeatures.length}
+              />
+
+              {/* Diagrams Section */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold flex items-center gap-2 text-white/60">
+                  <Graph className="h-4 w-4" />
+                  Navigation & Flow
+                </h3>
+                {mermaidCode ? (
+                  <div className="bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden p-6">
+                    <p className="text-xs text-white/20 mb-4 font-mono">user_flow.mmd</p>
+                    <MermaidRenderer chart={mermaidCode} />
+                  </div>
+                ) : isFetchingMermaid ? (
+                  <div className="py-20 text-center bg-white/[0.01] rounded-xl border border-dashed border-white/5">
+                    <CircleNotch className="h-8 w-8 animate-spin mx-auto mb-4 text-primary/40" />
+                    <p className="text-sm text-white/40">Fetching diagram...</p>
+                  </div>
+                ) : (
+                  <div className="py-10 text-center bg-white/[0.01] rounded-xl border border-dashed border-white/5">
+                    <p className="text-sm text-white/20 italic">No AI diagrams generated for this project.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Documents Section */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold flex items-center gap-2 text-white/60">
+                  <CloudArrowUp className="h-4 w-4" />
+                  Generated Documentation
+                </h3>
+                {project.ai_assets ? (
+                  <DocumentList 
+                    assets={project.ai_assets} 
+                    projectId={projectId}
+                  />
+                ) : (
+                  <div className="py-10 text-center bg-white/[0.01] rounded-xl border border-dashed border-white/5">
+                    <p className="text-sm text-white/20 italic">No documentation generated yet.</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

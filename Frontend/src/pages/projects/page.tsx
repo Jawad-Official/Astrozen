@@ -16,6 +16,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ProjectBar } from '@/components/ProjectBar';
 import { PROJECT_STATUS_CONFIG, PROJECT_PRIORITY_OPTIONS } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
+import { AIProjectWizard } from '@/components/ai/AIProjectWizard';
 
 const statusOrder: ProjectStatus[] = ['in_progress', 'planned', 'backlog', 'paused', 'completed', 'cancelled'];
 
@@ -29,8 +30,11 @@ const ProjectsPage = () => {
   const { projects: allProjects, issues, features, teams: storeTeams, orgMembers, deleteProject, addProject, isLoading } = useIssueStore();
   const [activeTab, setActiveTab] = useState<'projects' | 'all'>('projects');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [aiWizardOpen, setAIWizardOpen] = useState(false);
+  const [aiProjectId, setAIProjectId] = useState<string | null>(null);
 
   const projects = useMemo(() => {
+    // ...
     let result = allProjects;
     if (teamId) {
       result = result.filter(p => p.teamId === teamId);
@@ -56,8 +60,21 @@ const ProjectsPage = () => {
 
   const handleAddProject = async (projectData: any) => {
     try {
-      await addProject(projectData);
+      const { planWithAI, ...data } = projectData;
+      const result = await addProject(data);
       toast({ title: 'Project created' });
+      
+      if (planWithAI && result?.id) {
+        // Clear old AI wizard state before opening fresh
+        localStorage.removeItem('ai_wizard_step');
+        localStorage.removeItem('ai_wizard_idea_id');
+        localStorage.removeItem('ai_wizard_history');
+        localStorage.removeItem('ai_wizard_question');
+        localStorage.removeItem('ai_wizard_progress');
+        
+        setAIProjectId(result.id);
+        setAIWizardOpen(true);
+      }
     } catch (error: any) {
       toast({ 
         title: 'Failed to create project', 
@@ -167,6 +184,11 @@ const ProjectsPage = () => {
         orgMembers={orgMembers}
         selectedTeamId={teamId}
         onAddProject={handleAddProject} 
+      />
+      <AIProjectWizard
+        open={aiWizardOpen}
+        onOpenChange={setAIWizardOpen}
+        projectId={aiProjectId}
       />
     </div>
   );

@@ -83,6 +83,16 @@ class Project(Base):
     # Milestones removed from here, now in Feature
     updates = relationship("ProjectUpdate", back_populates="project", cascade="all, delete-orphan")
     resources = relationship("ProjectResource", back_populates="project", cascade="all, delete-orphan")
+    ai_ideas = relationship("ProjectIdea", backref="project", cascade="all, delete-orphan")
+
+    @property
+    def ai_assets(self):
+        assets = []
+        if self.ai_ideas:
+            for idea in self.ai_ideas:
+                if idea.assets:
+                    assets.extend(idea.assets)
+        return assets
 
 
 class ProjectUpdate(Base):

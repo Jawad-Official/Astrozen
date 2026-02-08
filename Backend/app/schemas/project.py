@@ -182,6 +182,18 @@ class ProjectResource(ProjectResourceBase):
         use_enum_values = True
 
 
+class ProjectAsset(BaseModel):
+    id: UUID4
+    asset_type: str
+    storage_path: Optional[str] = None
+    file_format: Optional[str] = None
+    generation_status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class Project(ProjectBase):
     id: UUID4
     lead_id: Optional[UUID4] = None
@@ -190,6 +202,7 @@ class Project(ProjectBase):
     teams: List[TeamSchema] = []
     updates: List[ProjectUpdateLog] = []
     resources: List[ProjectResource] = []
+    ai_assets: List[ProjectAsset] = [] # Added for AI integration
     created_at: datetime
     updated_at: datetime
     

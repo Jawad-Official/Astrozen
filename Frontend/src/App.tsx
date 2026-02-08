@@ -18,6 +18,9 @@ import InsightsPage from "@/pages/insights/page";
 import SettingsPage from "@/pages/settings/page";
 import TeamSettingsPage from "@/pages/teams/[teamId]/settings/page";
 import FeaturesPage from "@/pages/features/page";
+import NewIdeaPage from "@/pages/ideas/NewIdeaPage";
+import IdeaReportPage from "@/pages/ideas/IdeaReportPage";
+import IdeaDetailsPage from "@/pages/ideas/IdeaDetailsPage";
 import NotFound from "@/pages/NotFound";
 import Login from "@/pages/auth/Login";
 import Register from "@/pages/auth/Register";
@@ -64,6 +67,9 @@ const App = () => (
                 <Route path="/my-issues" element={<MyIssuesPage />} />
                 <Route path="/projects" element={<ProjectsPage />} />
                 <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+                <Route path="/ideas/new" element={<NewIdeaPage />} />
+                <Route path="/ideas/:ideaId/report" element={<IdeaReportPage />} />
+                <Route path="/ideas/:ideaId/details" element={<IdeaDetailsPage />} />
                 <Route path="/features" element={<FeaturesPage />} />
                 <Route path="/features/:featureId" element={<FeaturesPage />} /> {/* Feature details can be handled in-page or via sidebar */}
                 <Route path="/insights" element={<InsightsPage />} />

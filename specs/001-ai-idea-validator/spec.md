@@ -17,37 +17,34 @@
 - Q: How should loading states be handled for long-running AI generation? → A: Option A - Standard Polling (Frontend checks status endpoint every 3-5 seconds).
 - Q: What is the maximum character limit for user input? → A: Unlimited (No hard cap enforced on the initial idea input).
 - Q: What are the file naming conventions and formats for generated documents? → A: Auto-generated ({project_name}_{Type}) in PDF, Word (.docx), and Google Docs compatible formats.
+- Q: How is the AI flow initiated? → A: Integrated into the "New Project" dialog. Users can choose "Plan with AI" (initiates AI wizard) or "Create Project" (manual creation).
+- Q: What is the specific User Journey Flow for the AI Architect? → A: 4 Phases: 1. Input Phase (Q&A with progress bar), 2. Validation & Analysis (6 pillars), 3. Visual Blueprint (User Flow, Kanban, Dashboard), 4. 6 Docs Generating (Sequential: PRD -> App Flow -> Tech Stack -> Frontend Guide -> Backend Schema -> Implementation Plan).
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Idea Submission & Clarification (Priority: P1)
+### User Story 1 - Structured AI Planning Wizard (Priority: P1)
 
-As a User, I want to submit my project idea and answer clarifying questions from an AI, so that the AI fully understands my concept before validating it.
-
-**Why this priority**: This is the entry point for the entire feature; without capturing and clarifying the idea, no downstream value can be generated.
-
-**Independent Test**: Can be tested by entering a vague idea and verifying the AI asks relevant questions to clarify it.
+As a User, I want to be guided through a 4-phase project planning process, so that I don't feel overwhelmed by endless questions and receive a comprehensive project scaffold.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user enters a raw project idea, **When** they submit it, **Then** the AI initiates a Q&A session to gather missing details.
-2. **Given** the AI asks a clarifying question, **When** the user answers, **Then** the AI acknowledges and either asks the next question or proceeds to validation if understanding is complete.
+1. **Phase 1 (Input)**: **Given** the AI Wizard is open, **When** the AI asks clarifying questions, **Then** a progress bar indicates how close the user is to completing the discovery phase.
+2. **Phase 2 (Validation)**: **Given** the input phase is complete, **When** the system generates the report, **Then** the user reviews 6 pillars: Market Feasibility, Improvements, Core Features, Tech Stack, and Pricing Model.
+3. **Phase 3 (Blueprint)**: **Given** the validation is accepted, **When** the system proceeds, **Then** it generates a Mermaid User Flow diagram, a Kanban board of features, and a progress dashboard.
+4. **Phase 4 (Docs Loop)**: **Given** the blueprint is ready, **When** the user starts document generation, **Then** the system generates 6 documents sequentially (PRD -> App Flow -> Tech Stack -> Frontend Guide -> Backend Schema -> Implementation Plan).
 
 ---
 
-### User Story 2 - Idea Validation & Refinement (Priority: P1)
+### User Story 2 - Sequential & Adaptive Document Generation (Priority: P1)
 
-As a User, I want to receive a comprehensive validation report and have the ability to edit my idea based on feedback, so that I can ensure my project is feasible and well-planned.
-
-**Why this priority**: Provides the core "Validation" value of the feature.
-
-**Independent Test**: Can be tested by verifying the generation of the 6-pillar report and the ability to modify the project description afterwards.
+As a User, I want the AI to generate technical documents one by one using previous outputs as sources, with the ability to skip questions, so that I can have high-quality, consistent documentation with minimal effort.
 
 **Acceptance Scenarios**:
 
-1. **Given** the idea clarification is complete, **When** the AI processes the input, **Then** it displays a validation report covering 6 core pillars (Market Feasibility, Improvements, Core Features, Tech Stack, Pricing Model).
-2. **Given** the validation report is displayed, **When** the user edits the project idea or details, **Then** the system updates the project context.
-3. **Given** the user is satisfied with the idea, **When** they click confirm, **Then** the idea is locked for asset generation.
+1. **Given** the system is generating a specific document (e.g., App Flow), **When** the AI needs more details, **Then** it presents targeted questions to the user.
+2. **Given** a document question is presented, **When** the user clicks "Skip", **Then** the AI automatically suggests and implements the best defaults without further input.
+3. **Given** a document is generated (e.g., PRD), **When** the next document (e.g., App Flow) starts, **Then** the AI MUST use the previous document's content as a primary context source.
+4. **Given** any document (generated or not), **When** viewed in the Project Page, **Then** the user can see a preview or click to (re)generate it individually.
 
 ---
 
@@ -84,6 +81,11 @@ As a User, I want the system to generate and store 6 specific technical document
 
 - **AI JSON Generation Failure**: If the AI fails to return valid JSON for the Validation Report, the system will perform 1-2 automated retries using strict JSON mode. If retries fail, a graceful error message is shown to the user.
 - **Extreme Input Length**: Since input is unlimited, the system will implement server-side chunking or truncation for the AI model's context window limits if necessary, while preserving the full original input in the database.
+- **Session Expiry**: If a user's session expires while waiting for AI generation (long-running task), the system MUST allow the user to resume monitoring the task status upon re-authentication without data loss.
+- **Partial Generation Failure**: If some documents fail to generate while others succeed, the system MUST allow the user to retry specifically the failed assets.
+- **AI Service Error Messages**: 
+  - Service Unavailable: "AI service is currently busy. Please try again in a few minutes."
+  - Policy Violation: "Your idea cannot be processed as it violates our safety guidelines."
 - What happens when the AI service is unavailable during the Q&A loop?
 - How does the system handle network errors when uploading to Cloudflare R2?
 - What happens if the user provides an idea that violates safety guidelines?
@@ -94,16 +96,22 @@ As a User, I want the system to generate and store 6 specific technical document
 ### Functional Requirements
 
 - **FR-001**: System MUST accept natural language input for a project idea.
+  - **Clarification**: System MUST accept unlimited input but internally chunk text into segments compatible with the AI model's context window (e.g., 128k tokens), processing chunks sequentially or summarily if the input exceeds limits.
+  - **Integrity**: System MUST preserve the full original raw input in the database for reference, even when using chunked/summarized versions for AI processing.
 - **FR-002**: System MUST support an interactive Q&A workflow where the AI asks follow-up questions to clarify the idea.
 - **FR-003**: System MUST generate a Validation Report containing: Market Feasibility Analysis (6 pillars), Improvement Suggestions, Core Features, Recommended Tech Stack, and Pricing Model.
   - **Clarification**: The report MUST be generated using a **Single Comprehensive Prompt** strategy returning structured JSON to ensure consistency and lower latency.
+  - **Retry UI**: System MUST display a "Refining response..." status to the user when performing automated retries due to JSON parsing failures.
 - **FR-004**: System MUST allow the user to edit and update the project idea/details after viewing the validation report.
 - **FR-005**: System MUST require user confirmation of the idea before proceeding to asset generation.
 - **FR-006**: System MUST generate a User Flow Diagram visualizing connections between project pages.
   - **Clarification**: Diagrams MUST be generated in **Mermaid.js** format (text-based) to allow frontend rendering and future editing.
 - **FR-007**: System MUST generate a set of Kanban tickets derived from the defined core features.
+  - **Visual Style**: Kanban tickets MUST use a Zinc-themed UI with color-coded priority indicators: Critical (Red), P1 (Orange), P2 (Blue), P3 (Gray).
 - **FR-008**: System MUST prompt the user for specific details required to generate the final documentation set.
 - **FR-009**: System MUST generate the following 6 documents in **PDF and Word (.docx)** formats (compatible with Google Docs). Files MUST use the naming convention `{project_name}_{DocumentType}` (e.g., `MyProject_PRD.docx`).
+  - **Constraints**: Files MUST NOT exceed 10MB each.
+  - **Compatibility**: Documents MUST use standard system fonts and simple layouts (avoiding complex nested tables) to ensure full compatibility when opened in Google Docs.
   1. Product Requirements Document (PRD)
   2. App Flow Document
   3. Tech Stack Document
@@ -112,10 +120,15 @@ As a User, I want the system to generate and store 6 specific technical document
   6. Implementation Plan.
 - **FR-010**: System MUST store the generated documents in Cloudflare R2.
   - **Clarification**: Document access MUST be restricted via the backend to authenticated **Project Members, Admins, or Team Leaders**. The system will verify permissions before serving the asset.
+  - **Permissions**: System MUST verify that the requesting user has 'View' permissions (Member role or higher) for the specific project before generating a signed URL.
+  - **Retention**: System MUST retain generated assets in R2 for 365 days unless manually deleted by an authorized administrator.
 - **FR-011**: System MUST provide the user with access (links or UI view) to the stored documents and generated assets.
 - **FR-012**: System MUST manage AI prompts at the **Service-Level** (backend/config) to ensure frontend-independence and ease of updates.
 - **FR-013**: System MUST require **Authentication/Account login** for all features, including the initial idea submission and validation process.
+  - **Redirect**: System MUST redirect unauthenticated users attempting to access idea submission or validation pages to the login page, preserving the intended destination for post-login redirection.
 - **FR-014**: System MUST provide a status polling mechanism for the frontend to track long-running AI generation tasks.
+  - **Interval**: Frontend MUST poll the status endpoint every 3-5 seconds.
+  - **Timeout**: System MUST time out generation tasks that exceed 5 minutes, marking them as 'Failed' and notifying the user.
 
 ### Key Entities *(include if feature involves data)*
 
