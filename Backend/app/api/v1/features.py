@@ -62,6 +62,17 @@ def create_feature(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to create features in this project"
         )
+    
+    # Validate parent_id if provided
+    if feature_in.parent_id:
+        parent_feature = crud_feature.get(db, id=feature_in.parent_id)
+        if not parent_feature:
+            raise HTTPException(status_code=404, detail="Parent feature not found")
+        if parent_feature.project_id != feature_in.project_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Parent feature must belong to the same project"
+            )
         
     feature = feature_service.create_feature(
         db,
@@ -107,6 +118,23 @@ def update_feature(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only project managers or the feature owner can update this feature"
         )
+    
+    # Validate parent_id if being updated
+    if feature_in.parent_id is not None:
+        if feature_in.parent_id == feature_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A feature cannot be its own parent"
+            )
+        if feature_in.parent_id:
+            parent_feature = crud_feature.get(db, id=feature_in.parent_id)
+            if not parent_feature:
+                raise HTTPException(status_code=404, detail="Parent feature not found")
+            if parent_feature.project_id != feature.project_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Parent feature must belong to the same project"
+                )
 
     # If status change, go through service for gate checks
     if feature_in.status and feature_in.status != feature.status:

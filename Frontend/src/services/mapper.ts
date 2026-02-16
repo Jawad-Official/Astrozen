@@ -29,6 +29,7 @@ export const mapFeature = (data: any): Feature => ({
   id: data.id,
   identifier: data.identifier,
   projectId: data.project_id,
+  parentId: data.parent_id,
   name: data.name,
   problemStatement: data.problem_statement,
   targetUser: data.target_user,

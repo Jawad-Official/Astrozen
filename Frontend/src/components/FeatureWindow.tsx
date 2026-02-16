@@ -35,6 +35,7 @@ import {
   Target,
   CornersIn,
   CornersOut,
+  ArrowRight,
 } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import {
@@ -60,6 +61,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import AgentPlan, { Task, Subtask } from './ui/agent-plan';
 import { useToast } from '@/hooks/use-toast';
+import { CreateSubFeatureDialog } from './feature/CreateSubFeatureDialog';
 
 export const FEATURE_STATUS_CONFIG: Record<FeatureStatus, { label: string; color: string }> = {
   discovery: { label: 'Discovery', color: 'text-purple-400' },
@@ -79,7 +81,7 @@ export const FEATURE_HEALTH_CONFIG: Record<FeatureHealth, { label: string; color
 
 const PRIORITY_ORDER: IssuePriority[] = ['urgent', 'high', 'medium', 'low', 'none'];
 
-export const FeatureBar = {
+export const FeatureWindow = {
   PriorityIcon: ({ priority, className }: { priority: string; className?: string }) => {
     const bars = priority === 'urgent' ? 4 : priority === 'high' ? 3 : priority === 'medium' ? 2 : priority === 'low' ? 1 : 0;
     const config = PRIORITY_CONFIG[priority as IssuePriority];
@@ -120,6 +122,7 @@ export const FeatureBar = {
     feature, 
     projects, 
     teams,
+    allFeatures,
     expanded,
     onToggleExpand,
     onUpdate, 
@@ -129,12 +132,14 @@ export const FeatureBar = {
     onUpdateMilestone,
     onDeleteMilestone,
     onAddMilestone,
+    onAddSubFeature,
     onCreateIssueForMilestone,
     onDragOverPriority
   }: { 
     feature: Feature; 
     projects: Project[]; 
     teams?: Team[];
+    allFeatures: Feature[];
     expanded: boolean;
     onToggleExpand: () => void;
     onUpdate: (id: string, updates: Partial<Feature>) => Promise<void>; 
@@ -144,6 +149,7 @@ export const FeatureBar = {
     onUpdateMilestone: (featureId: string, milestoneId: string, updates: Partial<FeatureMilestone>) => Promise<void>;
     onDeleteMilestone: (featureId: string, milestoneId: string) => Promise<void>;
     onAddMilestone: (featureId: string, parentId?: string) => void;
+    onAddSubFeature?: (parentFeature: Feature) => void;
     onCreateIssueForMilestone?: (featureId: string, milestoneId: string) => void;
     onDragOverPriority: (priority: IssuePriority) => void;
   }) => {
@@ -277,7 +283,7 @@ export const FeatureBar = {
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                 <button className="relative z-20 hover:bg-white/5 p-1 rounded transition-colors">
-                  <FeatureBar.PriorityIcon priority={feature.priority || 'none'} />
+                  <FeatureWindow.PriorityIcon priority={feature.priority || 'none'} />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="bg-zinc-900 border-white/10 backdrop-blur-md">
@@ -287,7 +293,7 @@ export const FeatureBar = {
                     onUpdate(feature.id, { priority: key as any });
                   }} className="focus:bg-white/5">
                     <div className="flex items-center gap-2">
-                      <FeatureBar.PriorityIcon priority={key} />
+                      <FeatureWindow.PriorityIcon priority={key} />
                       <span className={cn("text-[10px] font-bold uppercase", config.color)}>{config.label}</span>
                     </div>
                   </DropdownMenuItem>
@@ -310,9 +316,19 @@ export const FeatureBar = {
             )}
           </button>
 
-          <span className="truncate text-sm font-medium tracking-tight text-foreground/90 group-hover:text-foreground transition-colors">
-            {feature.name}
-          </span>
+          <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+            <span className="truncate text-sm font-medium tracking-tight text-foreground/90 group-hover:text-foreground transition-colors">
+              {feature.name}
+            </span>
+            {feature.parentId && (
+              <div className="flex items-center gap-1.5 text-muted-foreground/30 shrink-0">
+                <span className="text-[10px] font-bold">&gt;</span>
+                <span className="text-[11px] font-medium truncate max-w-[120px]">
+                  {allFeatures?.find(f => f.id === feature.parentId)?.name || '...'}
+                </span>
+              </div>
+            )}
+          </div>
 
           <div className="flex justify-center">
             <Badge variant="outline" className={cn("h-5 px-1.5 text-[10px] font-bold uppercase border-white/5 bg-white/5", FEATURE_STATUS_CONFIG[feature.status].color)}>
@@ -321,7 +337,7 @@ export const FeatureBar = {
           </div>
 
           <div className="flex justify-center">
-            <FeatureBar.HealthIcon health={feature.health} />
+            <FeatureWindow.HealthIcon health={feature.health} />
           </div>
 
           <div className="flex justify-center">
@@ -483,6 +499,42 @@ export const FeatureBar = {
                   <Plus className="h-3 w-3" />
                   Add Top Milestone
                 </button>
+
+                <div className="pt-4 mt-4 border-t border-white/[0.03] space-y-3">
+                  {feature.subFeatures && feature.subFeatures.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 pl-2 mb-2">Sub-features</div>
+                      {feature.subFeatures.map(sub => (
+                        <div 
+                          key={sub.id} 
+                          className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer group/sub"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // We don't have a way to select a different ID in Row currently without a prop change
+                            // but usually Row's onClick is handled by the parent List
+                          }}
+                        >
+                          <Package className="h-3.5 w-3.5 text-primary/40" />
+                          <span className="text-xs text-white/60 group-hover/sub:text-white transition-colors flex-1">{sub.name}</span>
+                          <Badge variant="outline" className={cn("h-4 px-1 text-[8px] font-bold uppercase border-white/5 bg-white/5", FEATURE_STATUS_CONFIG[sub.status].color)}>
+                            {FEATURE_STATUS_CONFIG[sub.status].label}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddSubFeature?.(feature);
+                    }}
+                    className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-white transition-colors pl-2"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Create Sub-feature
+                  </button>
+                </div>
               </div>
             </motion.div>
           )}
@@ -500,6 +552,7 @@ export const FeatureBar = {
       onDeleteFeature,
       onSelectFeature,
       onAddMilestone,
+      onAddSubFeature,
       onToggleMilestone,
       onUpdateMilestone,
       onDeleteMilestone,
@@ -510,20 +563,21 @@ export const FeatureBar = {
       loading?: boolean;
       projects: Project[];
       teams?: Team[];
-      onUpdateFeature: (id: string, updates: Partial<Feature>) => void; 
-      onDeleteFeature: (id: string) => void; 
+      onUpdateFeature: (id: string, updates: Partial<Feature>) => Promise<void>; 
+      onDeleteFeature: (id: string) => Promise<void>; 
       onSelectFeature: (id: string) => void; 
       onAddMilestone: (featureId: string, parentId?: string) => void;
+      onAddSubFeature?: (parentFeature: Feature) => void;
       onCreateIssueForMilestone?: (featureId: string, milestoneId: string) => void;
-      onToggleMilestone: (featureId: string, milestoneId: string) => void;
+      onToggleMilestone: (featureId: string, milestoneId: string) => Promise<void>;
       onUpdateMilestone: (featureId: string, milestoneId: string, updates: Partial<FeatureMilestone>) => Promise<void>;
       onDeleteMilestone: (featureId: string, milestoneId: string) => Promise<void>;
           onCreateFeature?: () => void; 
         }) => {
           const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-          const priorityGroupRefs = useRef<Record<IssuePriority, HTMLDivElement | null>>({});
-          const [priorityGroupRects, setPriorityGroupRects] = useState<Record<IssuePriority, DOMRect>>({});
-          const [manualCollapsibleStates, setManualCollapsibleStates] = useState<Record<IssuePriority, boolean>>({});
+          const priorityGroupRefs = useRef<Record<IssuePriority, HTMLDivElement | null>>({} as any);
+          const [priorityGroupRects, setPriorityGroupRects] = useState<Record<IssuePriority, DOMRect>>({} as any);
+          const [manualCollapsibleStates, setManualCollapsibleStates] = useState<Record<IssuePriority, boolean>>({} as any);
         
           const toggleExpand = (id: string) => {
             const next = new Set(expandedIds);
@@ -596,7 +650,7 @@ export const FeatureBar = {
                   <CollapsibleTrigger className="flex items-center gap-3 px-4 py-2 mb-2 w-full group text-left">
                     <CaretDown className="h-3.5 w-3.5 transition-transform group-data-[state=closed]:-rotate-90 text-muted-foreground/50 group-hover:text-muted-foreground shrink-0" />
                     <div className="flex items-center gap-2 flex-1">
-                      <FeatureBar.PriorityIcon priority={priority} />
+                      <FeatureWindow.PriorityIcon priority={priority} className="w-3 h-3" />
                       <span className={cn("text-[10px] font-black uppercase tracking-[0.2em]", PRIORITY_CONFIG[priority].color)}>
                         {PRIORITY_CONFIG[priority].label}
                       </span>
@@ -606,11 +660,12 @@ export const FeatureBar = {
                   <CollapsibleContent>
                     <div className="space-y-0.5 min-h-[50px] border border-dashed border-white/[0.02] rounded-xl p-1">
                       {priorityFeatures.map((feature) => (
-                        <FeatureBar.Row 
+                        <FeatureWindow.Row
                           key={feature.id} 
                           feature={feature} 
                           projects={projects} 
                           teams={teams}
+                          allFeatures={features}
                           expanded={expandedIds.has(feature.id)}
                           onToggleExpand={() => toggleExpand(feature.id)}
                           onUpdate={onUpdateFeature} 
@@ -620,6 +675,7 @@ export const FeatureBar = {
                           onUpdateMilestone={onUpdateMilestone}
                           onDeleteMilestone={onDeleteMilestone}
                           onAddMilestone={onAddMilestone}
+                          onAddSubFeature={onAddSubFeature}
                           onCreateIssueForMilestone={onCreateIssueForMilestone}
                           onDragOverPriority={handleDragOverPriority}
                         />
@@ -670,6 +726,9 @@ export const FeatureBar = {
       onCreateIssueForMilestone,
       onToggleMilestone,
       onDeleteMilestone,
+      onUpdateMilestone,
+      onAddFeature,
+      onAddSubFeature,
     }: { 
       featureId: string | null; 
       features: Feature[]; 
@@ -682,10 +741,14 @@ export const FeatureBar = {
       onCreateIssueForMilestone?: (featureId: string, milestoneId: string) => void;
       onToggleMilestone: (featureId: string, milestoneId: string) => Promise<void>;
       onDeleteMilestone: (featureId: string, milestoneId: string) => Promise<void>;
+      onUpdateMilestone?: (featureId: string, milestoneId: string, updates: any) => Promise<void>;
+      onAddFeature: (data: any) => Promise<void>;
+      onAddSubFeature?: (parentFeature: Feature) => void;
     }) => {
       const { toast } = useToast();
       const navigate = useNavigate();
       const [isMaximized, setIsMaximized] = useState(false);
+      const [createSubFeatureOpen, setCreateSubFeatureOpen] = useState(false);
       const feature = useMemo(() => featureId ? features.find(f => f.id === featureId) : null, [features, featureId]);
       const project = useMemo(() => feature ? projects.find(p => p.id === feature.projectId) : null, [projects, feature?.projectId]);
   
@@ -751,15 +814,16 @@ export const FeatureBar = {
           <DialogContent 
             className={cn(
               "p-0 flex flex-col bg-[#080809] transition-all duration-500 ease-in-out gap-0 border-white/10 overflow-hidden shadow-[0_0_100px_-12px_rgba(0,0,0,1)]",
+              "before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.05),transparent_40%)] before:pointer-events-none",
               isMaximized 
                 ? "fixed inset-0 w-screen h-screen max-w-none translate-x-0 translate-y-0 left-0 top-0 rounded-none z-[100]" 
-                : "w-full sm:max-w-6xl h-[92vh] left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] rounded-2xl border border-white/10"
+                : "w-full sm:max-w-6xl h-[92vh] left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] rounded-[32px] border border-white/10"
             )}
           >
             {/* Premium Window Title Bar */}
             <div className="relative shrink-0 select-none z-20">
-              <div className="absolute inset-0 bg-[#0C0C0D]/80 backdrop-blur-xl pointer-events-none" />
-              <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/5 to-transparent" />
+              <div className="absolute inset-0 bg-[#0C0C0D]/40 backdrop-blur-2xl pointer-events-none" />
+              <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
               <DialogHeader className="px-6 h-12 flex-row items-center justify-between space-y-0 relative">
                 <div className="flex items-center gap-6">
                   {/* Refined Window Controls */}
@@ -772,16 +836,19 @@ export const FeatureBar = {
                   <div className="h-4 w-px bg-white/5" />
                   
                   {/* Breadcrumbs */}
-                  <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.15em]">
+                  <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em]">
                     {project && (
-                      <div className="flex items-center gap-2 group cursor-pointer" onClick={() => navigate(`/projects/${project.id}`)}>
-                        <span className="text-white/20 group-hover:text-white/40 transition-colors">{project.icon}</span>
-                        <span className="text-white/20 group-hover:text-white/40 transition-colors">{project.name}</span>
-                        <CaretRight className="h-2.5 w-2.5 text-white/10" />
+                      <div 
+                        className="flex items-center gap-2.5 group cursor-pointer hover:bg-white/5 px-2 py-1 rounded-lg transition-all" 
+                        onClick={() => navigate(`/projects/${project.id}`)}
+                      >
+                        <span className="text-white/30 group-hover:text-white/60 transition-colors drop-shadow-sm">{project.icon}</span>
+                        <span className="text-white/30 group-hover:text-white transition-colors">{project.name}</span>
+                        <CaretRight className="h-2.5 w-2.5 text-white/10 group-hover:text-white/20" />
                       </div>
                     )}
-                    <div className="flex items-center gap-2 text-primary/60 px-2 py-0.5 rounded bg-primary/5 border border-primary/10">
-                      <span className="font-black tracking-widest">{feature?.identifier || 'FEATURE'}</span>
+                    <div className="flex items-center gap-2.5 text-primary/80 px-3 py-1 rounded-lg bg-primary/10 border border-primary/20 shadow-lg shadow-primary/5">
+                      <span className="tracking-[0.25em]">{feature?.identifier || 'FEATURE'}</span>
                     </div>
                   </div>
                   
@@ -813,36 +880,49 @@ export const FeatureBar = {
               <div className="flex-1 flex overflow-hidden">
                 {/* Main Content Page */}
                 <ScrollArea className="flex-1 h-full bg-[#080809]">
-                  <div className="max-w-4xl mx-auto py-16 px-12 space-y-12">
+                  <div className="max-w-4xl mx-auto py-8 px-6 space-y-6">
                     {/* Page Header Area */}
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                       <div className="flex items-center gap-3">
                         <Badge variant="outline" className={cn("h-6 px-3 text-[10px] font-black uppercase tracking-widest border-white/5 bg-white/5", FEATURE_STATUS_CONFIG[feature.status].color)}>
                           {FEATURE_STATUS_CONFIG[feature.status].label}
                         </Badge>
                         <div className="h-1 w-1 rounded-full bg-white/10" />
-                        <FeatureBar.HealthIcon health={feature.health} className="h-2 w-2" />
+                        <FeatureWindow.HealthIcon health={feature.health} className="h-2 w-2" />
                         <span className={cn("text-[10px] font-black uppercase tracking-widest", FEATURE_HEALTH_CONFIG[feature.health].color)}>
                           {FEATURE_HEALTH_CONFIG[feature.health].label}
                         </span>
                       </div>
 
-                      <h2 className="text-6xl font-bold tracking-tighter text-white leading-[1.1] selection:bg-primary/30">
-                        {feature.name}
-                      </h2>
+                      <div className="flex flex-col gap-1">
+                        <h2 className="text-2xl font-black tracking-[-0.02em] text-white leading-tight selection:bg-primary/30">
+                          {feature.name}
+                        </h2>
+                        {feature.parentId && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Sub-Feature of</span>
+                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/5 border border-white/5">
+                              <Package className="h-3 w-3 text-white/40" />
+                              <span className="text-[10px] font-bold text-white/60 uppercase tracking-wider">
+                                {features.find(f => f.id === feature.parentId)?.name || '...'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
 
                       {project && (
                         <div 
-                          className="flex items-center gap-4 bg-white/[0.02] border border-white/5 p-4 rounded-3xl w-fit group hover:border-primary/20 transition-all cursor-pointer shadow-2xl"
+                          className="flex items-center gap-3.5 bg-white/[0.04] backdrop-blur-md border border-white/10 p-4 rounded-2xl w-fit group hover:border-primary/40 transition-all cursor-pointer shadow-lg ring-1 ring-white/5 hover:ring-primary/20"
                           onClick={() => navigate(`/projects/${project.id}`)}
                         >
-                          <div className="h-10 w-10 rounded-2xl bg-white/5 flex items-center justify-center text-2xl shadow-inner group-hover:scale-110 transition-transform">
+                            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 flex items-center justify-center text-xl shadow-inner group-hover:scale-105 transition-transform duration-500">
                             {project.icon}
                           </div>
-                          <div className="flex flex-col pr-4">
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Mission Control</span>
+                          <div className="flex flex-col pr-6">
+                            <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/30 mb-0.5">Project</span>
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold text-white/60 tracking-tight">{project.name}</span>
+                              <span className="text-base font-black text-white/80 tracking-tight leading-none">{project.name}</span>
                             </div>
                           </div>
                         </div>
@@ -853,44 +933,100 @@ export const FeatureBar = {
                     <div className="space-y-6">
                       <div className="flex items-center gap-3 text-primary/40">
                         <div className="h-px w-6 bg-current opacity-20" />
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Problem Statement</h3>
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Description</h3>
                       </div>
                       
-                      <div className="relative text-xl text-white/60 leading-relaxed font-medium tracking-tight bg-white/[0.01] p-10 rounded-[40px] border border-white/5 shadow-inner group/statement">
-                        {feature.problemStatement || 'No primary problem statement defined for this initiative.'}
-                        <Button variant="ghost" size="icon" className="absolute right-6 top-6 h-10 w-10 rounded-full bg-[#0C0C0D] border border-white/10 text-primary opacity-0 group-hover/statement:opacity-100 transition-all shadow-2xl">
+                      <div className="relative text-base text-white/80 leading-relaxed font-medium tracking-tight bg-gradient-to-b from-white/[0.03] to-transparent p-6 rounded-2xl border border-white/10 shadow-lg group/statement overflow-hidden ring-1 ring-white/5">
+                        <div className="absolute top-0 left-0 w-1 h-full bg-primary/20" />
+                        <div className="relative z-10">
+                          {feature.problemStatement || 'No description provided.'}
+                        </div>
+                        <Button variant="ghost" size="icon" className="absolute right-6 top-6 h-9 w-9 rounded-full bg-[#0C0C0D] border border-white/10 text-primary opacity-0 group-hover/statement:opacity-100 transition-all shadow-xl hover:scale-105 active:scale-95 duration-300">
                           <NotePencil className="h-5 w-5" />
                         </Button>
                       </div>
                     </div>
 
-                    <div className="relative py-8">
-                      <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                        <div className="w-full border-t border-white/5" />
-                      </div>
-                      <div className="relative flex justify-center">
-                        <span className="bg-[#080809] px-4 text-[9px] font-black uppercase tracking-[0.5em] text-white/10">Strategic Execution</span>
-                      </div>
-                    </div>
-
-                    {/* Strategic Roadmap */}
-                    <div className="space-y-8 pb-32">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 text-primary/40">
-                          <div className="h-px w-6 bg-current opacity-20" />
-                          <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Milestones & Trajectory</h3>
-                        </div>
-                        <Button 
-                          onClick={() => onAddMilestone(feature.id)}
-                          className="h-9 px-6 rounded-2xl bg-white/5 border border-white/10 hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all text-[10px] font-black uppercase tracking-widest shadow-xl shadow-black/50"
-                        >
-                          <Plus className="mr-2 h-3.5 w-3.5" />
-                          Expand Roadmap
-                        </Button>
-                      </div>
-                      
-                      {feature.milestones && feature.milestones.length > 0 ? (
-                        <div className="rounded-[32px] border border-white/5 bg-[#0C0C0D] overflow-hidden shadow-2xl p-2">
+                                        {/* Strategic Composition (Sub-features) */}
+                                        <div className="space-y-6">
+                                          <div className="flex items-center justify-between group/section">
+                                            <div className="flex items-center gap-3 text-primary/40">
+                                              <div className="h-px w-6 bg-current opacity-20" />
+                                              <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Sub-Features</h3>
+                                            </div>
+                                            <Button 
+                                              variant="ghost" 
+                                              size="sm" 
+                                              className="h-7 px-2 text-[9px] font-black uppercase tracking-widest text-white/20 hover:text-primary transition-all rounded-lg"
+                                              onClick={() => onAddSubFeature?.(feature)}
+                                            >
+                                              <Plus className="h-3 w-3 mr-1.5" />
+                                              Create Sub-feature
+                                            </Button>
+                                          </div>
+                                          
+                                          {features.filter(f => f.parentId === feature.id).length > 0 ? (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                              {features.filter(f => f.parentId === feature.id).map(subF => (
+                                                <div 
+                                                  key={subF.id}
+                                                   className="group relative bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 hover:border-primary/20 p-3.5 rounded-xl transition-all cursor-pointer shadow-md"
+                                                  onClick={() => {
+                                                    onClose();
+                                                    navigate(`/features/${subF.id}`);
+                                                  }}
+                                                >
+                                                  <div className="flex items-center justify-between mb-3">
+                                                    <Badge variant="outline" className="h-5 px-2 text-[8px] font-black uppercase tracking-widest border-white/10 bg-white/5 text-white/40">
+                                                      {subF.identifier}
+                                                    </Badge>
+                                                    <FeatureWindow.HealthIcon health={subF.health} />
+                                                  </div>
+                                                  <h4 className="text-sm font-bold text-white/70 group-hover:text-primary transition-colors mb-1">{subF.name}</h4>
+                                                  <p className="text-[10px] text-white/20 line-clamp-2 font-medium leading-relaxed">
+                                                    {subF.problemStatement || "Part of " + feature.name}
+                                                  </p>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          ) : (
+                                            <div className="py-8 bg-white/[0.01] border border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center gap-3">
+                                              <Package className="h-6 w-6 text-white/5" />
+                                              <span className="text-[10px] font-bold text-white/10 uppercase tracking-widest">No sub-features defined</span>
+                                            </div>
+                                          )}
+                                        </div>
+                    
+                                        <div className="relative py-6">
+                                          <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                                            <div className="w-full border-t border-white/5" />
+                                          </div>
+                                          <div className="relative flex justify-center">
+                                            <span className="bg-[#080809] px-6 text-[10px] font-black uppercase tracking-[0.6em] text-white/10">Feature Context</span>
+                                          </div>
+                                        </div>
+                    
+                                        {/* Strategic Roadmap */}
+                                        <div className="space-y-8 pb-24">
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                              <div className="h-8 w-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-lg shadow-primary/5">
+                                                <Target className="h-4 w-4" />
+                                              </div>
+                                              <div>
+                                                <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-white/80">Roadmap</h3>
+                                                <p className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] mt-0.5">Tasks & Goals</p>
+                                              </div>
+                                                                    </div>
+                                                                    <Button 
+                                                                      onClick={() => onAddMilestone(feature.id)}
+                                                                      className="h-9 px-4 rounded-lg bg-white/5 border border-white/10 hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all text-[9px] font-black uppercase tracking-[0.2em] shadow-lg group/roadmap"
+                                                                    >
+                                                                      <Plus className="mr-2 h-3.5 w-3.5 group-hover:rotate-90 transition-transform duration-300" />
+                                                                      Add Item
+                                                                    </Button>
+                                                                  </div>                      {feature.milestones && feature.milestones.length > 0 ? (
+                        <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-[#0C0C0D] to-[#080809] overflow-hidden shadow-2xl p-2 ring-1 ring-white/5">
                           {(() => {
                             const mapMilestonesToTasks = (ms: FeatureMilestone[]): Task[] => {
                               return ms.map(m => ({
@@ -915,14 +1051,22 @@ export const FeatureBar = {
                           })()}
                         </div>
                       ) : (
-                        <div className="flex flex-col items-center justify-center py-20 bg-white/[0.01] border border-dashed border-white/5 rounded-[40px] space-y-6">
-                          <div className="h-16 w-16 rounded-3xl bg-white/5 flex items-center justify-center text-white/10 shadow-inner">
-                            <Target className="h-8 w-8" />
+                        <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-b from-white/[0.02] to-transparent border border-dashed border-white/10 rounded-[32px] space-y-6 shadow-inner">
+                          <div className="h-14 w-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-white/10 shadow-xl relative">
+                            <Target className="h-7 w-7" />
+                            <div className="absolute inset-0 bg-primary/5 blur-2xl rounded-full animate-pulse" />
                           </div>
-                          <div className="text-center space-y-2">
-                            <span className="block text-sm font-black text-white/20 uppercase tracking-[0.3em]">No Milestones Defined</span>
-                            <p className="text-xs text-white/10 font-bold max-w-xs">Map out the strategic delivery path for this feature to track development progress.</p>
+                          <div className="text-center space-y-3">
+                            <span className="block text-[11px] font-black text-white/30 uppercase tracking-[0.4em]">Empty Roadmap</span>
+                            <p className="text-[11px] text-white/10 font-bold max-w-sm leading-relaxed px-12">Start planning the delivery path for this feature.</p>
                           </div>
+                          <Button 
+                            variant="outline"
+                            onClick={() => onAddMilestone(feature.id)}
+                            className="bg-white/5 border-white/10 rounded-xl h-10 px-6 text-[9px] font-black uppercase tracking-widest hover:bg-white/10 transition-all font-mono"
+                          >
+                            Create First Item
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -930,139 +1074,99 @@ export const FeatureBar = {
                 </ScrollArea>
 
                 {/* High-Fidelity Properties Sidebar */}
-                <aside className="w-[380px] h-full bg-[#0C0C0D] shrink-0 flex flex-col border-l border-white/5 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+                <aside className="w-[300px] h-full bg-[#0C0C0D] shrink-0 flex flex-col border-l border-white/5 shadow-2xl">
                   <ScrollArea className="flex-1">
-                    <div className="p-8 space-y-12">
-                      {/* Lifecycle Control */}
-                      <div className="space-y-8">
-                        <div className="flex items-center gap-3 text-white/10 ml-1">
-                          <div className="h-4 w-4 rounded bg-primary/20 flex items-center justify-center">
-                            <Gear className="h-2.5 w-2.5 text-primary" />
-                          </div>
-                          <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Development</h3>
-                        </div>
+                    <div className="p-6 space-y-8">
+                      {/* Minimal Side Controls */}
+                      <div className="space-y-4">
+                        <Select value={feature.status} onValueChange={(v) => handleUpdateStatus(v as FeatureStatus)}>
+                          <SelectTrigger className="h-10 bg-white/[0.03] border-white/10 rounded-xl hover:bg-white/5 transition-all font-bold px-4 shadow-lg ring-1 ring-white/5">
+                            <SelectValue>
+                              <Badge variant="outline" className={cn("h-6 p-0 border-none bg-transparent uppercase tracking-widest text-[10px] font-black", FEATURE_STATUS_CONFIG[feature.status].color)}>
+                                {FEATURE_STATUS_CONFIG[feature.status].label}
+                              </Badge>
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#0C0C0D] border-white/10 shadow-2xl rounded-[24px] p-2">
+                            {Object.entries(FEATURE_STATUS_CONFIG).map(([s, config]) => (
+                              <SelectItem key={s} value={s} className="rounded-xl focus:bg-primary/10 focus:text-primary m-1 px-4 py-3 cursor-pointer">
+                                <span className={cn("text-[10px] font-black uppercase tracking-[0.2em]", config.color)}>{config.label}</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
 
-                        <div className="space-y-6 bg-white/[0.02] p-6 rounded-[32px] border border-white/5 shadow-inner">
-                          <div className="space-y-3">
-                            <label className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em] ml-1">Phase</label>
-                            <Select value={feature.status} onValueChange={(v) => handleUpdateStatus(v as FeatureStatus)}>
-                              <SelectTrigger className="h-12 bg-white/[0.03] border-white/5 rounded-2xl hover:bg-white/10 transition-all font-bold px-5">
-                                <SelectValue>
-                                  <Badge variant="outline" className={cn("h-6 p-0 border-none bg-transparent uppercase tracking-widest text-[10px] font-black", FEATURE_STATUS_CONFIG[feature.status].color)}>
-                                    {FEATURE_STATUS_CONFIG[feature.status].label}
-                                  </Badge>
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent className="bg-[#0C0C0D] border-white/10 shadow-2xl rounded-[24px] p-2">
-                                {Object.entries(FEATURE_STATUS_CONFIG).map(([s, config]) => (
-                                  <SelectItem key={s} value={s} className="rounded-xl focus:bg-primary/10 focus:text-primary m-1 px-4 py-3 cursor-pointer">
-                                    <span className={cn("text-[10px] font-black uppercase tracking-[0.2em]", config.color)}>{config.label}</span>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
+                        <Select value={feature.health} onValueChange={(v) => handleUpdateHealth(v as FeatureHealth)}>
+                          <SelectTrigger className="h-10 bg-white/[0.03] border-white/10 rounded-xl hover:bg-white/5 transition-all font-bold px-4 shadow-lg ring-1 ring-white/5">
+                            <SelectValue>
+                              <div className="flex items-center gap-3">
+                                <FeatureWindow.HealthIcon health={feature.health} />
+                                <span className={cn("text-[10px] font-black uppercase tracking-widest", FEATURE_HEALTH_CONFIG[feature.health].color)}>
+                                  {FEATURE_HEALTH_CONFIG[feature.health].label}
+                                </span>
+                              </div>
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#0C0C0D] border-white/10 shadow-2xl rounded-[24px] p-2">
+                            {Object.entries(FEATURE_HEALTH_CONFIG).map(([h, config]) => (
+                              <SelectItem key={h} value={h} className="rounded-xl focus:bg-white/5 m-1 px-4 py-3 cursor-pointer">
+                                <div className="flex items-center gap-3">
+                                  <FeatureWindow.HealthIcon health={h as FeatureHealth} />
+                                  <span className={cn("text-[10px] font-black uppercase tracking-[0.2em]", config.color)}>{config.label}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
 
-                          <div className="space-y-3">
-                            <label className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em] ml-1">Health</label>
-                            <Select value={feature.health} onValueChange={(v) => handleUpdateHealth(v as FeatureHealth)}>
-                              <SelectTrigger className="h-12 bg-white/[0.03] border-white/5 rounded-2xl hover:bg-white/10 transition-all font-bold px-5">
-                                <SelectValue>
-                                  <div className="flex items-center gap-3">
-                                    <FeatureBar.HealthIcon health={feature.health} />
-                                    <span className={cn("text-[10px] font-black uppercase tracking-widest", FEATURE_HEALTH_CONFIG[feature.health].color)}>
-                                      {FEATURE_HEALTH_CONFIG[feature.health].label}
-                                    </span>
-                                  </div>
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent className="bg-[#0C0C0D] border-white/10 shadow-2xl rounded-[24px] p-2">
-                                {Object.entries(FEATURE_HEALTH_CONFIG).map(([h, config]) => (
-                                  <SelectItem key={h} value={h} className="rounded-xl focus:bg-white/5 m-1 px-4 py-3 cursor-pointer">
-                                    <div className="flex items-center gap-3">
-                                      <FeatureBar.HealthIcon health={h as FeatureHealth} />
-                                      <span className={cn("text-[10px] font-black uppercase tracking-[0.2em]", config.color)}>{config.label}</span>
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
+                        <Select value={feature.priority || 'none'} onValueChange={(v) => handleUpdatePriority(v as IssuePriority)}>
+                          <SelectTrigger className="h-10 bg-white/[0.03] border-white/10 rounded-xl hover:bg-white/5 transition-all font-bold px-4 shadow-lg ring-1 ring-white/5">
+                            <SelectValue>
+                              <div className="flex items-center gap-3">
+                                <FeatureWindow.PriorityIcon priority={feature.priority || 'none'} />
+                                <span className={cn("text-[10px] font-black uppercase tracking-widest", PRIORITY_CONFIG[feature.priority || 'none'].color)}>
+                                  {PRIORITY_CONFIG[feature.priority || 'none'].label}
+                                </span>
+                              </div>
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#0C0C0D] border-white/10 shadow-2xl rounded-[24px] p-2">
+                            {Object.entries(PRIORITY_CONFIG).map(([p, config]) => (
+                              <SelectItem key={p} value={p} className="rounded-xl m-1 focus:bg-white/5 cursor-pointer py-3 px-4">
+                                <div className="flex items-center gap-3">
+                                  <FeatureWindow.PriorityIcon priority={p as any} />
+                                  <span className={cn("text-[10px] font-black uppercase tracking-widest", config.color)}>{config.label}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
 
-                      {/* Strategic Parameters */}
-                      <div className="space-y-8">
-                        <div className="flex items-center gap-3 text-white/10 ml-1">
-                          <div className="h-4 w-4 rounded bg-orange-500/20 flex items-center justify-center">
-                            <Sliders className="h-2.5 w-2.5 text-orange-500" />
-                          </div>
-                          <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Parameters</h3>
-                        </div>
-
-                        <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 space-y-6">
-                          <div className="space-y-3">
-                            <label className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em] ml-1">Priority</label>
-                            <Select value={feature.priority || 'none'} onValueChange={(v) => handleUpdatePriority(v as IssuePriority)}>
-                              <SelectTrigger className="h-12 bg-white/[0.03] border-white/5 rounded-2xl hover:bg-white/10 transition-all font-bold px-5">
-                                <SelectValue>
-                                  <div className="flex items-center gap-3">
-                                    <FeatureBar.PriorityIcon priority={feature.priority || 'none'} />
-                                    <span className={cn("text-[10px] font-black uppercase tracking-widest", PRIORITY_CONFIG[feature.priority || 'none'].color)}>
-                                      {PRIORITY_CONFIG[feature.priority || 'none'].label}
-                                    </span>
-                                  </div>
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent className="bg-[#0C0C0D] border-white/10 shadow-2xl rounded-[24px] p-2">
-                                {Object.entries(PRIORITY_CONFIG).map(([p, config]) => (
-                                  <SelectItem key={p} value={p} className="rounded-xl m-1 focus:bg-white/5 cursor-pointer py-3 px-4">
-                                    <div className="flex items-center gap-3">
-                                      <FeatureBar.PriorityIcon priority={p as any} />
-                                      <span className={cn("text-[10px] font-black uppercase tracking-widest", config.color)}>{config.label}</span>
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Initiative Actions */}
-                      <div className="pt-12 space-y-6 px-2">
+                      <div className="pt-8 border-t border-white/5">
                         <Button 
-                          onClick={() => navigate(`/features/${feature.id}`)}
-                          className="w-full h-14 bg-white/5 border border-white/10 hover:bg-white/10 transition-all rounded-[24px] text-[10px] font-black uppercase tracking-[0.3em] shadow-xl"
-                        >
-                          Launch Initiative Page
-                        </Button>
-                        
-                        <div className="pt-6 border-t border-white/5">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="w-full h-12 text-red-500/30 hover:text-red-500 hover:bg-red-500/5 text-[9px] font-black uppercase tracking-[0.4em] rounded-[24px] transition-all border border-transparent hover:border-red-500/10"
-                            onClick={async () => {
-                              if (confirm('Decommission this initiative? This action will archive all associated strategic data.')) {
-                                try {
-                                  await onDeleteFeature(feature.id);
-                                  toast({ title: 'Initiative archived' });
-                                  onClose();
-                                } catch (error: any) {
-                                  toast({ 
-                                    title: 'Archival failed', 
-                                    description: error.response?.data?.detail || 'System error',
-                                    variant: 'destructive' 
-                                  });
-                                }
+                          variant="ghost" 
+                          size="sm" 
+                          className="w-full h-10 text-red-500/40 hover:text-red-500 hover:bg-red-500/[0.05] text-[10px] font-black uppercase tracking-[0.3em] rounded-xl transition-all border border-dashed border-red-500/10 hover:border-red-500/30 group/decom"
+                          onClick={async () => {
+                            if (confirm('Delete this feature? This action cannot be undone.')) {
+                              try {
+                                await onDeleteFeature(feature.id);
+                                toast({ title: 'Feature Deleted' });
+                                onClose();
+                              } catch (error: any) {
+                                toast({ 
+                                  title: 'Delete Failed', 
+                                  description: error.response?.data?.detail || 'System error',
+                                  variant: 'destructive' 
+                                });
                               }
-                            }}
-                          >
-                            <Trash className="h-4 w-4 mr-3" />
-                            Decommission Feature
-                          </Button>
-                        </div>
+                            }
+                          }}
+                        >
+                          <Trash className="h-3.5 w-3.5 mr-2 group-hover/decom:scale-110 transition-transform" />
+                          Delete Feature
+                        </Button>
                       </div>
                     </div>
                   </ScrollArea>
@@ -1077,6 +1181,18 @@ export const FeatureBar = {
                </div>
             )}
           </DialogContent>
+          {feature && (
+            <CreateSubFeatureDialog
+              open={createSubFeatureOpen}
+              onOpenChange={setCreateSubFeatureOpen}
+              parentFeature={feature}
+              onAddFeature={async (data) => {
+                await onAddFeature(data);
+                setCreateSubFeatureOpen(false);
+                toast({ title: 'Sub-feature created' });
+              }}
+            />
+          )}
         </Dialog>
       );
     }

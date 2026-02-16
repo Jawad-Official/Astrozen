@@ -12,10 +12,11 @@ import {
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { Project, ProjectStatus } from '@/types/issue';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useOutletContext } from 'react-router-dom';
 import { ProjectBar } from '@/components/ProjectBar';
 import { PROJECT_STATUS_CONFIG, PROJECT_PRIORITY_OPTIONS } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
+import { aiService } from '@/services/ai.service';
 
 const statusOrder: ProjectStatus[] = ['in_progress', 'planned', 'backlog', 'paused', 'completed', 'cancelled'];
 
@@ -25,6 +26,7 @@ const ProjectsPage = () => {
   const [searchParams] = useSearchParams();
   const teamId = searchParams.get('team');
   const { user, teams } = useAuth();
+  const { onOpenAIPlanner } = useOutletContext<any>();
   
   const { projects: allProjects, issues, features, teams: storeTeams, orgMembers, deleteProject, addProject, isLoading } = useIssueStore();
   const [activeTab, setActiveTab] = useState<'projects' | 'all'>('projects');
@@ -68,12 +70,9 @@ const ProjectsPage = () => {
   };
 
   const handleDeleteProject = async (id: string) => {
-    // This is also handled in Row, but we should make sure the store action call here is also wrapped
     try {
       await deleteProject(id);
-      // Row handles its own success toast
     } catch (error: any) {
-      // Row handles its own error toast, but we re-throw or handle if needed
       throw error;
     }
   };
@@ -167,6 +166,7 @@ const ProjectsPage = () => {
         orgMembers={orgMembers}
         selectedTeamId={teamId}
         onAddProject={handleAddProject} 
+        onPlanWithAI={onOpenAIPlanner}
       />
     </div>
   );

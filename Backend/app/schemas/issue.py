@@ -42,6 +42,7 @@ class IssueBase(BaseModel):
     cycle_id: Optional[UUID4] = None
     assignee_id: Optional[UUID4] = None
     parent_id: Optional[UUID4] = None
+    blueprint_node_id: Optional[str] = None
     estimate: Optional[int] = None
     due_date: Optional[date] = None
 
@@ -63,6 +64,7 @@ class IssueUpdate(BaseModel):
     cycle_id: Optional[UUID4] = None
     assignee_id: Optional[UUID4] = None
     parent_id: Optional[UUID4] = None
+    blueprint_node_id: Optional[str] = None
     estimate: Optional[int] = None
     due_date: Optional[date] = None
 

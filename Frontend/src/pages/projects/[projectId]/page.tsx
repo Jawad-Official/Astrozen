@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { useIssueStore } from '@/store/issueStore';
@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { 
+  MagicWand,
   CaretRight, 
   CaretDown,
   DotsThree, 
@@ -31,6 +32,7 @@ import {
   User,
   Buildings,
   MagnifyingGlass,
+  Sidebar as SidebarIcon,
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -71,7 +73,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
-import { useNavigate, useParams, useOutletContext } from 'react-router-dom';
+import { useNavigate, useParams, useOutletContext, useSearchParams } from 'react-router-dom';
 import {
   Collapsible,
   CollapsibleContent,
@@ -79,7 +81,7 @@ import {
 } from '@/components/ui/collapsible';
 import { IssueBar } from '@/components/IssueBar';
 import { ProjectBar } from '@/components/ProjectBar';
-// Removed FeatureList import
+import { PlansTab } from './PlansTab';
 import { StatusGroup } from '@/components/StatusGroup';
 import { MilestoneDialog } from '@/components/dialogs/MilestoneDialog';
 import { 
@@ -89,14 +91,12 @@ import {
 } from '@/lib/constants';
 import { PRIORITY_CONFIG as ISSUE_PRIORITY_CONFIG } from '@/types/issue';
 import { featureService } from '@/services/features';
-import { FeatureBar, FEATURE_STATUS_CONFIG } from '@/components/FeatureBar';
+import { FeatureWindow, FEATURE_STATUS_CONFIG } from '@/components/FeatureWindow';
 import { CreateIssueDialog } from '@/components/issue/CreateIssueDialog';
 import { PROJECT_STATUS_OPTIONS, PROJECT_HEALTH_OPTIONS } from '@/lib/project-options';
 import { teamService } from '@/services/teams';
 import { userService, OrgMember } from '@/services/users';
 import type { Team } from '@/types/auth';
-
-
 
 interface MainLayoutContext {
   onCreateIssue: () => void;
@@ -120,34 +120,30 @@ const ProjectDetailPage = () => {
   
   const { onCreateSubIssue } = useOutletContext<MainLayoutContext>();
   const project = projects.find(p => p.id === projectId);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'overview';
   
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [updateContent, setUpdateContent] = useState('');
   const [selectedHealth, setSelectedHealth] = useState<ProjectHealth>('on_track');
   const [assigneesTab, setAssigneesTab] = useState<'assignees' | 'labels'>('assignees');
-  
-  // Update selected health when project loads
-  useEffect(() => {
-    if (project?.health) {
-      setSelectedHealth(project.health);
-    }
-  }, [project?.id, project?.health]);
+  const [showSidebar, setShowSidebar] = useState(true);
 
   const [milestoneDialogOpen, setMilestoneDialogOpen] = useState(false);
-        const [milestoneName, setMilestoneName] = useState('');
-        const [milestoneDescription, setMilestoneDescription] = useState('');
-        const [milestoneDate, setMilestoneDate] = useState<Date | undefined>();
-        
-        const [resourceDialogOpen, setResourceDialogOpen] = useState(false);
-        const [resourceName, setResourceName] = useState('');
-        const [resourceUrl, setResourceUrl] = useState('');
-        
-        const [memberSearch, setMemberSearch] = useState('');
-        
-        const [editingDescription, setEditingDescription] = useState(false);
-        const [descriptionDraft, setDescriptionDraft] = useState('');
-      
-        // Feature specific state
+  const [milestoneName, setMilestoneName] = useState('');
+  const [milestoneDescription, setMilestoneDescription] = useState('');
+  const [milestoneDate, setMilestoneDate] = useState<Date | undefined>();
+  
+  const [resourceDialogOpen, setResourceDialogOpen] = useState(false);
+  const [resourceName, setResourceName] = useState('');
+  const [resourceUrl, setResourceUrl] = useState('');
+  
+  const [memberSearch, setMemberSearch] = useState('');
+  
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState('');
+
+  // Feature specific state
   const [createFeatureOpen, setCreateFeatureOpen] = useState(false);
   const [newFeatureName, setNewFeatureName] = useState('');
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
@@ -159,45 +155,36 @@ const ProjectDetailPage = () => {
   
   const [createIssueOpen, setCreateIssueOpen] = useState(false);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | undefined>();
-      
-        useEffect(() => {
-          if (projectId) {
-            setSelectedProject(projectId);
-            fetchProject(projectId); // Fetch full project details including updates
-            fetchOrgMembers();
-            fetchTeams();
-          }
-        }, [projectId, setSelectedProject, fetchProject, fetchOrgMembers, fetchTeams]);
-        
+
+  useEffect(() => {
+    if (searchParams.get('tab')) {
+      setActiveTab(searchParams.get('tab')!);
+    }
+  }, [searchParams]);
   
+  // Update selected health when project loads
+  useEffect(() => {
+    if (project?.health) {
+      setSelectedHealth(project.health);
+    }
+  }, [project?.id, project?.health]);
+
+  const currentStatus = project ? (PROJECT_STATUS_OPTIONS.find(s => s.value === project.status) || PROJECT_STATUS_OPTIONS[0]) : PROJECT_STATUS_OPTIONS[0];
+  const currentPriority = project ? (PROJECT_PRIORITY_OPTIONS.find(p => p.value === project.priority) || PROJECT_PRIORITY_OPTIONS[4]) : PROJECT_PRIORITY_OPTIONS[4];
+  const currentHealth = project ? (PROJECT_HEALTH_OPTIONS.find(h => h.value === project.health) || PROJECT_HEALTH_OPTIONS[3]) : PROJECT_HEALTH_OPTIONS[3];
+
   const canManageProject = useMemo(() => {
     if (!user || !project) return false;
-    
-    // 1. Is org Admin
     const isAdmin = user.role === 'admin';
     if (isAdmin) return true;
-    
-    // 2. Is leader of any team assigned to the project
-    // assigned teams are project.teamId (primary) and project.teams (contributors)
     const assignedTeamIds = [project.teamId, ...(project.teams || [])].filter(Boolean);
-    
-    // user.ledTeams (from backend context, assumed to be synced or we check user.roles)
-    // Actually, we can check if user is in 'leader' role for any of those teams
-    // Let's assume the teams list in store contains leader info or we use user.led_teams
-    
-    // Based on the new backend model, user has a collection of teams they lead.
-    // If we don't have that in the frontend User object yet, we can check if 
-    // any of the project's assigned teams list the current user as a leader.
-    
     const isTeamLeader = teams.some(team => 
       assignedTeamIds.includes(team.id) && 
       team.leaders?.some(l => l.id === user.id)
     );
-    
     return isTeamLeader;
   }, [user, project, teams]);
 
-  // Sort updates by date descending (latest first)
   const sortedUpdates = useMemo(() => {
     if (!project?.updates) return [];
     return [...project.updates].sort((a, b) => 
@@ -206,8 +193,8 @@ const ProjectDetailPage = () => {
   }, [project?.updates]);
   
   const projectFeatures = useMemo(() => 
-    features.filter(f => f.projectId === projectId),
-    [features, projectId]
+    project ? features.filter(f => f.projectId === projectId) : [],
+    [features, projectId, project]
   );
 
   const projectFeatureIds = useMemo(() => 
@@ -227,26 +214,21 @@ const ProjectDetailPage = () => {
 
   const assigneeStats = useMemo(() => {
     const stats: Record<string, { total: number; completed: number; displayName: string }> = {};
-    
     projectIssues.forEach(issue => {
       const assigneeId = issue.assignee || 'Unassigned';
       let displayName = 'Unassigned';
-      
       if (assigneeId !== 'Unassigned') {
         const member = orgMembers.find(m => m.id === assigneeId);
         displayName = member ? member.full_name : assigneeId;
       }
-
       if (!stats[assigneeId]) {
         stats[assigneeId] = { total: 0, completed: 0, displayName };
       }
-      
       stats[assigneeId].total++;
       if (issue.status === 'done') {
         stats[assigneeId].completed++;
       }
     });
-
     return Object.entries(stats).map(([id, data]) => ({
       id,
       name: data.displayName,
@@ -256,20 +238,9 @@ const ProjectDetailPage = () => {
     }));
   }, [projectIssues, orgMembers]);
 
-  if (!project) {
-    return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
-        Project not found
-      </div>
-    );
-  }
-
-  // Helper function to get lead name from orgMembers
   const getLeadName = () => {
-    if (!project.lead) return null;
-    // First try to use leadName from backend
+    if (!project?.lead) return null;
     if (project.leadName) return project.leadName;
-    // Otherwise look up in orgMembers
     const leadMember = orgMembers.find(m => m.id === project.lead);
     return leadMember ? `${leadMember.first_name} ${leadMember.last_name}` : project.lead;
   };
@@ -280,20 +251,23 @@ const ProjectDetailPage = () => {
     ? Math.round((completedIssues / projectIssues.length) * 100) 
     : 0;
 
-  const currentStatus = PROJECT_STATUS_OPTIONS.find(s => s.value === project.status) || PROJECT_STATUS_OPTIONS[0];
-  const currentPriority = PROJECT_PRIORITY_OPTIONS.find(p => p.value === project.priority) || PROJECT_PRIORITY_OPTIONS[4];
-  const currentHealth = PROJECT_HEALTH_OPTIONS.find(h => h.value === project.health) || PROJECT_HEALTH_OPTIONS[3];
+  if (!project) {
+    return (
+      <div className="flex items-center justify-center h-full text-muted-foreground bg-[#090909]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+          <p className="text-sm font-medium">Loading project...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleStatusChange = async (status: ProjectStatus) => {
     try {
       await updateProject(project.id, { status });
-      toast({ title: 'Status updated', description: `Project status changed to ${PROJECT_STATUS_OPTIONS.find(s => s.value === status)?.label}` });
+      toast({ title: 'Status updated' });
     } catch (error: any) {
-      toast({ 
-        title: 'Failed to update status', 
-        description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
-      });
+      toast({ title: 'Failed to update status', variant: 'destructive' });
     }
   };
 
@@ -302,11 +276,7 @@ const ProjectDetailPage = () => {
       await updateProject(project.id, { priority });
       toast({ title: 'Priority updated' });
     } catch (error: any) {
-      toast({ 
-        title: 'Failed to update priority', 
-        description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
-      });
+      toast({ title: 'Failed to update priority', variant: 'destructive' });
     }
   };
 
@@ -315,11 +285,7 @@ const ProjectDetailPage = () => {
       await updateProject(project.id, { health });
       toast({ title: 'Health updated' });
     } catch (error: any) {
-      toast({ 
-        title: 'Failed to update health', 
-        description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
-      });
+      toast({ title: 'Failed to update health', variant: 'destructive' });
     }
   };
 
@@ -328,44 +294,7 @@ const ProjectDetailPage = () => {
       await updateProject(project.id, { lead: lead || undefined });
       toast({ title: 'Lead updated' });
     } catch (error: any) {
-      toast({ 
-        title: 'Failed to update lead', 
-        description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
-      });
-    }
-  };
-
-  const handleAddMember = async (memberId: string) => {
-    const currentMembers = project.members || [];
-    if (currentMembers.includes(memberId)) return;
-    const updatedMembers = [...currentMembers, memberId];
-    try {
-      await updateProject(project.id, { members: updatedMembers });
-      toast({ title: 'Member added' });
-      setMemberDialogOpen(false);
-      setMemberSearch('');
-    } catch (error: any) {
-      toast({ 
-        title: 'Failed to add member', 
-        description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
-      });
-    }
-  };
-
-  const handleRemoveMember = async (memberId: string) => {
-    const currentMembers = project.members || [];
-    const updatedMembers = currentMembers.filter(m => m !== memberId);
-    try {
-      await updateProject(project.id, { members: updatedMembers });
-      toast({ title: 'Member removed' });
-    } catch (error: any) {
-      toast({ 
-        title: 'Failed to remove member', 
-        description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
-      });
+      toast({ title: 'Failed to update lead', variant: 'destructive' });
     }
   };
 
@@ -380,91 +309,54 @@ const ProjectDetailPage = () => {
       await updateProject(project.id, { members: updatedMembers });
       toast({ title: isMember ? 'Member removed' : 'Member added' });
     } catch (error: any) {
-      toast({ 
-        title: `Failed to ${isMember ? 'remove' : 'add'} member`, 
-        description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
-      });
+      toast({ title: 'Failed to update member', variant: 'destructive' });
     }
   };
 
   const handleToggleTeam = async (teamId: string) => {
     const teamsList = project.teams || [];
     const hasTeam = teamsList.includes(teamId);
-    
-    if (hasTeam && teamsList.length <= 1) {
-      toast({ 
-        title: 'Cannot remove team', 
-        description: 'A project must have at least one team assigned.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    const updatedTeams = hasTeam 
-      ? teamsList.filter(t => t !== teamId)
-      : [...teamsList, teamId];
-    
+    const updatedTeams = hasTeam ? teamsList.filter(t => t !== teamId) : [...teamsList, teamId];
     try {
       await updateProject(project.id, { teams: updatedTeams });
       toast({ title: hasTeam ? 'Team removed' : 'Team added' });
     } catch (error: any) {
-      toast({ 
-        title: `Failed to ${hasTeam ? 'remove' : 'add'} team`, 
-        description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
-      });
+      toast({ title: 'Failed to update team', variant: 'destructive' });
     }
   };
 
   const handleDateChange = async (field: 'startDate' | 'targetDate', date: Date | undefined) => {
     try {
       await updateProject(project.id, { [field]: date });
-      toast({ title: `${field === 'startDate' ? 'Start' : 'Target'} date updated` });
+      toast({ title: 'Date updated' });
     } catch (error: any) {
-      toast({ 
-        title: `Failed to update ${field === 'startDate' ? 'start' : 'target'} date`, 
-        description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
-      });
+      toast({ title: 'Failed to update date', variant: 'destructive' });
     }
   };
 
   const handleAddMilestone = async (data: { name: string; description: string; targetDate?: string }) => {
-    const newMilestone: Milestone = {
-      id: Math.random().toString(36).substring(2, 9),
-      name: data.name,
-      description: data.description || undefined,
-      targetDate: data.targetDate ? new Date(data.targetDate) : undefined,
-      completed: false,
-    };
     try {
       await updateProject(project.id, { 
-        milestones: [...(project.milestones || []), newMilestone]
+        milestones: [...(project.milestones || []), { 
+          id: Math.random().toString(36).substr(2, 9), 
+          ...data, 
+          targetDate: data.targetDate ? new Date(data.targetDate) : undefined,
+          completed: false 
+        }]
       });
       setMilestoneDialogOpen(false);
       toast({ title: 'Milestone added' });
     } catch (error: any) {
-      toast({ 
-        title: 'Failed to add milestone', 
-        description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
-      });
+      toast({ title: 'Failed to add milestone', variant: 'destructive' });
     }
   };
 
   const handleToggleMilestone = async (milestoneId: string) => {
-    const updatedMilestones = project.milestones.map(m => 
-      m.id === milestoneId ? { ...m, completed: !m.completed } : m
-    );
+    const updatedMilestones = project.milestones.map(m => m.id === milestoneId ? { ...m, completed: !m.completed } : m);
     try {
       await updateProject(project.id, { milestones: updatedMilestones });
     } catch (error: any) {
-      toast({ 
-        title: 'Failed to update milestone', 
-        description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
-      });
+      toast({ title: 'Failed to update milestone', variant: 'destructive' });
     }
   };
 
@@ -474,11 +366,7 @@ const ProjectDetailPage = () => {
       await updateProject(project.id, { milestones: updatedMilestones });
       toast({ title: 'Milestone deleted' });
     } catch (error: any) {
-      toast({ 
-        title: 'Failed to delete milestone', 
-        description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
-      });
+      toast({ title: 'Failed to delete milestone', variant: 'destructive' });
     }
   };
 
@@ -488,18 +376,13 @@ const ProjectDetailPage = () => {
       await addProjectResource(project.id, { 
         name: resourceName.trim(), 
         url: resourceUrl.trim(), 
-        type: resourceUrl.includes('docs.') || resourceUrl.includes('.pdf') ? 'document' : 'link',
+        type: 'link'
       });
-      setResourceName('');
-      setResourceUrl('');
       setResourceDialogOpen(false);
+      setResourceName(''); setResourceUrl('');
       toast({ title: 'Resource added' });
     } catch (error: any) {
-      toast({ 
-        title: 'Failed to add resource', 
-        description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
-      });
+      toast({ title: 'Failed to add resource', variant: 'destructive' });
     }
   };
 
@@ -508,11 +391,7 @@ const ProjectDetailPage = () => {
       await deleteProjectResource(project.id, resourceId);
       toast({ title: 'Resource deleted' });
     } catch (error: any) {
-      toast({ 
-        title: 'Failed to delete resource', 
-        description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
-      });
+      toast({ title: 'Failed to delete resource', variant: 'destructive' });
     }
   };
 
@@ -522,29 +401,18 @@ const ProjectDetailPage = () => {
       setEditingDescription(false);
       toast({ title: 'Description updated' });
     } catch (error: any) {
-      toast({ 
-        title: 'Failed to update description', 
-        description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
-      });
+      toast({ title: 'Failed to update description', variant: 'destructive' });
     }
   };
 
   const handleAddUpdate = async () => {
     if (!updateContent.trim()) return;
     try {
-      await addProjectUpdate(project.id, { 
-        content: updateContent.trim(),
-        health: selectedHealth,
-      });
+      await addProjectUpdate(project.id, { content: updateContent.trim(), health: selectedHealth });
       setUpdateContent('');
       toast({ title: 'Update posted' });
     } catch (error) {
-      toast({ 
-        title: 'Failed to post update', 
-        description: 'Please try again',
-        variant: 'destructive'
-      });
+      toast({ title: 'Failed to post update', variant: 'destructive' });
     }
   };
 
@@ -553,26 +421,16 @@ const ProjectDetailPage = () => {
       await deleteProjectUpdate(project.id, updateId);
       toast({ title: 'Update deleted' });
     } catch (error: any) {
-      toast({ 
-        title: 'Failed to delete update', 
-        description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
-      });
+      toast({ title: 'Failed to delete update', variant: 'destructive' });
     }
   };
 
   const handleUpdateUpdate = async (updateId: string, updates: Partial<ProjectUpdateType>) => {
-    const updatedUpdates = project.updates.map(u => 
-      u.id === updateId ? { ...u, ...updates } : u
-    );
+    const updatedUpdates = project.updates.map(u => u.id === updateId ? { ...u, ...updates } : u);
     try {
       await updateProject(project.id, { updates: updatedUpdates });
     } catch (error: any) {
-      toast({ 
-        title: 'Failed to update update', 
-        description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
-      });
+      toast({ title: 'Failed to update update', variant: 'destructive' });
     }
   };
 
@@ -580,11 +438,7 @@ const ProjectDetailPage = () => {
     try {
       await addUpdateComment(project.id, updateId, content, parentId);
     } catch (error: any) {
-      toast({ 
-        title: 'Failed to add comment', 
-        description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
-      });
+      toast({ title: 'Failed to add comment', variant: 'destructive' });
     }
   };
 
@@ -592,33 +446,16 @@ const ProjectDetailPage = () => {
     try {
       await deleteUpdateComment(project.id, updateId, commentId);
     } catch (error: any) {
-      toast({ 
-        title: 'Failed to delete comment', 
-        description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
-      });
+      toast({ title: 'Failed to delete comment', variant: 'destructive' });
     }
-  };
-
-  const handleToggleUpdateReaction = (updateId: string, emoji: string) => {
-    toggleUpdateReaction(project.id, updateId, emoji);
-  };
-
-  const handleToggleUpdateCommentReaction = (updateId: string, commentId: string, emoji: string) => {
-    toggleUpdateCommentReaction(project.id, updateId, commentId, emoji);
   };
 
   const handleAddFeature = async () => {
     if (!newFeatureName.trim()) return;
     try {
-      await addFeature({
-        name: newFeatureName.trim(),
-        project_id: project.id,
-        status: 'discovery'
-      });
-      setNewFeatureName('');
-      setCreateFeatureOpen(false);
-      toast({ title: 'Feature created successfully' });
+      await addFeature({ name: newFeatureName.trim(), project_id: project.id, status: 'discovery' });
+      setNewFeatureName(''); setCreateFeatureOpen(false);
+      toast({ title: 'Feature created' });
     } catch (error) {
       toast({ title: 'Failed to create feature', variant: 'destructive' });
     }
@@ -626,42 +463,14 @@ const ProjectDetailPage = () => {
 
   const handleAddFeatureMilestone = async (data: { name: string; description: string; targetDate?: string; parentId?: string }) => {
     if (!activeFeatureId) return;
-    await addFeatureMilestone(activeFeatureId, {
-      name: data.name,
-      description: data.description,
-      targetDate: data.targetDate,
-      parentId: data.parentId || undefined
-    });
-    setNewFeatureMilestoneName('');
-    setNewFeatureMilestoneParent(undefined);
-    setActiveFeatureId(null);
-    setCreateFeatureMilestoneOpen(false);
+    await addFeatureMilestone(activeFeatureId, data);
+    setActiveFeatureId(null); setCreateFeatureMilestoneOpen(false);
     toast({ title: 'Milestone added' });
   };
 
-  const getFlatMilestones = (featureId: string | null) => {
-    if (!featureId) return [];
-    const feature = features.find(f => f.id === featureId);
-    if (!feature || !feature.milestones) return [];
-    
-    const flat: { id: string, name: string }[] = [];
-    const recurse = (list: any[]) => {
-      list.forEach(m => {
-        flat.push({ id: m.id, name: m.name });
-      });
-    };
-    recurse(feature.milestones);
-    return flat;
-  };
-
-  const selectedFeature = features.find(f => f.id === selectedFeatureId);
-
-
-
-
   return (
     <div className="flex h-full">
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden transition-all duration-300">
         <div className="flex items-center gap-2 px-4 h-12 border-b border-border bg-background shrink-0">
           <button 
             onClick={() => navigate('/projects')}
@@ -686,13 +495,27 @@ const ProjectDetailPage = () => {
           <div className="flex-1" />
           
           <ProjectBar.HealthBadge health={project.health} />
+          
+          <div className="w-[1px] h-4 bg-border mx-2" />
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn("h-7 w-7 text-muted-foreground hover:text-foreground", !showSidebar && "bg-accent text-accent-foreground")}
+            onClick={() => setShowSidebar(!showSidebar)}
+          >
+            <SidebarIcon className="h-4 w-4" />
+          </Button>
         </div>
 
-        <div className="flex items-center gap-1 px-4 h-10 border-b border-border bg-background shrink-0">
-          {['overview', 'updates', 'issues'].map((tab) => (
+        <div className="flex items-center gap-1 px-4 h-10 border-b border-border bg-background shrink-0 overflow-x-auto custom-scrollbar no-scrollbar">
+          {['overview', 'updates', 'issues', 'plans'].map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => {
+                setActiveTab(tab);
+                setSearchParams({ tab });
+              }}
               className={cn(
                 'px-3 py-1.5 text-sm rounded-md transition-colors flex items-center gap-1.5 capitalize',
                 activeTab === tab ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'
@@ -701,6 +524,7 @@ const ProjectDetailPage = () => {
               {tab === 'overview' && <NotePencil className="h-3.5 w-3.5" />}
               {tab === 'updates' && <ChatTeardropText className="h-3.5 w-3.5" />}
               {tab === 'issues' && <CircleHalf className="h-3.5 w-3.5" />}
+              {tab === 'plans' && <MagicWand className="h-3.5 w-3.5" />}
               {tab}
               {tab === 'updates' && project.updates?.length > 0 && (
                 <span className="text-xs text-muted-foreground">({project.updates.length})</span>
@@ -708,7 +532,10 @@ const ProjectDetailPage = () => {
             </button>
           ))}
           <button
-            onClick={() => setActiveTab('settings')}
+            onClick={() => {
+              setActiveTab('settings');
+              setSearchParams({ tab: 'settings' });
+            }}
             className={cn(
               'px-3 py-1.5 text-sm rounded-md transition-colors',
               activeTab === 'settings' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'
@@ -719,6 +546,12 @@ const ProjectDetailPage = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto bg-background">
+          {activeTab === 'plans' && (
+            <PlansTab 
+              projectId={project.id} 
+              initialIdeaId={searchParams.get('ideaId') || undefined} 
+            />
+          )}
           {activeTab === 'overview' && (
             <div className="max-w-3xl mx-auto py-8 px-6">
               <div className="mb-8">
@@ -910,8 +743,8 @@ const ProjectDetailPage = () => {
                     currentUser={user?.id || currentUser || ''}
                     onAddComment={(content, parentId) => handleAddUpdateComment(sortedUpdates[0].id, content, parentId)}
                     onDeleteComment={(commentId) => handleDeleteUpdateComment(sortedUpdates[0].id, commentId)}
-                    onToggleReaction={(emoji) => handleToggleUpdateReaction(sortedUpdates[0].id, emoji)}
-                    onToggleCommentReaction={(commentId, emoji) => handleToggleUpdateCommentReaction(sortedUpdates[0].id, commentId, emoji)}
+                    onToggleReaction={(emoji) => toggleUpdateReaction(project.id, sortedUpdates[0].id, emoji)}
+                    onToggleCommentReaction={(commentId, emoji) => toggleUpdateCommentReaction(project.id, sortedUpdates[0].id, commentId, emoji)}
                   />
                 </div>
               )}
@@ -925,7 +758,7 @@ const ProjectDetailPage = () => {
                   </Button>
                 </div>
                 <div className="bg-[#090909] rounded-xl border border-white/5 overflow-hidden">
-                  <FeatureBar.List 
+                  <FeatureWindow.List 
                     features={projectFeatures}
                     projects={projects}
                     onUpdateFeature={updateFeature}
@@ -998,8 +831,8 @@ const ProjectDetailPage = () => {
                     currentUser={user?.id || currentUser || ''}
                     onAddComment={(content, parentId) => handleAddUpdateComment(update.id, content, parentId)}
                     onDeleteComment={(commentId) => handleDeleteUpdateComment(update.id, commentId)}
-                    onToggleReaction={(emoji) => handleToggleUpdateReaction(update.id, emoji)}
-                    onToggleCommentReaction={(commentId, emoji) => handleToggleUpdateCommentReaction(update.id, commentId, emoji)}
+                    onToggleReaction={(emoji) => toggleUpdateReaction(project.id, update.id, emoji)}
+                    onToggleCommentReaction={(commentId, emoji) => toggleUpdateCommentReaction(project.id, update.id, commentId, emoji)}
                   />
                 ))}
                 
@@ -1048,430 +881,432 @@ const ProjectDetailPage = () => {
       </div>
 
       {/* Right sidebar - Properties panel */}
-      <div className="w-72 border-l border-border flex flex-col bg-card/30 shrink-0">
-        <div className="flex items-center justify-between px-4 h-10 border-b border-border bg-background">
-          <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-            Properties
-            <CaretDown className="h-3 w-3" />
-          </span>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-background">
-          {/* Status */}
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Status</span>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Badge variant="outline" className="gap-1.5 cursor-pointer hover:bg-accent">
-                  {currentStatus.icon}
-                  {currentStatus.label}
-                </Badge>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-popover border-border">
-                {PROJECT_STATUS_OPTIONS.map((opt) => (
-                  <DropdownMenuItem key={opt.value} onClick={() => handleStatusChange(opt.value)} className="gap-2">
-                    {opt.icon}
-                    {opt.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+      {showSidebar && (
+        <div className="w-72 border-l border-border flex flex-col bg-card/30 shrink-0">
+          <div className="flex items-center justify-between px-4 h-10 border-b border-border bg-background">
+            <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              Properties
+              <CaretDown className="h-3 w-3" />
+            </span>
           </div>
 
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Priority</span>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Badge variant="outline" className={cn('h-6 px-2 text-[11px] font-bold uppercase border-white/5 bg-white/5 cursor-pointer hover:bg-white/10', currentPriority.color)}>
-                  {currentPriority.label}
-                </Badge>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-popover border-border">
-                {PROJECT_PRIORITY_OPTIONS.map((opt) => (
-                  <DropdownMenuItem key={opt.value} onClick={() => handlePriorityChange(opt.value)} className={opt.color}>
-                    {opt.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-background">
+            {/* Status */}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Status</span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Badge variant="outline" className="gap-1.5 cursor-pointer hover:bg-accent">
+                    {currentStatus.icon}
+                    {currentStatus.label}
+                  </Badge>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-popover border-border">
+                  {PROJECT_STATUS_OPTIONS.map((opt) => (
+                    <DropdownMenuItem key={opt.value} onClick={() => handleStatusChange(opt.value)} className="gap-2">
+                      {opt.icon}
+                      {opt.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
 
-          {/* Lead */}
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Lead</span>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild disabled={!canManageProject}>
-                <span className={cn(
-                  "flex items-center gap-1.5 cursor-pointer hover:text-foreground group",
-                  !canManageProject && "opacity-50 cursor-not-allowed"
-                )}>
-                  {project.lead ? (
-                    <>
-                      <div className="h-5 w-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-[9px] font-bold border border-emerald-500/10 shadow-inner group-hover:scale-110 transition-transform">
-                        {leadName && typeof leadName === 'string' ? leadName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : '?'}
-                      </div>
-                      <span className="text-xs font-medium text-white/70 group-hover:text-white transition-colors">{leadName}</span>
-                    </>
-                  ) : (
-                    <>
-                      <User className="h-3.5 w-3.5 text-white/20" />
-                      <span className="text-xs text-white/20 hover:text-white/40 transition-colors font-medium">Add lead...</span>
-                    </>
-                  )}
-                </span>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-[#0C0C0C] border-white/10 w-56 p-1 shadow-2xl">
-                <DropdownMenuItem key="no-lead" onClick={() => handleLeadChange('')} className="text-xs focus:bg-white/5 py-2">
-                  <div className="flex items-center gap-2 text-white/40">
-                    <User className="h-3.5 w-3.5" />
-                    No lead
-                  </div>
-                </DropdownMenuItem>
-                <Separator className="bg-white/5 my-1" />
-                <div className="px-2 py-1.5 text-[10px] font-black text-white/20 uppercase tracking-widest">Assign Lead</div>
-                {orgMembers.map((member) => (
-                  <DropdownMenuItem key={member.id} onClick={() => handleLeadChange(member.id)} className="text-xs focus:bg-white/5 py-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold border border-primary/10 shadow-inner">
-                        {member.first_name[0]}{member.last_name[0]}
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-semibold text-white/80 truncate">{member.full_name}</span>
-                        <span className="text-[10px] text-white/20 truncate">{member.email}</span>
-                      </div>
-                      {member.id === project.lead && <Check className="h-3 w-3 ml-auto text-primary" weight="bold" />}
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Priority</span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Badge variant="outline" className={cn('h-6 px-2 text-[11px] font-bold uppercase border-white/5 bg-white/5 cursor-pointer hover:bg-white/10', currentPriority.color)}>
+                    {currentPriority.label}
+                  </Badge>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-popover border-border">
+                  {PROJECT_PRIORITY_OPTIONS.map((opt) => (
+                    <DropdownMenuItem key={opt.value} onClick={() => handlePriorityChange(opt.value)} className={opt.color}>
+                      {opt.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
 
-          {/* Members */}
-          <div className="space-y-3 pt-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-white/20 uppercase tracking-[0.15em] flex items-center gap-1.5">
-                Members
-              </span>
-              {canManageProject && (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-5 w-5 hover:bg-white/5 text-white/20 hover:text-white transition-colors" 
-                    >
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent side="left" align="start" className="w-64 p-0 bg-[#0C0C0C] border-white/10 shadow-2xl overflow-hidden rounded-xl">
-                    <div className="p-2 border-b border-white/5 bg-white/[0.01]">
-                      <div className="relative group">
-                        <MagnifyingGlass className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/20 group-focus-within:text-primary transition-colors" />
-                        <input 
-                          value={memberSearch} 
-                          onChange={(e) => setMemberSearch(e.target.value)} 
-                          placeholder="Search teammates..."
-                          className="w-full h-8 bg-white/5 border border-white/5 rounded-md pl-8 pr-2 text-xs text-white/80 focus:outline-none focus:border-primary/30 transition-colors placeholder:text-white/10 font-medium"
-                          autoFocus
-                        />
-                      </div>
-                    </div>
-                    <div className="max-h-[280px] overflow-y-auto py-1 custom-scrollbar">
-                      {orgMembers
-                        .filter(member => 
-                          member.full_name.toLowerCase().includes(memberSearch.toLowerCase()) || 
-                          member.email.toLowerCase().includes(memberSearch.toLowerCase())
-                        )
-                        .map((member) => {
-                          const isAssigned = (project.members || []).includes(member.id);
-                          return (
-                            <button
-                              key={member.id}
-                              onClick={() => handleToggleMember(member.id)}
-                              className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/5 transition-all text-left group"
-                            >
-                              <div className={cn(
-                                "h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold border shadow-inner transition-all",
-                                isAssigned 
-                                  ? "bg-primary/20 border-primary/30 text-primary scale-105 shadow-[0_0_15px_rgba(var(--primary-rgb),0.2)]" 
-                                  : "bg-white/5 border-white/5 text-white/40 group-hover:bg-white/10 group-hover:text-white/60"
-                              )}>
-                                {member.first_name[0]}{member.last_name[0]}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-[11px] font-semibold text-white/80 truncate tracking-tight">{member.full_name}</div>
-                                <div className="text-[10px] text-white/20 truncate font-medium">{member.email}</div>
-                              </div>
-                              {isAssigned && (
-                                <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
-                                  <Check weight="bold" className="h-2.5 w-2.5 text-primary" />
-                                </div>
-                              )}
-                            </button>
-                          );
-                        })}
-                      {orgMembers.length === 0 && (
-                        <div className="py-8 text-center text-[10px] text-white/20 font-medium italic">
-                          No organization members found
+            {/* Lead */}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Lead</span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild disabled={!canManageProject}>
+                  <span className={cn(
+                    "flex items-center gap-1.5 cursor-pointer hover:text-foreground group",
+                    !canManageProject && "opacity-50 cursor-not-allowed"
+                  )}>
+                    {project.lead ? (
+                      <>
+                        <div className="h-5 w-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-[9px] font-bold border border-emerald-500/10 shadow-inner group-hover:scale-110 transition-transform">
+                          {leadName && typeof leadName === 'string' ? leadName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : '?'}
                         </div>
-                      )}
+                        <span className="text-xs font-medium text-white/70 group-hover:text-white transition-colors">{leadName}</span>
+                      </>
+                    ) : (
+                      <>
+                        <User className="h-3.5 w-3.5 text-white/20" />
+                        <span className="text-xs text-white/20 hover:text-white/40 transition-colors font-medium">Add lead...</span>
+                      </>
+                    )}
+                  </span>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-[#0C0C0C] border-white/10 w-56 p-1 shadow-2xl">
+                  <DropdownMenuItem key="no-lead" onClick={() => handleLeadChange('')} className="text-xs focus:bg-white/5 py-2">
+                    <div className="flex items-center gap-2 text-white/40">
+                      <User className="h-3.5 w-3.5" />
+                      No lead
                     </div>
-                  </PopoverContent>
-                </Popover>
-              )}
-            </div>
-            
-            <div className="flex flex-wrap gap-1.5 min-h-[32px]">
-              {project.members?.length > 0 ? (
-                project.members.map((memberId) => {
-                  const m = orgMembers.find(member => member.id === memberId);
-                  if (!m) return null;
-                  return (
-                    <TooltipProvider key={memberId} delayDuration={0}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="h-7 w-7 rounded-full bg-primary/5 border border-white/5 flex items-center justify-center text-primary/60 text-[10px] font-bold shadow-inner cursor-default hover:scale-110 hover:bg-primary/10 hover:border-primary/20 hover:text-primary transition-all duration-300 ring-1 ring-transparent hover:ring-primary/10">
-                            {m.first_name[0]}{m.last_name[0]}
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-[10px] bg-zinc-900 border-white/10 text-white font-medium px-2 py-1 shadow-2xl">
-                          {m.full_name}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  );
-                })
-              ) : (
-                <span className="text-[11px] text-white/10 italic font-medium">No collaborators assigned</span>
-              )}
-            </div>
-          </div>
-
-          {/* Start date */}
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Start date</span>
-            <Popover>
-              <PopoverTrigger asChild>
-                <span className="text-muted-foreground flex items-center gap-1.5 cursor-pointer hover:text-foreground">
-                  <CalendarBlank className="h-3.5 w-3.5" />
-                  {project.startDate ? format(new Date(project.startDate), 'MMM d, yyyy') : 'No date'}
-                </span>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 bg-popover border-border" align="end">
-                <CalendarComponent
-                  mode="single"
-                  selected={project.startDate ? new Date(project.startDate) : undefined}
-                  onSelect={(date) => handleDateChange('startDate', date)}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* Target date */}
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Target date</span>
-            <Popover>
-              <PopoverTrigger asChild>
-                <span className="text-muted-foreground flex items-center gap-1.5 cursor-pointer hover:text-foreground">
-                  <CalendarBlank className="h-3.5 w-3.5" />
-                  {project.targetDate ? format(new Date(project.targetDate), 'MMM d, yyyy') : 'No date'}
-                </span>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 bg-popover border-border" align="end">
-                <CalendarComponent
-                  mode="single"
-                  selected={project.targetDate ? new Date(project.targetDate) : undefined}
-                  onSelect={(date) => handleDateChange('targetDate', date)}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          <Separator className="bg-border" />
-
-          {/* Teams */}
-          <div className="text-sm">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-muted-foreground">Teams</span>
-              {canManageProject && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-5 w-5">
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="bg-popover border-border max-h-[300px] overflow-y-auto">
-                    {teams.map((team) => (
-                      <DropdownMenuItem 
-                        key={team.id} 
-                        onClick={() => handleToggleTeam(team.id)}
-                        className="gap-2"
-                      >
-                        <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="flex-1">{team.name} ({team.identifier})</span>
-                        {project.teams?.includes(team.id) && <Check className="h-3 w-3 ml-auto text-primary" />}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
-            {project.teams?.length > 0 ? (
-              <div className="space-y-1">
-                {project.teams.map((teamId) => {
-                  const t = teams.find(team => team.id === teamId);
-                  return (
-                    <div key={teamId} className="flex items-center gap-2 group">
-                      <div className="h-5 w-5 rounded bg-zinc-800 flex items-center justify-center text-[9px] font-bold text-zinc-400">
-                        {t?.identifier?.charAt(0) || '?'}
+                  </DropdownMenuItem>
+                  <Separator className="bg-white/5 my-1" />
+                  <div className="px-2 py-1.5 text-[10px] font-black text-white/20 uppercase tracking-widest">Assign Lead</div>
+                  {orgMembers.map((member) => (
+                    <DropdownMenuItem key={member.id} onClick={() => handleLeadChange(member.id)} className="text-xs focus:bg-white/5 py-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold border border-primary/10 shadow-inner">
+                          {member.first_name[0]}{member.last_name[0]}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-semibold text-white/80 truncate">{member.full_name}</span>
+                          <span className="text-[10px] text-white/20 truncate">{member.email}</span>
+                        </div>
+                        {member.id === project.lead && <Check className="h-3 w-3 ml-auto text-primary" weight="bold" />}
                       </div>
-                      <span className="text-xs flex-1 truncate">
-                        {project.teams.length > 1 
-                          ? (t?.identifier || t?.name || teamId) 
-                          : (t?.name || teamId)}
-                      </span>
-                      {canManageProject && (
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-4 w-4 opacity-0 group-hover:opacity-100 hover:text-destructive"
-                          onClick={() => handleToggleTeam(teamId)}
-                        >
-                          <X className="h-2.5 w-2.5" />
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <span className="text-xs text-muted-foreground inline-block mb-1">No teams assigned</span>
-            )}
-          </div>
-
-          <Separator className="bg-border" />
-
-          {/* Features */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                Features
-                <CaretDown className="h-3 w-3" />
-              </span>
-              <Plus className="h-3.5 w-3.5 text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => navigate('/features')} />
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-            {projectFeatures.length > 0 ? (
-              <div className="space-y-1">
-                {projectFeatures.slice(0, 5).map((feature) => (
-                  <div 
-                    key={feature.id} 
-                    className="flex items-center gap-2 py-1 px-2 -mx-2 rounded-md hover:bg-white/5 cursor-pointer group transition-colors" 
-                    onClick={() => setSelectedFeatureId(feature.id)}
-                  >
-                    <Badge variant="outline" className={cn("h-4 px-1 text-[8px] font-bold uppercase border-white/5 bg-white/5", FEATURE_STATUS_CONFIG[feature.status].color)}>
-                      {FEATURE_STATUS_CONFIG[feature.status].label}
-                    </Badge>
-                    <span className="text-xs flex-1 truncate text-muted-foreground group-hover:text-foreground">{feature.name}</span>
-                  </div>
-                ))}
-                {projectFeatures.length > 5 && (
-                   <p className="text-[10px] text-muted-foreground mt-1 ml-6">+{projectFeatures.length - 5} more features</p>
+
+            {/* Members */}
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-white/20 uppercase tracking-[0.15em] flex items-center gap-1.5">
+                  Members
+                </span>
+                {canManageProject && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-5 w-5 hover:bg-white/5 text-white/20 hover:text-white transition-colors" 
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent side="left" align="start" className="w-64 p-0 bg-[#0C0C0C] border-white/10 shadow-2xl overflow-hidden rounded-xl">
+                      <div className="p-2 border-b border-white/5 bg-white/[0.01]">
+                        <div className="relative group">
+                          <MagnifyingGlass className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/20 group-focus-within:text-primary transition-colors" />
+                          <input 
+                            value={memberSearch} 
+                            onChange={(e) => setMemberSearch(e.target.value)} 
+                            placeholder="Search teammates..."
+                            className="w-full h-8 bg-white/5 border border-white/5 rounded-md pl-8 pr-2 text-xs text-white/80 focus:outline-none focus:border-primary/30 transition-colors placeholder:text-white/10 font-medium"
+                            autoFocus
+                          />
+                        </div>
+                      </div>
+                      <div className="max-h-[280px] overflow-y-auto py-1 custom-scrollbar">
+                        {orgMembers
+                          .filter(member => 
+                            member.full_name.toLowerCase().includes(memberSearch.toLowerCase()) || 
+                            member.email.toLowerCase().includes(memberSearch.toLowerCase())
+                          )
+                          .map((member) => {
+                            const isAssigned = (project.members || []).includes(member.id);
+                            return (
+                              <button
+                                key={member.id}
+                                onClick={() => handleToggleMember(member.id)}
+                                className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/5 transition-all text-left group"
+                              >
+                                <div className={cn(
+                                  "h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold border shadow-inner transition-all",
+                                  isAssigned 
+                                    ? "bg-primary/20 border-primary/30 text-primary scale-105 shadow-[0_0_15px_rgba(var(--primary-rgb),0.2)]" 
+                                    : "bg-white/5 border-white/5 text-white/40 group-hover:bg-white/10 group-hover:text-white/60"
+                                )}>
+                                  {member.first_name[0]}{member.last_name[0]}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-[11px] font-semibold text-white/80 truncate tracking-tight">{member.full_name}</div>
+                                  <div className="text-[10px] text-white/20 truncate font-medium">{member.email}</div>
+                                </div>
+                                {isAssigned && (
+                                  <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
+                                    <Check weight="bold" className="h-2.5 w-2.5 text-primary" />
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        {orgMembers.length === 0 && (
+                          <div className="py-8 text-center text-[10px] text-white/20 font-medium italic">
+                            No organization members found
+                          </div>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 )}
               </div>
-            ) : (
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Add features to organize value delivery.
-              </p>
-            )}
-          </div>
-
-          <Separator className="bg-border" />
-
-          {/* Progress */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                Progress
-                <CaretDown className="h-3 w-3" />
-              </span>
-            </div>
-            <div className="flex gap-8 text-xs mb-2">
-              <div>
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <div className="h-2 w-2 rounded-sm bg-muted-foreground" />
-                  Scope
-                </span>
-                <p className="font-medium mt-1">{projectIssues.length}</p>
-              </div>
-              <div>
-                <span className="text-emerald-400 flex items-center gap-1">
-                  <div className="h-2 w-2 rounded-sm bg-emerald-400" />
-                  Completed
-                </span>
-                <p className="font-medium mt-1">{completedIssues} · {progressPercent}%</p>
+              
+              <div className="flex flex-wrap gap-1.5 min-h-[32px]">
+                {project.members?.length > 0 ? (
+                  project.members.map((memberId) => {
+                    const m = orgMembers.find(member => member.id === memberId);
+                    if (!m) return null;
+                    return (
+                      <TooltipProvider key={memberId} delayDuration={0}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="h-7 w-7 rounded-full bg-primary/5 border border-white/5 flex items-center justify-center text-primary/60 text-[10px] font-bold shadow-inner cursor-default hover:scale-110 hover:bg-primary/10 hover:border-primary/20 hover:text-primary transition-all duration-300 ring-1 ring-transparent hover:ring-primary/10">
+                              {m.first_name[0]}{m.last_name[0]}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-[10px] bg-zinc-900 border-white/10 text-white font-medium px-2 py-1 shadow-2xl">
+                            {m.full_name}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    );
+                  })
+                ) : (
+                  <span className="text-[11px] text-white/10 italic font-medium">No collaborators assigned</span>
+                )}
               </div>
             </div>
-          </div>
 
-          <Separator className="bg-border" />
-
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                Assignees
-                <CaretDown className="h-3 w-3" />
-              </span>
+            {/* Start date */}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Start date</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <span className="text-muted-foreground flex items-center gap-1.5 cursor-pointer hover:text-foreground">
+                    <CalendarBlank className="h-3.5 w-3.5" />
+                    {project.startDate ? format(new Date(project.startDate), 'MMM d, yyyy') : 'No date'}
+                  </span>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-popover border-border" align="end">
+                  <CalendarComponent
+                    mode="single"
+                    selected={project.startDate ? new Date(project.startDate) : undefined}
+                    onSelect={(date) => handleDateChange('startDate', date)}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
-            <div className="space-y-2">
-              {assigneeStats.length > 0 ? (
-                assigneeStats.map((stat) => (
-                  <div key={stat.name} className="flex items-center gap-2">
-                    {stat.name === 'Unassigned' ? (
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary text-[9px] font-medium">
-                        {stat.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+
+            {/* Target date */}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Target date</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <span className="text-muted-foreground flex items-center gap-1.5 cursor-pointer hover:text-foreground">
+                    <CalendarBlank className="h-3.5 w-3.5" />
+                    {project.targetDate ? format(new Date(project.targetDate), 'MMM d, yyyy') : 'No date'}
+                  </span>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-popover border-border" align="end">
+                  <CalendarComponent
+                    mode="single"
+                    selected={project.targetDate ? new Date(project.targetDate) : undefined}
+                    onSelect={(date) => handleDateChange('targetDate', date)}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <Separator className="bg-border" />
+
+            {/* Teams */}
+            <div className="text-sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-muted-foreground">Teams</span>
+                {canManageProject && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-5 w-5">
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="bg-popover border-border max-h-[300px] overflow-y-auto">
+                      {teams.map((team) => (
+                        <DropdownMenuItem 
+                          key={team.id} 
+                          onClick={() => handleToggleTeam(team.id)}
+                          className="gap-2"
+                        >
+                          <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="flex-1">{team.name} ({team.identifier})</span>
+                          {project.teams?.includes(team.id) && <Check className="h-3 w-3 ml-auto text-primary" />}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+              {project.teams?.length > 0 ? (
+                <div className="space-y-1">
+                  {project.teams.map((teamId) => {
+                    const t = teams.find(team => team.id === teamId);
+                    return (
+                      <div key={teamId} className="flex items-center gap-2 group">
+                        <div className="h-5 w-5 rounded bg-zinc-800 flex items-center justify-center text-[9px] font-bold text-zinc-400">
+                          {t?.identifier?.charAt(0) || '?'}
+                        </div>
+                        <span className="text-xs flex-1 truncate">
+                          {project.teams.length > 1 
+                            ? (t?.identifier || t?.name || teamId) 
+                            : (t?.name || teamId)}
+                        </span>
+                        {canManageProject && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-4 w-4 opacity-0 group-hover:opacity-100 hover:text-destructive"
+                            onClick={() => handleToggleTeam(teamId)}
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </Button>
+                        )}
                       </div>
-                    )}
-                    <span className="text-xs flex-1">{stat.name}</span>
-                    <span className="text-xs text-muted-foreground">{stat.percent}% of {stat.total}</span>
-                  </div>
-                ))
+                    );
+                  })}
+                </div>
               ) : (
-                <div className="text-xs text-muted-foreground">No issues assigned</div>
+                <span className="text-xs text-muted-foreground inline-block mb-1">No teams assigned</span>
               )}
             </div>
-          </div>
 
-          <Separator className="bg-border" />
+            <Separator className="bg-border" />
 
-          {/* Activity */}
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                Activity
-                <CaretDown className="h-3 w-3" />
-              </span>
-              <span className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">See all</span>
-            </div>
-            <div className="mt-3 space-y-2 text-xs text-muted-foreground">
-              {sortedUpdates.slice(0, 2).map((update) => (
-                <div key={update.id} className="flex items-start gap-2">
-                  <ChatTeardropText className="h-4 w-4 mt-0.5 shrink-0" />
-                  <span>{update.authorName || update.author} posted an update · {format(new Date(update.createdAt), 'MMM d')}</span>
+            {/* Features */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  Features
+                  <CaretDown className="h-3 w-3" />
+                </span>
+                <Plus className="h-3.5 w-3.5 text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => navigate('/features')} />
+              </div>
+              {projectFeatures.length > 0 ? (
+                <div className="space-y-1">
+                  {projectFeatures.slice(0, 5).map((feature) => (
+                    <div 
+                      key={feature.id} 
+                      className="flex items-center gap-2 py-1 px-2 -mx-2 rounded-md hover:bg-white/5 cursor-pointer group transition-colors" 
+                      onClick={() => setSelectedFeatureId(feature.id)}
+                    >
+                      <Badge variant="outline" className={cn("h-4 px-1 text-[8px] font-bold uppercase border-white/5 bg-white/5", FEATURE_STATUS_CONFIG[feature.status].color)}>
+                        {FEATURE_STATUS_CONFIG[feature.status].label}
+                      </Badge>
+                      <span className="text-xs flex-1 truncate text-muted-foreground group-hover:text-foreground">{feature.name}</span>
+                    </div>
+                  ))}
+                  {projectFeatures.length > 5 && (
+                     <p className="text-[10px] text-muted-foreground mt-1 ml-6">+{projectFeatures.length - 5} more features</p>
+                  )}
                 </div>
-              ))}
-              <div className="flex items-start gap-2">
-                <Stack className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                <span>{user?.fullName || currentUser} created the project · {format(new Date(project.createdAt), 'MMM d')}</span>
+              ) : (
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Add features to organize value delivery.
+                </p>
+              )}
+            </div>
+
+            <Separator className="bg-border" />
+
+            {/* Progress */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  Progress
+                  <CaretDown className="h-3 w-3" />
+                </span>
+              </div>
+              <div className="flex gap-8 text-xs mb-2">
+                <div>
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <div className="h-2 w-2 rounded-sm bg-muted-foreground" />
+                    Scope
+                  </span>
+                  <p className="font-medium mt-1">{projectIssues.length}</p>
+                </div>
+                <div>
+                  <span className="text-emerald-400 flex items-center gap-1">
+                    <div className="h-2 w-2 rounded-sm bg-emerald-400" />
+                    Completed
+                  </span>
+                  <p className="font-medium mt-1">{completedIssues} · {progressPercent}%</p>
+                </div>
+              </div>
+            </div>
+
+            <Separator className="bg-border" />
+
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  Assignees
+                  <CaretDown className="h-3 w-3" />
+                </span>
+              </div>
+              <div className="space-y-2">
+                {assigneeStats.length > 0 ? (
+                  assigneeStats.map((stat) => (
+                    <div key={stat.name} className="flex items-center gap-2">
+                      {stat.name === 'Unassigned' ? (
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary text-[9px] font-medium">
+                          {stat.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        </div>
+                      )}
+                      <span className="text-xs flex-1">{stat.name}</span>
+                      <span className="text-xs text-muted-foreground">{stat.percent}% of {stat.total}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-xs text-muted-foreground">No issues assigned</div>
+                )}
+              </div>
+            </div>
+
+            <Separator className="bg-border" />
+
+            {/* Activity */}
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  Activity
+                  <CaretDown className="h-3 w-3" />
+                </span>
+                <span className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">See all</span>
+              </div>
+              <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+                {sortedUpdates.slice(0, 2).map((update) => (
+                  <div key={update.id} className="flex items-start gap-2">
+                    <ChatTeardropText className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span>{update.authorName || update.author} posted an update · {format(new Date(update.createdAt), 'MMM d')}</span>
+                  </div>
+                ))}
+                <div className="flex items-start gap-2">
+                  <Stack className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span>{user?.fullName || currentUser} created the project · {format(new Date(project.createdAt), 'MMM d')}</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       <MilestoneDialog 
         open={milestoneDialogOpen}
@@ -1550,7 +1385,7 @@ const ProjectDetailPage = () => {
       </Dialog>
 
       {/* Feature Detail Sidebar */}
-      <FeatureBar.Detail 
+      <FeatureWindow.Detail 
         featureId={selectedFeatureId}
         features={features}
         projects={projects}
@@ -1569,6 +1404,7 @@ const ProjectDetailPage = () => {
         onToggleMilestone={toggleFeatureMilestone}
         onUpdateMilestone={updateFeatureMilestone}
         onDeleteMilestone={deleteFeatureMilestone}
+        onAddFeature={addFeature}
       />
 
 

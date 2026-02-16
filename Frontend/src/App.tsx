@@ -18,6 +18,7 @@ import InsightsPage from "@/pages/insights/page";
 import SettingsPage from "@/pages/settings/page";
 import TeamSettingsPage from "@/pages/teams/[teamId]/settings/page";
 import FeaturesPage from "@/pages/features/page";
+import AIGeneratorPage from "@/pages/ai-generator/page";
 import NotFound from "@/pages/NotFound";
 import Login from "@/pages/auth/Login";
 import Register from "@/pages/auth/Register";
@@ -66,6 +67,7 @@ const App = () => (
                 <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
                 <Route path="/features" element={<FeaturesPage />} />
                 <Route path="/features/:featureId" element={<FeaturesPage />} /> {/* Feature details can be handled in-page or via sidebar */}
+                <Route path="/ai-generator" element={<AIGeneratorPage />} />
                 <Route path="/insights" element={<InsightsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/teams/:teamId/settings" element={<TeamSettingsPage />} />

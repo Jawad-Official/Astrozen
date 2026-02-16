@@ -17,7 +17,19 @@ export const featureService = {
   },
 
   create: async (data: any): Promise<Feature> => {
-    const response = await apiClient.post<any>('/features', data);
+    const payload = {
+      ...data,
+      project_id: data.projectId ?? data.project_id,
+      parent_id: data.parentId ?? data.parent_id,
+      owner_id: data.ownerId ?? data.owner_id,
+    };
+    
+    // Clean up camelCase keys
+    delete payload.projectId;
+    delete payload.parentId;
+    delete payload.ownerId;
+
+    const response = await apiClient.post<any>('/features', payload);
     return response.data;
   },
 

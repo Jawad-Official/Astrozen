@@ -43,6 +43,9 @@ class OrganizationService:
             organization_id=org.id,
             role=UserRoleType.ADMIN
         ))
+        user.role = "admin"
+        db.add(user)
+        db.commit()
         
         # 3. Create Default Team
         team_name = f"{user.first_name}'s Team"

@@ -1,4 +1,5 @@
 from typing import List, Optional
+from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, and_, func
 from app.crud.base import CRUDBase
@@ -20,27 +21,50 @@ class CRUDIssue(CRUDBase[Issue, IssueCreate, IssueUpdate]):
         obj_in: IssueCreate,
         identifier: str
     ) -> Issue:
-        """Create issue"""
+        """Create issue with collision retry using savepoints"""
+        from sqlalchemy.exc import IntegrityError
+        from app.models.team_model import Team
+        
         obj_in_data = obj_in.model_dump()
         resources_data = obj_in_data.pop("resources", None)
         
-        db_obj = Issue(**obj_in_data, identifier=identifier)
-        db.add(db_obj)
-        db.flush()
+        current_identifier = identifier
         
-        if resources_data:
-            for res in resources_data:
-                resource_obj = IssueResource(
-                    name=res['name'],
-                    url=res['url'],
-                    type=res['type'],
-                    issue_id=db_obj.id
-                )
-                db.add(resource_obj)
+        for attempt in range(5):
+            try:
+                # Start a savepoint
+                savepoint = db.begin_nested()
+                db_obj = Issue(**obj_in_data, identifier=current_identifier)
+                db.add(db_obj)
+                db.flush() 
+                
+                # If flush succeeds, we've successfully reserved the ID
+                if resources_data:
+                    for res in resources_data:
+                        resource_obj = IssueResource(
+                            name=res['name'],
+                            url=res['url'],
+                            type=res['type'],
+                            issue_id=db_obj.id
+                        )
+                        db.add(resource_obj)
 
-        db.commit()
-        db.refresh(db_obj)
-        return db_obj
+                db.commit()
+                db.refresh(db_obj)
+                return db_obj
+                
+            except IntegrityError:
+                # Rollback to the savepoint on collision
+                db.rollback() 
+                
+                team = db.query(Team).filter(Team.id == obj_in.team_id).first()
+                if not team:
+                    raise ValueError(f"Team {obj_in.team_id} not found during retry")
+                
+                current_identifier = self.get_next_identifier(db, prefix=team.identifier)
+                continue
+                
+        raise HTTPException(status_code=500, detail="Failed to generate unique issue identifier after multiple attempts")
     
     def update(
         self,
@@ -70,21 +94,33 @@ class CRUDIssue(CRUDBase[Issue, IssueCreate, IssueUpdate]):
     def get_next_identifier(self, db: Session, prefix: str) -> str:
         """Get the next identifier for a given prefix (e.g., ENG-1, ENG-2)"""
         # Query for the highest identifier number with the given prefix
-        # This is simplified and assumes identifiers are always in prefix-number format
-        # In a real system, you might want a more robust way to track this (like a counter table)
+        # We sort by length first, then alphabetically to handle numeric strings correctly
+        # e.g., 'JAW-10' (len 6) should be > 'JAW-9' (len 5)
         
-        # We search for the max number where identifier starts with {prefix}-
         pattern = f"{prefix}-%"
-        max_id = db.query(func.max(Issue.identifier)).filter(Issue.identifier.like(pattern)).scalar()
+        max_id = db.query(Issue.identifier).filter(
+            Issue.identifier.like(pattern)
+        ).order_by(
+            func.length(Issue.identifier).desc(),
+            Issue.identifier.desc()
+        ).first()
         
         if not max_id:
             return f"{prefix}-1"
         
         try:
-            # Extract number from prefix-number
-            current_num = int(max_id.split("-")[1])
+            # Extract number from prefix-number using rsplit to handle prefixes with hyphens
+            # identifier is a Row in SQLAlchemy 2.0 if we only queried one column
+            if hasattr(max_id, "_mapping"):
+                id_str = max_id[0]
+            elif isinstance(max_id, (tuple, list)):
+                id_str = max_id[0]
+            else:
+                id_str = str(max_id)
+                
+            current_num = int(id_str.rsplit("-", 1)[1])
             return f"{prefix}-{current_num + 1}"
-        except (ValueError, IndexError):
+        except (ValueError, IndexError, AttributeError):
             # Fallback if parsing fails
             return f"{prefix}-1"
     
@@ -96,7 +132,7 @@ class CRUDIssue(CRUDBase[Issue, IssueCreate, IssueUpdate]):
         user_team_ids: List[UUID],
         status: Optional[List[IssueStatus]] = None,
         priority: Optional[List[IssuePriority]] = None,
-        issue_type: Optional[List[any]] = None,
+        issue_type: Optional[List[IssueType]] = None,
         project_id: Optional[UUID] = None,
         feature_id: Optional[UUID] = None,
         cycle_id: Optional[UUID] = None,

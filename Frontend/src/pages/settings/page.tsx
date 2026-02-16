@@ -15,8 +15,10 @@ import { cn } from '@/lib/utils';
 import { LABEL_COLORS } from '@/lib/constants';
 import { LabelDialog } from '@/components/dialogs/LabelDialog';
 import { ProjectDialog } from '@/components/dialogs/ProjectDialog';
+import { useOutletContext } from 'react-router-dom';
 
 const SettingsPage = () => {
+  const { onOpenAIPlanner } = useOutletContext<any>();
   const { 
     labels, 
     projects,
@@ -211,6 +213,7 @@ const SettingsPage = () => {
             open={projectDialogOpen}
             onOpenChange={setProjectDialogOpen}
             onSave={handleCreateProject}
+            onPlanWithAI={onOpenAIPlanner}
           />
           
           <ProjectDialog
@@ -218,6 +221,7 @@ const SettingsPage = () => {
             onOpenChange={(open) => !open && setEditingProject(undefined)}
             project={editingProject}
             onSave={handleUpdateProject}
+            onPlanWithAI={onOpenAIPlanner}
           />
         </TabsContent>
       </Tabs>

@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
-import { FEATURE_STATUS_CONFIG } from './FeatureBar';
+import { FEATURE_STATUS_CONFIG } from './FeatureWindow';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -170,8 +170,18 @@ export const ProjectFeaturesView = ({
               <div className="p-1 hover:bg-white/5 rounded transition-colors text-muted-foreground">
                 {expandedIds.has(feature.id) ? <CaretDown className="h-3.5 w-3.5" /> : <CaretRight className="h-3.5 w-3.5" />}
               </div>
-              <span className="text-sm font-semibold text-white/90">{feature.name}</span>
-              <Badge variant="outline" className={cn("text-[9px] uppercase tracking-wider font-bold h-5", FEATURE_STATUS_CONFIG[feature.status].color)}>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-sm font-semibold text-white/90 truncate">{feature.name}</span>
+                {feature.parentId && (
+                  <div className="flex items-center gap-1.5 text-muted-foreground/30 shrink-0">
+                    <span className="text-[10px] font-bold">&gt;</span>
+                    <span className="text-[11px] font-medium truncate max-w-[120px]">
+                      {features.find(f => f.id === feature.parentId)?.name || '...'}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <Badge variant="outline" className={cn("text-[9px] uppercase tracking-wider font-bold h-5 shrink-0", FEATURE_STATUS_CONFIG[feature.status].color)}>
                 {FEATURE_STATUS_CONFIG[feature.status].label}
               </Badge>
             </div>

@@ -9,16 +9,17 @@ from uuid import UUID
 class IssueService:
     """Business logic for Issue management"""
     
-    def create_issue(
+    async def create_issue(
         self,
         db: Session,
         *,
         issue_in: IssueCreate,
         current_user_id: UUID
     ) -> Issue:
-        """Create a new issue with activity tracking"""
+        """Create a new issue with activity tracking and optional AI auto-linking"""
         # Fetch team to get its identifier
         from app.models.team_model import Team
+        import asyncio
         
         # Inherit context from parent if sub-issue
         if issue_in.parent_id:
@@ -42,6 +43,12 @@ class IssueService:
             obj_in=issue_in,
             identifier=identifier
         )
+
+        # Trigger AI Auto-linking in background if node ID is missing
+        if not issue.blueprint_node_id:
+            # We use asyncio.create_task to run this without blocking the response
+            # Note: This requires a separate DB session which auto_link_issue_background provides
+            asyncio.create_task(self.auto_link_issue_background(issue.id))
         
         # Create activity
         crud_activity.create(
@@ -52,6 +59,63 @@ class IssueService:
         )
         
         return issue
+
+    async def auto_link_issue_background(self, issue_id: UUID):
+        """Background task to auto-link an issue to a blueprint node using AI."""
+        from app.core.database import SessionLocal
+        from app.models.project_idea import ProjectIdea, ProjectAsset, AssetType
+        from app.services.ai_service import ai_service
+        from app.models.feature import Feature
+        from app.models.issue import Issue
+        import json
+        import logging
+
+        db = SessionLocal()
+        try:
+            issue = db.query(Issue).filter(Issue.id == issue_id).first()
+            if not issue or issue.blueprint_node_id:
+                return
+
+            feature = db.query(Feature).filter(Feature.id == issue.feature_id).first()
+            if not feature:
+                return
+
+            idea = db.query(ProjectIdea).filter(
+                ProjectIdea.project_id == feature.project_id
+            ).order_by(ProjectIdea.created_at.desc()).first()
+            
+            if not idea:
+                return
+
+            blueprint_asset = db.query(ProjectAsset).filter(
+                ProjectAsset.project_idea_id == idea.id,
+                ProjectAsset.asset_type == AssetType.DIAGRAM_USER_FLOW
+            ).first()
+            
+            if not blueprint_asset or not blueprint_asset.content:
+                return
+
+            try:
+                blueprint_data = json.loads(blueprint_asset.content)
+                nodes = blueprint_data.get("nodes", [])
+                if not nodes:
+                    return
+
+                matched_node_id = await ai_service.auto_link_issue_to_node(
+                    issue.title,
+                    issue.description or "",
+                    nodes
+                )
+                if matched_node_id:
+                    issue.blueprint_node_id = matched_node_id
+                    db.commit()
+                    logging.info(f"Auto-linked issue {issue_id} to node {matched_node_id}")
+            except Exception as e:
+                logging.error(f"AI auto-linking logic failed: {str(e)}")
+        except Exception as e:
+            logging.error(f"Background auto-linking failed: {str(e)}")
+        finally:
+            db.close()
     
     def update_issue(
         self,

@@ -111,29 +111,33 @@ const RecursiveTask = ({
             </div>
             
             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-               <button
-                 onClick={(e) => {
-                   e.stopPropagation();
-                   console.log('Creating issue for milestone:', task.id);
-                   onCreateIssue?.(task.id);
-                 }}
-                 title="Create issue for this milestone"
-                 className="p-1 hover:bg-white/10 rounded transition-all active:scale-95"
-               >
-                 <Plus className="h-3.5 w-3.5 text-primary/60" weight="bold" />
-               </button>
-               <button
-                 onClick={(e) => {
-                   e.stopPropagation();
-                   if (confirm('Delete this milestone?')) {
-                     onDeleteTask?.(task.id);
-                   }
-                 }}
-                 title="Delete milestone"
-                 className="p-1 hover:bg-red-500/10 rounded transition-all active:scale-95 text-muted-foreground hover:text-red-400"
-               >
-                 <CircleX className="h-3.5 w-3.5" />
-               </button>
+               {onCreateIssue && (
+                 <button
+                   onClick={(e) => {
+                     e.stopPropagation();
+                     console.log('Creating issue for milestone:', task.id);
+                     onCreateIssue(task.id);
+                   }}
+                   title="Create issue for this milestone"
+                   className="p-1 hover:bg-white/10 rounded transition-all active:scale-95"
+                 >
+                   <Plus className="h-3.5 w-3.5 text-primary/60" weight="bold" />
+                 </button>
+               )}
+               {onDeleteTask && (
+                 <button
+                   onClick={(e) => {
+                     e.stopPropagation();
+                     if (confirm('Delete this milestone?')) {
+                       onDeleteTask(task.id);
+                     }
+                   }}
+                   title="Delete milestone"
+                   className="p-1 hover:bg-red-500/10 rounded transition-all active:scale-95 text-muted-foreground hover:text-red-400"
+                 >
+                   <CircleX className="h-3.5 w-3.5" />
+                 </button>
+               )}
             </div>
           </div>
         </motion.div>
@@ -164,14 +168,6 @@ const RecursiveTask = ({
                 />
               ))}
               
-              <li className={cn("pl-6 py-1", level > 0 && "ml-4")}>
-                 <button
-                   onClick={() => onCreateIssue?.(task.id)}
-                   className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-white transition-colors"
-                 >
-                   + Create Issue
-                 </button>
-              </li>
             </ul>
           </motion.div>
         )}

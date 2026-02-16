@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build)",
+      "Bash(python -m py_compile app/services/ai_service.py)",
+      "Bash(python -m py_compile app/api/v1/ai_projects.py)",
+      "Bash(python -m py_compile app/schemas/ai.py)",
+      "Bash(python -c \"from app.schemas import ai as schemas; print\\(''Schemas import successful''\\)\")",
+      "Bash(python -m py_compile app/schemas/ai.py app/services/ai_service.py app/api/v1/ai_projects.py)",
+      "Bash(python -m py_compile app/schemas/ai.py app/api/v1/ai_projects.py)"
+    ]
+  }
+}

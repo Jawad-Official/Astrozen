@@ -1,10 +1,11 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.core.database import get_db
 from app.api.deps import get_current_active_user, check_can_edit_issue, check_is_team_member
 from app.models.user import User
-from app.models.issue import IssueStatus, IssuePriority, IssueType
+from app.models.team_model import Team
+from app.models.issue import Issue, IssueStatus, IssuePriority, IssueType, TriageStatus
 from app.schemas.issue import IssueCreate, IssueUpdate, Issue as IssueSchema, IssueList
 from app.schemas.comment import Comment as CommentSchema, CommentCreate
 from app.schemas.comment import Activity as ActivitySchema
@@ -81,7 +82,7 @@ def get_inbox_issues(
 
 
 @router.post("", response_model=IssueSchema, status_code=status.HTTP_201_CREATED)
-def create_issue(
+async def create_issue(
     issue_in: IssueCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
@@ -96,7 +97,7 @@ def create_issue(
             detail="You must be a member of the team to create issues in it"
         )
         
-    issue = issue_service.create_issue(db, issue_in=issue_in, current_user_id=current_user.id)
+    issue = await issue_service.create_issue(db, issue_in=issue_in, current_user_id=current_user.id)
     return issue
 
 

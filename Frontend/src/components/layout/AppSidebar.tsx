@@ -19,7 +19,8 @@ import {
   Tray,
   Lock,
   Bell,
-  Sliders
+  Sliders,
+  MagicWand
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { useIssueStore } from '@/store/issueStore';
@@ -128,19 +129,12 @@ function NavItem({ icon, label, to, onClick, shortcut, badge, indent, end }: Nav
 }
 
 export function AppSidebar({ 
-
   onOpenCommandPalette, 
-
   onOpenCreateDialog, 
-
   onOpenCreateTeamDialog,
-
   isMobile,
-
   closeMobileMenu,
-
   onToggle
-
 }: AppSidebarProps) {
 
   const { 
@@ -277,12 +271,11 @@ export function AppSidebar({
               <NavItem
                 icon={<Diamond className="h-4 w-4" />}
                 label="Features"
-                to="/features"
-                onClick={closeMobileMenu}
-                end
-              />
-          </CollapsibleContent>
-        </Collapsible>
+                              to="/features"
+                              onClick={closeMobileMenu}
+                              end
+                            />
+                          </CollapsibleContent>        </Collapsible>
 
         {/* Favorites section */}
         {favoriteProjects.length > 0 && (

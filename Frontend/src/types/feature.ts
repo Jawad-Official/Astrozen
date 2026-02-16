@@ -8,6 +8,8 @@ export interface Feature {
   id: string;
   identifier: string;
   projectId: string;
+  ownerId?: string;
+  parentId?: string;
   name: string;
   
   // Core Definition
@@ -25,7 +27,9 @@ export interface Feature {
   deliveryConfidence?: number;
   
   milestones?: FeatureMilestone[];
+  subFeatures?: Feature[];
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface FeatureMilestone {
@@ -43,6 +47,9 @@ export interface CreateFeatureData {
   name: string;
   type?: FeatureType;
   priority?: IssuePriority;
+  parentId?: string;
+  status?: FeatureStatus;
+  health?: FeatureHealth;
 }
 
 export interface CreateMilestoneData {

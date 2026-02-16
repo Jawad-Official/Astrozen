@@ -38,6 +38,8 @@ class Feature(Base):
     identifier = Column(String, unique=True, nullable=True, index=True) # e.g., ENG-F1
     project_id = Column(UUID(as_uuid=True), ForeignKey('projects.id', ondelete='CASCADE'), nullable=False)
     owner_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    parent_id = Column(UUID(as_uuid=True), ForeignKey('features.id', ondelete='CASCADE'), nullable=True)  # Sub-feature support
+    blueprint_node_id = Column(String, nullable=True, index=True) # Link to AI Blueprint Node
     
     # Core Definition (Hard Required for Validated)
     name = Column(String, nullable=False)
@@ -64,6 +66,10 @@ class Feature(Base):
     owner = relationship("User", foreign_keys=[owner_id])
     milestones = relationship("Milestone", back_populates="feature", cascade="all, delete-orphan")
     issues = relationship("Issue", back_populates="feature")
+    
+    # Sub-features relationship
+    sub_features = relationship("Feature", cascade="all, delete-orphan", back_populates="parent")
+    parent = relationship("Feature", remote_side=[id], back_populates="sub_features")
 
     @property
     def top_level_milestones(self):

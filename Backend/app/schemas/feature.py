@@ -22,6 +22,7 @@ class FeatureBase(BaseModel):
 class FeatureCreate(FeatureBase):
     project_id: UUID4
     owner_id: Optional[UUID4] = None
+    parent_id: Optional[UUID4] = None
 
 
 class FeatureUpdate(FeatureBase):
@@ -29,6 +30,7 @@ class FeatureUpdate(FeatureBase):
     type: Optional[FeatureType] = None
     status: Optional[FeatureStatus] = None
     priority: Optional[IssuePriority] = None
+    parent_id: Optional[UUID4] = None
 
 
 class MilestoneBase(BaseModel):
@@ -61,8 +63,10 @@ class Feature(FeatureBase):
     id: UUID4
     project_id: UUID4
     owner_id: Optional[UUID4] = None
+    parent_id: Optional[UUID4] = None
     health: FeatureHealth
     milestones: List[Milestone] = Field([])
+    sub_features: List['Feature'] = Field([])
     created_at: datetime
     updated_at: datetime
     

@@ -26,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { motion } from 'framer-motion';
 import { MilestoneDialog } from '@/components/dialogs/MilestoneDialog';
 import { CreateIssueDialog } from '@/components/issue/CreateIssueDialog';
+import { CreateSubFeatureDialog } from '@/components/feature/CreateSubFeatureDialog';
 import { useIssueStore } from '@/store/issueStore';
 
 export default function FeatureDetailPage() {
@@ -39,10 +40,11 @@ export default function FeatureDetailPage() {
   
   const [milestoneDialogOpen, setMilestoneDialogOpen] = useState(false);
   const [createIssueOpen, setCreateIssueOpen] = useState(false);
+  const [createSubFeatureOpen, setCreateSubFeatureOpen] = useState(false);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | undefined>();
   const { 
     projects, features, teams, orgMembers, 
-    addIssue, fetchProjects, fetchFeatures, fetchTeams, fetchOrgMembers,
+    addIssue, addFeature, fetchProjects, fetchFeatures, fetchTeams, fetchOrgMembers,
     deleteFeatureMilestone, toggleFeatureMilestone 
   } = useIssueStore();
 
@@ -150,6 +152,15 @@ export default function FeatureDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setCreateSubFeatureOpen(true)}
+            className="gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Sub-feature
+          </Button>
           {isEditing ? (
              <>
                <Button variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
@@ -343,6 +354,18 @@ export default function FeatureDetailPage() {
             setCreateIssueOpen(false);
             setSelectedMilestoneId(undefined);
             toast({ title: 'Issue created' });
+        }}
+      />
+      
+      <CreateSubFeatureDialog 
+        open={createSubFeatureOpen}
+        onOpenChange={setCreateSubFeatureOpen}
+        parentFeature={feature}
+        onAddFeature={async (data) => {
+          await addFeature(data);
+          setCreateSubFeatureOpen(false);
+          toast({ title: 'Sub-feature created' });
+          loadFeature();
         }}
       />
     </div>

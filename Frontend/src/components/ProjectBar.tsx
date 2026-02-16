@@ -174,12 +174,13 @@ export const ProjectBar = {
     );
   },
 
-  Create: ({ open, onOpenChange, teams, selectedTeamId, onAddProject }: { open: boolean; onOpenChange: (open: boolean) => void; projects: any[]; teams: Team[]; orgMembers: any[]; selectedTeamId?: string | null; onAddProject: (project: any) => void; }) => {
+  Create: ({ open, onOpenChange, teams, selectedTeamId, onAddProject, onPlanWithAI }: { open: boolean; onOpenChange: (open: boolean) => void; projects: any[]; teams: Team[]; orgMembers: any[]; selectedTeamId?: string | null; onAddProject: (project: any) => void; onPlanWithAI?: (name: string) => void; }) => {
     // We use the new ProjectDialog here
     return (
       <ProjectDialog 
         open={open} 
         onOpenChange={onOpenChange}
+        onPlanWithAI={onPlanWithAI}
         onSave={(data) => {
           onAddProject({
             ...data,

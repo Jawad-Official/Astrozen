@@ -11,7 +11,10 @@ import {
 import { cn } from '@/lib/utils';
 import { PROJECT_ICONS, LABEL_COLOR_OPTIONS, LABEL_COLORS, PROJECT_STATUS_CONFIG, PROJECT_PRIORITY_OPTIONS } from '@/lib/constants';
 import { ProjectStatus, ProjectPriority } from '@/types/issue';
-import { CaretDown, Check } from '@phosphor-icons/react';
+import { CaretDown, Check, MagicWand } from '@phosphor-icons/react';
+import { aiService } from '@/services/ai.service';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface ProjectDialogProps {
   open: boolean;
@@ -33,15 +36,18 @@ interface ProjectDialogProps {
     status: ProjectStatus;
     priority: ProjectPriority;
   }) => void;
+  onPlanWithAI?: (name: string) => void;
 }
 
-export function ProjectDialog({ open, onOpenChange, project, onSave }: ProjectDialogProps) {
+export function ProjectDialog({ open, onOpenChange, project, onSave, onPlanWithAI }: ProjectDialogProps) {
+  const navigate = useNavigate();
   const [name, setName] = useState(project?.name || '');
   const [icon, setIcon] = useState(project?.icon || '📁');
   const [color, setColor] = useState(project?.color || 'blue');
   const [description, setDescription] = useState(project?.description || '');
   const [status, setStatus] = useState<ProjectStatus>(project?.status || 'planned');
   const [priority, setPriority] = useState<ProjectPriority>(project?.priority || 'none');
+  const [isPlanningWithAI, setIsPlanningWithAI] = useState(false);
   
   const handleSave = () => {
     if (name.trim()) {
@@ -63,6 +69,26 @@ export function ProjectDialog({ open, onOpenChange, project, onSave }: ProjectDi
         setPriority('none');
       }
       onOpenChange(false);
+    }
+  };
+
+  const handlePlanWithAI = async () => {
+    if (onPlanWithAI) {
+      onPlanWithAI(name || "New AI Project");
+      onOpenChange(false);
+    } else {
+      setIsPlanningWithAI(true);
+      try {
+        const res = await aiService.submitIdea(name || "New AI Project");
+        const project_id = res.data.project_id;
+        onOpenChange(false);
+        navigate(`/projects/${project_id}?tab=plans&ideaId=${res.data.id}`);
+        toast.success("AI Architect initialized");
+      } catch (error) {
+        toast.error("Failed to initialize AI Architect");
+      } finally {
+        setIsPlanningWithAI(false);
+      }
     }
   };
 
@@ -94,6 +120,19 @@ export function ProjectDialog({ open, onOpenChange, project, onSave }: ProjectDi
               <span className="opacity-30">/</span>
               <span className="text-primary/60">{project ? 'Edit Project' : 'New Project'}</span>
             </div>
+            
+            {!project && (
+              <Button 
+                size="sm" 
+                variant="glass-primary" 
+                className="h-7 text-[9px] font-black uppercase tracking-widest gap-2 px-3"
+                onClick={handlePlanWithAI}
+                disabled={isPlanningWithAI}
+              >
+                {isPlanningWithAI ? <Check className="animate-pulse" /> : <MagicWand weight="duotone" className="h-3 w-3" />}
+                Plan with AI
+              </Button>
+            )}
           </div>
 
           <div className="flex flex-col md:flex-row h-full min-h-[450px]" onKeyDown={handleKeyDown}>

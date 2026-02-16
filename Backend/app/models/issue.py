@@ -71,6 +71,7 @@ class Issue(Base):
     cycle_id = Column(UUID(as_uuid=True), ForeignKey('cycles.id', ondelete='SET NULL'), nullable=True)
     assignee_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     parent_id = Column(UUID(as_uuid=True), ForeignKey('issues.id', ondelete='CASCADE'), nullable=True) # Sub-issue support
+    blueprint_node_id = Column(String, nullable=True, index=True) # Link to AI Blueprint Node
     
     estimate = Column(Integer, nullable=True)
     due_date = Column(Date, nullable=True)

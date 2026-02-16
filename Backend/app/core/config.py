@@ -33,6 +33,15 @@ class Settings(BaseSettings):
     VERSION: str
     API_V1_PREFIX: str
     
+    # AI & Cloudflare R2
+    OPENROUTER_API_KEY: str | None = None
+    MODEL_NAME: str = "gpt-oss-120b:exacto"
+    
+    R2_ACCOUNT_ID: str | None = None
+    R2_ACCESS_KEY_ID: str | None = None
+    R2_SECRET_ACCESS_KEY: str | None = None
+    R2_BUCKET_NAME: str | None = None
+
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
     
 

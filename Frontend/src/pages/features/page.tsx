@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useIssueStore } from '@/store/issueStore';
 import { useAuth } from '@/context/AuthContext';
 import { hasTeamAccess } from '@/lib/permissions';
-import { FeatureBar } from '@/components/FeatureBar';
+import { FeatureWindow } from '@/components/FeatureWindow';
 import { Button } from '@/components/ui/button';
 import { Plus, MagnifyingGlass, Funnel, Diamond, CalendarBlank, Package, FolderSimple, Lock, ChatTeardropText } from '@phosphor-icons/react';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,10 @@ import { IssuePriority, PRIORITY_CONFIG } from '@/types/issue';
 import { cn } from '@/lib/utils';
 import { MilestoneDialog } from '@/components/dialogs/MilestoneDialog';
 import { CreateIssueDialog } from '@/components/issue/CreateIssueDialog';
+import { FeatureKanban } from '@/components/FeatureKanban';
+import { List, Kanban } from '@phosphor-icons/react';
+import { CreateSubFeatureDialog } from '@/components/feature/CreateSubFeatureDialog';
+import { Feature } from '@/types/feature';
 
 export default function FeaturesPage() {
   const { featureId } = useParams();
@@ -46,6 +50,7 @@ export default function FeaturesPage() {
 
   const { toast } = useToast();
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(featureId || null);
+  const [view, setView] = useState<'list' | 'kanban'>('list');
 
   useEffect(() => {
     if (featureId) {
@@ -58,6 +63,8 @@ export default function FeaturesPage() {
   const [milestoneFeatureId, setMilestoneFeatureId] = useState<string | null>(null);
   
   const [createIssueOpen, setCreateIssueOpen] = useState(false);
+  const [createSubFeatureOpen, setCreateSubFeatureOpen] = useState(false);
+  const [parentFeatureForSub, setParentFeatureForSub] = useState<Feature | null>(null);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | undefined>();
   const { teams: allTeams, addIssue } = useIssueStore(); // addIssue is already in store
   
@@ -75,10 +82,6 @@ export default function FeaturesPage() {
     targetDate: '',
     parentId: '' as string | undefined
   });
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
 
   const filteredFeatures = useMemo(() => {
     if (!hasAccess) return [];
@@ -173,6 +176,25 @@ export default function FeaturesPage() {
               className="h-8 w-64 bg-white/5 border-none pl-9 text-xs focus-visible:ring-1 focus-visible:ring-primary/50"
             />
           </div>
+          <div className="h-4 w-[1px] bg-white/10" />
+          <div className="flex bg-white/5 p-1 rounded-lg gap-1">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className={cn("h-7 w-7 rounded-md", view === 'list' ? "bg-white/10 text-white" : "text-white/40")}
+              onClick={() => setView('list')}
+            >
+              <List size={16} />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className={cn("h-7 w-7 rounded-md", view === 'kanban' ? "bg-white/10 text-white" : "text-white/40")}
+              onClick={() => setView('kanban')}
+            >
+              <Kanban size={16} />
+            </Button>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" className="h-8 gap-2 text-white/40 hover:text-white hover:bg-white/5">
@@ -204,31 +226,45 @@ export default function FeaturesPage() {
       ) : (
         <>
           {/* Main Content */}
-          <FeatureBar.List 
-            features={filteredFeatures}
-            projects={projects}
-            teams={teams}
-            loading={isLoading}
-            onUpdateFeature={updateFeature}
-            onDeleteFeature={deleteFeature}
-            onSelectFeature={setSelectedFeatureId}
-            onAddMilestone={(id, parentId) => {
-              setMilestoneFeatureId(id);
-              setNewMilestone({ name: '', targetDate: '', parentId: parentId || undefined });
-              setMilestoneDialogOpen(true);
-            }}
-            onCreateIssueForMilestone={(featureId, milestoneId) => {
-              setSelectedMilestoneId(milestoneId);
-              setCreateIssueOpen(true);
-            }}
-            onToggleMilestone={toggleFeatureMilestone}
-            onUpdateMilestone={updateFeatureMilestone}
-            onDeleteMilestone={deleteFeatureMilestone}
-            onCreateFeature={() => setCreateDialogOpen(true)}
-          />
+          {view === 'list' ? (
+            <FeatureWindow.List 
+              features={filteredFeatures}
+              projects={projects}
+              teams={teams}
+              loading={isLoading}
+              onUpdateFeature={updateFeature}
+              onDeleteFeature={deleteFeature}
+              onSelectFeature={setSelectedFeatureId}
+              onAddMilestone={(id, parentId) => {
+                setMilestoneFeatureId(id);
+                setNewMilestone({ name: '', targetDate: '', parentId: parentId || undefined });
+                setMilestoneDialogOpen(true);
+              }}
+              onCreateIssueForMilestone={(featureId, milestoneId) => {
+                setSelectedMilestoneId(milestoneId || undefined);
+                setCreateIssueOpen(true);
+              }}
+              onToggleMilestone={toggleFeatureMilestone}
+              onUpdateMilestone={updateFeatureMilestone}
+              onDeleteMilestone={deleteFeatureMilestone}
+              onCreateFeature={() => setCreateDialogOpen(true)}
+              onAddSubFeature={(parent) => {
+                setParentFeatureForSub(parent);
+                setCreateSubFeatureOpen(true);
+              }}
+            />
+          ) : (
+            <FeatureKanban 
+              features={filteredFeatures}
+              projects={projects}
+              teams={teams}
+              onSelectFeature={setSelectedFeatureId}
+              onUpdateFeature={updateFeature}
+            />
+          )}
 
           {/* Feature Detail Sidebar */}
-          <FeatureBar.Detail 
+          <FeatureWindow.Detail 
             featureId={selectedFeatureId}
             features={features}
             projects={projects}
@@ -242,12 +278,17 @@ export default function FeaturesPage() {
               setMilestoneDialogOpen(true);
             }}
             onCreateIssueForMilestone={(featureId, milestoneId) => {
-              setSelectedMilestoneId(milestoneId);
+              setSelectedMilestoneId(milestoneId || undefined);
               setCreateIssueOpen(true);
             }}
             onToggleMilestone={toggleFeatureMilestone}
             onUpdateMilestone={updateFeatureMilestone}
             onDeleteMilestone={deleteFeatureMilestone}
+            onAddFeature={addFeature}
+            onAddSubFeature={(parent) => {
+              setParentFeatureForSub(parent);
+              setCreateSubFeatureOpen(true);
+            }}
           />
         </>
       )}
@@ -359,7 +400,7 @@ export default function FeaturesPage() {
                         <SelectTrigger className="h-11 bg-white/[0.03] border-white/[0.05] hover:bg-white/[0.05] rounded-xl px-4 transition-all focus:ring-1 focus:ring-primary/20 text-xs">
                           <SelectValue>
                             <div className="flex items-center gap-2 text-left">
-                              <FeatureBar.PriorityIcon priority={newFeature.priority} />
+                              <FeatureWindow.PriorityIcon priority={newFeature.priority} />
                               <span className={cn("font-bold uppercase", PRIORITY_CONFIG[newFeature.priority].color)}>
                                 {PRIORITY_CONFIG[newFeature.priority].label}
                               </span>
@@ -370,7 +411,7 @@ export default function FeaturesPage() {
                           {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
                             <SelectItem key={key} value={key} className="text-xs focus:bg-white/5 py-2.5">
                               <div className="flex items-center gap-2">
-                                <FeatureBar.PriorityIcon priority={key as IssuePriority} />
+                                <FeatureWindow.PriorityIcon priority={key as IssuePriority} />
                                 <span className={cn("font-bold uppercase", config.color)}>{config.label}</span>
                               </div>
                             </SelectItem>
@@ -447,6 +488,19 @@ export default function FeaturesPage() {
             toast({ title: 'Issue created' });
         }}
       />
+
+      {parentFeatureForSub && (
+        <CreateSubFeatureDialog 
+          open={createSubFeatureOpen}
+          onOpenChange={setCreateSubFeatureOpen}
+          parentFeature={parentFeatureForSub}
+          onAddFeature={async (data) => {
+            await addFeature(data);
+            setCreateSubFeatureOpen(false);
+            toast({ title: 'Sub-feature created' });
+          }}
+        />
+      )}
     </div>
   );
 }
