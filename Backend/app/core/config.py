@@ -42,7 +42,11 @@ class Settings(BaseSettings):
     R2_SECRET_ACCESS_KEY: str | None = None
     R2_BUCKET_NAME: str | None = None
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
+    model_config = SettingsConfigDict(
+        env_file=(".env", "Backend/.env"), 
+        case_sensitive=True,
+        extra="ignore"
+    )
     
 
 

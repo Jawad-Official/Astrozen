@@ -22,6 +22,7 @@ class IssueService:
         import asyncio
         
         # Inherit context from parent if sub-issue
+        parent_issue = None
         if issue_in.parent_id:
             parent_issue = crud_issue.get(db, id=issue_in.parent_id)
             if parent_issue:
@@ -34,8 +35,11 @@ class IssueService:
         if not team:
             raise ValueError(f"Team with id {issue_in.team_id} not found")
         
-        # Generate identifier using team identifier
-        identifier = crud_issue.get_next_identifier(db, prefix=team.identifier)
+        # Generate identifier
+        if parent_issue:
+            identifier = crud_issue.get_next_subissue_identifier(db, parent_identifier=parent_issue.identifier)
+        else:
+            identifier = crud_issue.get_next_identifier(db, prefix=team.identifier)
         
         # Create issue
         issue = crud_issue.create(

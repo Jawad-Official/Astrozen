@@ -283,7 +283,7 @@ export default function AIGeneratorPage() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto max-w-5xl mx-auto w-full space-y-8 pb-20">
+      <div className="flex-1 overflow-y-auto max-w-7xl mx-auto w-full space-y-8 pb-12">
         
         {/* Phase 1: Input */}
         {phase === 'INPUT' && (
@@ -531,7 +531,7 @@ export default function AIGeneratorPage() {
                     <ArrowsOut size={16} /> Expand Canvas
                   </Button>
                 </CardHeader>
-                <CardContent className="flex justify-center bg-black/20 p-8 rounded-lg overflow-x-auto">
+                <CardContent className="flex justify-center bg-black/20 p-4 sm:p-6 rounded-lg">
                   <Mermaid 
                     chart={blueprint.user_flow_mermaid} 
                     onNodeClick={handleNodeClick}

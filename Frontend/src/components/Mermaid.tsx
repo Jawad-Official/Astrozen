@@ -23,6 +23,11 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, onNodeClick }) => {
         lineColor: '#60a5fa',
         secondaryColor: '#1e293b',
         tertiaryColor: '#0f172a'
+      },
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'basis'
       }
     });
 
@@ -56,6 +61,14 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, onNodeClick }) => {
             if (ref.current) {
               ref.current.innerHTML = result.svg;
               
+              // Force SVG to be responsive
+              const svg = ref.current.querySelector('svg');
+              if (svg) {
+                svg.style.maxWidth = '100%';
+                svg.style.height = 'auto';
+                svg.style.display = 'block';
+              }
+
               // Add cursor pointer to all nodes
               const nodes = ref.current.querySelectorAll('.node');
               nodes.forEach((node: any) => {

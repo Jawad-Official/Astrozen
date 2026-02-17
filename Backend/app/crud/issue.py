@@ -57,6 +57,14 @@ class CRUDIssue(CRUDBase[Issue, IssueCreate, IssueUpdate]):
                 # Rollback to the savepoint on collision
                 db.rollback() 
                 
+                # Handle sub-issue retry
+                parent_id = obj_in_data.get("parent_id")
+                if parent_id:
+                    parent = db.query(Issue).filter(Issue.id == parent_id).first()
+                    if parent:
+                        current_identifier = self.get_next_subissue_identifier(db, parent_identifier=parent.identifier)
+                        continue
+
                 team = db.query(Team).filter(Team.id == obj_in.team_id).first()
                 if not team:
                     raise ValueError(f"Team {obj_in.team_id} not found during retry")
@@ -98,8 +106,10 @@ class CRUDIssue(CRUDBase[Issue, IssueCreate, IssueUpdate]):
         # e.g., 'JAW-10' (len 6) should be > 'JAW-9' (len 5)
         
         pattern = f"{prefix}-%"
+        # Filter out sub-issues (containing -S) to get the true next parent ID
         max_id = db.query(Issue.identifier).filter(
-            Issue.identifier.like(pattern)
+            Issue.identifier.like(pattern),
+            Issue.identifier.not_like("%-S%")
         ).order_by(
             func.length(Issue.identifier).desc(),
             Issue.identifier.desc()
@@ -123,6 +133,34 @@ class CRUDIssue(CRUDBase[Issue, IssueCreate, IssueUpdate]):
         except (ValueError, IndexError, AttributeError):
             # Fallback if parsing fails
             return f"{prefix}-1"
+
+    def get_next_subissue_identifier(self, db: Session, parent_identifier: str) -> str:
+        """Get the next sub-issue identifier for a given parent (e.g., ENG-1-S1, ENG-1-S2)"""
+        pattern = f"{parent_identifier}-S%"
+        max_id = db.query(Issue.identifier).filter(
+            Issue.identifier.like(pattern)
+        ).order_by(
+            func.length(Issue.identifier).desc(),
+            Issue.identifier.desc()
+        ).first()
+        
+        if not max_id:
+            return f"{parent_identifier}-S1"
+            
+        try:
+            if hasattr(max_id, "_mapping"):
+                id_str = max_id[0]
+            elif isinstance(max_id, (tuple, list)):
+                id_str = max_id[0]
+            else:
+                id_str = str(max_id)
+                
+            # Extract number from parent_id-SN
+            current_num_str = id_str.rsplit("-S", 1)[1]
+            current_num = int(current_num_str)
+            return f"{parent_identifier}-S{current_num + 1}"
+        except (ValueError, IndexError, AttributeError):
+            return f"{parent_identifier}-S1"
     
     def get_filtered(
         self,

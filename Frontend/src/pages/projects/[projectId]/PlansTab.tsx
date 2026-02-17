@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   MagicWand,
   ShieldCheck,
@@ -162,26 +162,47 @@ const DOC_INFO: Record<string, { label: string; icon: any; summary: string; colo
   }
 };
 
+// Constants for Blueprint Canvas
+const GRID_SIZE = 20;
+const NODE_WIDTH = 240;
+const NODE_HEIGHT = 160;
+
 // Blueprint Canvas Component
 const BlueprintCanvas = ({ 
   nodes = [], 
   edges = [], 
   onNodeClick,
+  onCanvasClick,
+  onNodesChange,
   className
 }: { 
   nodes?: BlueprintNode[], 
   edges?: BlueprintEdge[],
   onNodeClick?: (node: BlueprintNode) => void,
+  onCanvasClick?: () => void,
+  onNodesChange?: (nodes: BlueprintNode[]) => void,
   className?: string
-}) => {
-  const containerRef = useRef<HTMLDivElement>(null);
+}) => {  const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 }); 
+  const isCanvasDragging = useRef(false);
 
-  // Node dimensions
-  const NODE_WIDTH = 240;
-  const NODE_HEIGHT = 160; // Approximate height with header + subtasks
+  // Internal nodes state for dragging
+  const [internalNodes, setInternalNodes] = useState<BlueprintNode[]>(nodes);
+  
+  // Sync props to state when props change
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!draggingNodeId && nodes.length > 0) {
+        setInternalNodes(nodes);
+    }
+  }, [nodes, draggingNodeId]);
+
+  // Node Dragging References
+  const dragStartRef = useRef<{ x: number, y: number } | null>(null);
+  const nodeStartRef = useRef<{ x: number, y: number } | null>(null);
+  const canvasStartRef = useRef<{ x: number, y: number } | null>(null);
+  const canvasOriginRef = useRef<{ x: number, y: number } | null>(null);
 
   // Calculate connection point between two nodes
   const getConnectionPoints = (from: BlueprintNode, to: BlueprintNode) => {
@@ -190,127 +211,220 @@ const BlueprintCanvas = ({
     const toCenterX = to.x + NODE_WIDTH / 2;
     const toCenterY = to.y + NODE_HEIGHT / 2;
 
-    // Determine which edge to connect from/to based on relative positions
     const dx = toCenterX - fromCenterX;
     const dy = toCenterY - fromCenterY;
 
     let x1, y1, x2, y2;
 
-    // From node connection point
     if (Math.abs(dx) > Math.abs(dy)) {
-      // Horizontal connection
-      if (dx > 0) {
-        // To the right
-        x1 = from.x + NODE_WIDTH;
-        y1 = fromCenterY;
-      } else {
-        // To the left
-        x1 = from.x;
-        y1 = fromCenterY;
-      }
+      x1 = dx > 0 ? from.x + NODE_WIDTH : from.x;
+      y1 = fromCenterY;
+      x2 = dx > 0 ? to.x : to.x + NODE_WIDTH;
+      y2 = toCenterY;
     } else {
-      // Vertical connection
-      if (dy > 0) {
-        // Below
-        x1 = fromCenterX;
-        y1 = from.y + NODE_HEIGHT;
-      } else {
-        // Above
-        x1 = fromCenterX;
-        y1 = from.y;
-      }
-    }
-
-    // To node connection point
-    if (Math.abs(dx) > Math.abs(dy)) {
-      // Horizontal connection
-      if (dx > 0) {
-        // From the left
-        x2 = to.x;
-        y2 = toCenterY;
-      } else {
-        // From the right
-        x2 = to.x + NODE_WIDTH;
-        y2 = toCenterY;
-      }
-    } else {
-      // Vertical connection
-      if (dy > 0) {
-        // From above
-        x2 = toCenterX;
-        y2 = to.y;
-      } else {
-        // From below
-        x2 = toCenterX;
-        y2 = to.y + NODE_HEIGHT;
-      }
+      x1 = fromCenterX;
+      y1 = dy > 0 ? from.y + NODE_HEIGHT : from.y;
+      x2 = toCenterX;
+      y2 = dy > 0 ? to.y : to.y + NODE_HEIGHT;
     }
 
     return { x1, y1, x2, y2 };
   };
 
-  // If no nodes, show placeholder
-  if (!nodes || nodes.length === 0) {
-    return (
-      <div className={cn("flex flex-col items-center justify-center h-[500px] text-white/20 bg-black/40 rounded-xl border border-white/5", className)}>
-        <Layout size={48} weight="thin" />
-        <p className="mt-4 text-sm">No blueprint nodes generated yet.</p>
-      </div>
-    );
-  }
+  const handleNodePointerDown = (e: React.PointerEvent, nodeId: string) => {
+    e.stopPropagation(); 
+    const node = internalNodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    setDraggingNodeId(nodeId);
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    nodeStartRef.current = { x: node.x, y: node.y };
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+  };
+
+  const handleCanvasPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    
+    isCanvasDragging.current = true;
+    canvasStartRef.current = { x: e.clientX, y: e.clientY };
+    canvasOriginRef.current = { ...position };
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+  };
+
+  useEffect(() => {
+    const handleGlobalPointerMove = (e: PointerEvent) => {
+      // Handle Node Drag
+      if (draggingNodeId && dragStartRef.current && nodeStartRef.current) {
+        const dx = (e.clientX - dragStartRef.current.x) / scale;
+        const dy = (e.clientY - dragStartRef.current.y) / scale;
+
+        const rawX = nodeStartRef.current.x + dx;
+        const rawY = nodeStartRef.current.y + dy;
+        
+        // Grid Snapping
+        const newX = Math.round(rawX / GRID_SIZE) * GRID_SIZE;
+        const newY = Math.round(rawY / GRID_SIZE) * GRID_SIZE;
+
+        setInternalNodes(prev => prev.map(n => n.id === draggingNodeId ? { ...n, x: newX, y: newY } : n));
+        return;
+      }
+
+      // Handle Canvas Pan
+      if (isCanvasDragging.current && canvasStartRef.current && canvasOriginRef.current) {
+        const dx = (e.clientX - canvasStartRef.current.x);
+        const dy = (e.clientY - canvasStartRef.current.y);
+        
+        const adjustedDx = dx / scale;
+        const adjustedDy = dy / scale;
+
+        setPosition({
+            x: canvasOriginRef.current.x + adjustedDx,
+            y: canvasOriginRef.current.y + adjustedDy
+        });
+      }
+    };
+
+    const handleGlobalPointerUp = (e: PointerEvent) => {
+      if (draggingNodeId) {
+        // Save only on pointer up to minimize backend calls
+        setInternalNodes(current => {
+            if (onNodesChange) onNodesChange(current);
+            return current;
+        });
+        setDraggingNodeId(null);
+      }
+      
+      if (isCanvasDragging.current) {
+        isCanvasDragging.current = false;
+      }
+    };
+
+    window.addEventListener('pointermove', handleGlobalPointerMove);
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+
+    return () => {
+      window.removeEventListener('pointermove', handleGlobalPointerMove);
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+    };
+  }, [draggingNodeId, scale, onNodesChange]);
 
   const handleWheel = (e: React.WheelEvent) => {
-    if (e.ctrlKey) {
+    if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
-      const newScale = Math.min(Math.max(0.5, scale - e.deltaY * 0.001), 2);
+      const newScale = Math.min(Math.max(0.2, scale - e.deltaY * 0.001), 3);
       setScale(newScale);
     }
   };
 
+  const fitToView = useCallback(() => {
+    if (internalNodes.length === 0 || !containerRef.current) return;
+    
+    const containerWidth = containerRef.current.clientWidth;
+    const containerHeight = containerRef.current.clientHeight;
+
+    const minX = Math.min(...internalNodes.map(n => n.x));
+    const maxX = Math.max(...internalNodes.map(n => n.x + NODE_WIDTH));
+    const minY = Math.min(...internalNodes.map(n => n.y));
+    const maxY = Math.max(...internalNodes.map(n => n.y + NODE_HEIGHT));
+
+    const contentWidth = maxX - minX;
+    const contentHeight = maxY - minY;
+
+    const padding = 60;
+    const availableWidth = containerWidth - padding * 2;
+    const availableHeight = containerHeight - padding * 2;
+
+    const scaleX = availableWidth / contentWidth;
+    const scaleY = availableHeight / contentHeight;
+    const newScale = Math.min(Math.max(0.2, Math.min(scaleX, scaleY)), 1.2);
+
+    setScale(newScale);
+    
+    const centeredX = (containerWidth / newScale - contentWidth) / 2 - minX;
+    const centeredY = (containerHeight / newScale - contentHeight) / 2 - minY;
+    
+    setPosition({ x: centeredX, y: centeredY });
+  }, [internalNodes]);
+
+  const [hasFitted, setHasFitted] = useState(false);
+  useEffect(() => {
+    if (internalNodes.length > 0 && !hasFitted) {
+      fitToView();
+      setHasFitted(true);
+    }
+  }, [internalNodes, hasFitted, fitToView]);
+
+  useEffect(() => {
+    if (internalNodes.length === 0 && hasFitted) {
+      setHasFitted(false);
+    }
+  }, [internalNodes.length, hasFitted]);
+
+  if (!internalNodes || internalNodes.length === 0) {
+    return (
+      <div 
+        className={cn("flex flex-col items-center justify-center h-[500px] text-white/20 bg-black/40 rounded-xl border border-white/5 cursor-pointer hover:bg-white/5 transition-colors", className)}
+        onClick={onCanvasClick}
+      >
+        <Layout size={48} weight="thin" />
+        <p className="mt-4 text-sm font-bold uppercase tracking-widest">No blueprint generated</p>
+        <p className="text-[10px] mt-2 text-white/10 italic">Click to open full view</p>
+      </div>
+    );
+  }
+
   return (
     <div 
-      className={cn("relative w-full h-[400px] sm:h-[600px] bg-[#050505] overflow-hidden rounded-xl border border-white/10 group cursor-grab active:cursor-grabbing shadow-inner", className)}
+      className={cn("relative w-full h-full bg-[#050505] overflow-hidden rounded-xl border border-white/10 group cursor-grab active:cursor-grabbing shadow-inner", className)}
       ref={containerRef}
       onWheel={handleWheel}
+      style={{
+        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)',
+        backgroundSize: `${GRID_SIZE * scale}px ${GRID_SIZE * scale}px`,
+        backgroundPosition: `${position.x * scale}px ${position.y * scale}px`
+      }}
     >
-      {/* Grid Background */}
-      <div 
-        className="absolute inset-0 opacity-20 pointer-events-none"
-        style={{
-          backgroundImage: 'radial-gradient(circle, #333 1px, transparent 1px)',
-          backgroundSize: `${20 * scale}px ${20 * scale}px`,
-          transform: `translate(${position.x}px, ${position.y}px)`
-        }}
-      />
-
       {/* Controls */}
-      <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-2 bg-black/80 backdrop-blur-md p-2 rounded-lg border border-white/10 shadow-xl">
-        <Button size="icon" variant="ghost" className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/10" onClick={() => setScale(s => Math.min(2, s + 0.1))}>
-          <MagnifyingGlassPlus />
+      <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 z-50 flex flex-row sm:flex-col gap-2 bg-black/80 backdrop-blur-md p-2 rounded-lg border border-white/10 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <Button size="icon" variant="ghost" className="h-9 w-9 sm:h-8 sm:w-8 text-white/60 hover:text-white hover:bg-white/10" onClick={() => setScale(s => Math.min(3, s + 0.2))}>
+          <MagnifyingGlassPlus size={18} className="sm:hidden" />
+          <MagnifyingGlassPlus size={16} className="hidden sm:block" />
         </Button>
-        <Button size="icon" variant="ghost" className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/10" onClick={() => setScale(1)}>
-          <ArrowsOutSimple />
+        <Button size="icon" variant="ghost" className="h-9 w-9 sm:h-8 sm:w-8 text-white/60 hover:text-white hover:bg-white/10" onClick={fitToView}>
+          <ArrowsOutSimple size={18} className="sm:hidden" />
+          <ArrowsOutSimple size={16} className="hidden sm:block" />
         </Button>
-        <Button size="icon" variant="ghost" className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/10" onClick={() => setScale(s => Math.max(0.5, s - 0.1))}>
-          <MagnifyingGlassMinus />
+        <Button size="icon" variant="ghost" className="h-9 w-9 sm:h-8 sm:w-8 text-white/60 hover:text-white hover:bg-white/10" onClick={() => setScale(s => Math.max(0.2, s - 0.2))}>
+          <MagnifyingGlassMinus size={18} className="sm:hidden" />
+          <MagnifyingGlassMinus size={16} className="hidden sm:block" />
         </Button>
       </div>
 
       {/* Canvas Layer with pan/zoom */}
       <motion.div
-        className="w-full h-full origin-top-left"
-        drag
-        dragMomentum={false}
-        onDragStart={() => setIsDragging(true)}
-        onDragEnd={() => setIsDragging(false)}
-        style={{ scale, x: position.x, y: position.y }}
+        className="w-full h-full origin-top-left will-change-transform"
+        onPointerDown={handleCanvasPointerDown}
+        onClick={(e) => {
+            if (!isCanvasDragging.current && !draggingNodeId && onCanvasClick) {
+                onCanvasClick();
+            }
+        }}
+        style={{ 
+            scale,
+            transform: `translate3d(0,0,0)` // Force GPU layer
+        }}
       >
-        <div className="relative w-[2000px] h-[2000px]">
-           {/* Edges - SVG layer that moves with the canvas */}
+        <div 
+            className="relative w-[10000px] h-[10000px]"
+            style={{ 
+                transform: `translate3d(${position.x}px, ${position.y}px, 0)` 
+            }}
+        >
+           {/* Edges - SVG layer */}
            <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible" style={{ zIndex: 0 }}>
             {edges.map((edge, i) => {
-              const fromNode = nodes.find(n => n.id === edge.from);
-              const toNode = nodes.find(n => n.id === edge.to);
+              const fromNode = internalNodes.find(n => n.id === edge.from);
+              const toNode = internalNodes.find(n => n.id === edge.to);
               if (!fromNode || !toNode) return null;
 
               const { x1, y1, x2, y2 } = getConnectionPoints(fromNode, toNode);
@@ -326,31 +440,36 @@ const BlueprintCanvas = ({
                     strokeWidth="2" 
                     className="opacity-40"
                   />
-                  {/* Arrow head */}
                   <circle cx={x2} cy={y2} r="4" fill="#4a5568" className="opacity-60" />
                 </g>
               );
             })}
           </svg>
 
-          {/* Nodes - positioned absolutely but not draggable individually */}
-          {nodes.map((node) => (
+          {/* Nodes */}
+          {internalNodes.map((node) => (
             <div
               key={node.id}
-              className="absolute w-[240px] bg-[#0A0A0A]/90 backdrop-blur-md border border-white/10 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.5)] overflow-hidden hover:border-primary/30 hover:shadow-primary/5 transition-all cursor-pointer hover:scale-[1.02]"
+              className={cn(
+                  "absolute w-[240px] bg-[#0A0A0A]/90 backdrop-blur-md border border-white/10 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.5)] overflow-hidden hover:border-primary/30 hover:shadow-primary/5 will-change-transform",
+                  draggingNodeId === node.id ? "z-[100] border-primary/50 shadow-2xl scale-[1.02] cursor-grabbing" : "z-10 cursor-grab transition-all duration-200"
+              )}
               style={{ 
-                left: node.x, 
-                top: node.y,
-                zIndex: 1
+                transform: `translate3d(${node.x}px, ${node.y}px, 0)`,
+                top: 0,
+                left: 0,
+                touchAction: 'none'
               }}
+              onPointerDown={(e) => handleNodePointerDown(e, node.id)}
               onClick={(e) => {
                 e.stopPropagation();
-                onNodeClick?.(node);
+                if (!isCanvasDragging.current && !draggingNodeId) {
+                    onNodeClick?.(node);
+                }
               }}
-              onPointerDown={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="p-4 border-b border-white/5 bg-white/[0.02]">
+              <div className="p-4 border-b border-white/5 bg-white/[0.02] pointer-events-none select-none">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <div className={cn(
@@ -391,7 +510,7 @@ const BlueprintCanvas = ({
 
               {/* Subtasks */}
               {node.subtasks && node.subtasks.length > 0 && (
-                <div className="p-3 space-y-2 bg-black/20">
+                <div className="p-3 space-y-2 bg-black/20 pointer-events-none select-none">
                   {node.subtasks.slice(0, 4).map((task, i) => (
                     <div key={i} className="flex items-center gap-2.5 group">
                       <div className={cn(
@@ -417,7 +536,6 @@ const BlueprintCanvas = ({
     </div>
   );
 };
-
 
 interface PlansTabProps {
   projectId: string;
@@ -592,22 +710,14 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
             }));
           setDocs(fetchedDocs);
 
-          const blueprintAsset = data.assets.find((a: any) => a.asset_type === 'DIAGRAM_USER_FLOW');
-          const kanbanAsset = data.assets.find((a: any) => a.asset_type === 'DIAGRAM_KANBAN');
-
-          if (blueprintAsset && kanbanAsset) {
-            // Try to parse nodes from blueprint data or fallback
-            let nodes: BlueprintNode[] = [];
-            let edges: BlueprintEdge[] = [];
-            
-            if (res.data.blueprint) {
-                nodes = res.data.blueprint.nodes || [];
-                edges = res.data.blueprint.edges || [];
-            } 
-            
-            // If backend returned empty nodes (legacy data), provide a detailed mock
-            if (nodes.length === 0) {
-                nodes = [
+          // Try to set blueprint from backend response first (it aggregates data)
+          if (data.blueprint && (data.blueprint.nodes || data.blueprint.kanban_features || data.blueprint.user_flow_mermaid)) {
+             let nodes = data.blueprint.nodes || [];
+             let edges = data.blueprint.edges || [];
+             
+             // Legacy Fallback: If we have mermaid but no nodes, generate mocks so canvas isn't empty
+             if (nodes.length === 0 && data.blueprint.user_flow_mermaid) {
+                 nodes = [
                   { id: '1', label: 'Landing Page', type: 'entry', x: 50, y: 50, completion: 100, subtasks: ['Hero Section', 'Features', 'Pricing'] },
                   { id: '2', label: 'Web App', type: 'main', x: 250, y: 50, completion: 40, subtasks: ['Dashboard', 'Settings', 'Profile'] },
                   { id: '3', label: 'API Gateway', type: 'service', x: 250, y: 250, completion: 60, subtasks: ['Routing', 'Rate Limiting', 'Auth Middleware'] },
@@ -629,14 +739,63 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                     { from: '5', to: '8' },
                     { from: '5', to: '9' }
                 ];
-            }
+             }
 
-            setBlueprint({
-                user_flow_mermaid: blueprintAsset.content,
-                kanban_features: JSON.parse(kanbanAsset.content || '[]'),
-                nodes,
-                edges
-            });
+             setBlueprint({
+                user_flow_mermaid: data.blueprint.user_flow_mermaid || '',
+                kanban_features: data.blueprint.kanban_features || [],
+                nodes: nodes,
+                edges: edges
+             });
+          } else {
+              // Fallback: Parsing from assets manually (Legacy)
+              const blueprintAsset = data.assets.find((a: any) => a.asset_type === 'DIAGRAM_USER_FLOW');
+              const kanbanAsset = data.assets.find((a: any) => a.asset_type === 'DIAGRAM_KANBAN');
+
+              if (blueprintAsset) {
+                let nodes: BlueprintNode[] = [];
+                let edges: BlueprintEdge[] = [];
+                let mermaid = blueprintAsset.content;
+
+                try {
+                    // Try parsing content as JSON (new format)
+                    const parsed = JSON.parse(blueprintAsset.content);
+                    if (parsed.nodes) {
+                        nodes = parsed.nodes;
+                        edges = parsed.edges || [];
+                        mermaid = parsed.user_flow_mermaid || '';
+                    }
+                } catch (e) {
+                    // Content is raw mermaid string
+                }
+                
+                // Mock nodes if missing but we have mermaid (unlikely in new flow)
+                if (nodes.length === 0 && mermaid) {
+                     nodes = [
+                      { id: '1', label: 'Landing Page', type: 'entry', x: 50, y: 50, completion: 0, subtasks: [] },
+                      { id: '2', label: 'App Core', type: 'main', x: 300, y: 50, completion: 0, subtasks: [] }
+                    ];
+                    edges = [{ from: '1', to: '2' }];
+                }
+
+                let kanbanFeatures = [];
+                if (kanbanAsset) {
+                    try {
+                        kanbanFeatures = JSON.parse(kanbanAsset.content || '[]');
+                    } catch (e) {
+                        // Ignore
+                    }
+                }
+
+                if (nodes.length > 0) {
+                    setBlueprint({
+                        user_flow_mermaid: mermaid,
+                        kanban_features: kanbanFeatures,
+                        nodes,
+                        edges
+                    });
+                }
+              }
           }
       }
     } catch (error) {
@@ -667,6 +826,21 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
       toast.error("Failed to submit project description");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveBlueprint = async (updatedNodes: BlueprintNode[]) => {
+    if (!ideaId || !blueprint) return;
+    try {
+      await aiService.saveBlueprint(ideaId, {
+        nodes: updatedNodes,
+        edges: blueprint.edges,
+        user_flow_mermaid: blueprint.user_flow_mermaid
+      });
+      // Update local state to keep in sync
+      setBlueprint({ ...blueprint, nodes: updatedNodes });
+    } catch (error) {
+      console.error("Failed to save blueprint positions", error);
     }
   };
 
@@ -904,45 +1078,45 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
     return (
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-           <div className="flex items-center gap-4">
-             <div className="h-10 w-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/10">
+           <div className="flex items-center gap-3 sm:gap-4">
+             <div className="h-10 w-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/10 shrink-0">
                <ShieldCheck size={20} weight="bold" />
              </div>
              <div>
-                <h2 className="text-xl font-bold tracking-tight text-white/90">Architecture Validation</h2>
-                {isAccepted && <p className="text-xs text-white/40 font-medium">Validation complete & approved</p>}
+                <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white/90">Architecture Validation</h2>
+                {isAccepted && <p className="text-[10px] sm:text-xs text-white/40 font-medium uppercase tracking-wider">Analysis complete & approved</p>}
              </div>
            </div>
            
            {/* Score Display */}
-           <div className="flex items-center gap-4 bg-white/5 px-4 py-2 rounded-xl border border-white/5 self-start sm:self-auto">
+           <div className="flex items-center gap-4 bg-white/5 px-3 sm:px-4 py-2 rounded-xl border border-white/5 w-fit sm:self-auto">
               <div className="text-right">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-white/30">Feasibility Score</div>
+                  <div className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-white/30">Feasibility</div>
                   <div className={cn(
-                      "text-2xl font-black",
+                      "text-xl sm:text-2xl font-black leading-tight",
                       score >= 80 ? "text-emerald-400" : score >= 60 ? "text-yellow-400" : "text-red-400"
                   )}>
-                      {scoreOutOf10}<span className="text-sm text-white/20 font-bold">/10</span>
+                      {scoreOutOf10}<span className="text-xs sm:text-sm text-white/20 font-bold">/10</span>
                   </div>
               </div>
-              <div className="h-10 w-10 relative flex items-center justify-center">
+              <div className="h-8 w-8 sm:h-10 sm:w-10 relative flex items-center justify-center shrink-0">
                   <svg className="h-full w-full -rotate-90">
-                      <circle cx="20" cy="20" r="16" fill="none" stroke="currentColor" strokeWidth="4" className="text-white/10" />
-                      <circle cx="20" cy="20" r="16" fill="none" stroke="currentColor" strokeWidth="4" className={cn(score >= 80 ? "text-emerald-400" : score >= 60 ? "text-yellow-400" : "text-red-400")} strokeDasharray="100" strokeDashoffset={100 - score} />
+                      <circle cx="50%" cy="50%" r="40%" fill="none" stroke="currentColor" strokeWidth="4" className="text-white/10" />
+                      <circle cx="50%" cy="50%" r="40%" fill="none" stroke="currentColor" strokeWidth="4" className={cn(score >= 80 ? "text-emerald-400" : score >= 60 ? "text-yellow-400" : "text-red-400")} strokeDasharray="100" strokeDashoffset={100 - score} />
                   </svg>
               </div>
            </div>
         </div>
 
         {/* Validation Content (Simplified if accepted, Detailed if editing) */}
-        <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4", isAccepted && "opacity-80 grayscale-[0.3]")}>
+        <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4", isAccepted && "opacity-80 grayscale-[0.3]")}>
            {validationReport.market_feasibility.pillars.map((pillar) => {
               const pillarScore = pillar.status === 'Strong' ? 9 : pillar.status === 'Moderate' ? 7 : pillar.status === 'Weak' ? 4 : 2;
               return (
-              <Card key={pillar.name} className="border-white/5 bg-white/5 backdrop-blur-sm relative overflow-hidden">
-                <CardHeader className="py-3">
+              <Card key={pillar.name} className="border-white/5 bg-white/5 backdrop-blur-sm relative overflow-hidden flex flex-col">
+                <CardHeader className="py-2.5 sm:py-3 p-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-white/40">{pillar.name}</span>
+                    <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-white/40">{pillar.name}</span>
                     <div className="flex items-center gap-2">
                         <span className={cn(
                             "text-[10px] font-bold",
@@ -950,15 +1124,17 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                         )}>
                             {pillarScore}/10
                         </span>
-                        <Badge variant={pillar.status === 'Strong' ? 'default' : 'secondary'} className="h-5 text-[9px]">{pillar.status}</Badge>
+                        <Badge variant={pillar.status === 'Strong' ? 'default' : 'secondary'} className="h-4 sm:h-5 text-[8px] sm:text-[9px] px-1.5">{pillar.status}</Badge>
                     </div>
                   </div>
                 </CardHeader>
                 {!isAccepted && (
-                  <CardContent className="py-2 text-xs text-muted-foreground">{pillar.reason}</CardContent>
+                  <CardContent className="p-4 pt-0 sm:pt-0 text-[11px] sm:text-xs text-muted-foreground leading-relaxed">
+                    {pillar.reason}
+                  </CardContent>
                 )}
                 {/* Score Bar */}
-                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-white/5">
+                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-white/5 mt-auto">
                     <div 
                         className={cn("h-full", pillarScore >= 8 ? "bg-emerald-500" : pillarScore >= 6 ? "bg-yellow-500" : "bg-red-500")} 
                         style={{ width: `${pillarScore * 10}%` }} 
@@ -969,8 +1145,8 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
         </div>
 
         {!isAccepted && (
-            <div className="flex justify-end pt-4">
-               <Button onClick={handleGenerateBlueprint} className="bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20">
+            <div className="flex justify-end pt-2 sm:pt-4">
+               <Button onClick={handleGenerateBlueprint} className="w-full sm:w-auto bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20">
                   Accept & Generate Blueprint <ArrowRight className="ml-2" />
                </Button>
             </div>
@@ -980,7 +1156,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#090909]">
+    <div className="flex flex-col min-h-full bg-[#090909]">
       <input 
         type="file" 
         ref={fileInputRef} 
@@ -989,48 +1165,48 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
         accept=".md,.txt,.pdf,.docx" 
       />
 
-      <ScrollArea className="flex-1">
-        <div className="max-w-7xl mx-auto w-full p-4 sm:p-8 space-y-8 sm:space-y-16 pb-32">
+      <div className="flex-1">
+        <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 md:p-8 space-y-8 sm:space-y-12 pb-20">
           
           {/* 1. Input / Clarification Section (Only if no Idea or Clarification Needed) */}
           {!validationReport && !blueprint && (
-             <div className="min-h-[400px]">
+             <div className="min-h-[300px] sm:min-h-[400px]">
                 {phase === 'CLARIFICATION' ? (
                    <Card className="border-primary/20 bg-primary/5">
-                      <CardHeader>
-                         <CardTitle>Clarification Needed</CardTitle>
-                         <CardDescription>Question {currentQuestionIndex + 1} of {questions.length}</CardDescription>
+                      <CardHeader className="p-4 sm:p-6">
+                         <CardTitle className="text-lg sm:text-xl">Clarification Needed</CardTitle>
+                         <CardDescription className="text-xs sm:text-sm">Question {currentQuestionIndex + 1} of {questions.length}</CardDescription>
                       </CardHeader>
-                      <CardContent className="space-y-4">
-                         <h3 className="text-lg font-semibold">{questions[currentQuestionIndex]?.question}</h3>
+                      <CardContent className="space-y-4 p-4 sm:p-6 pt-0 sm:pt-0">
+                         <h3 className="text-base sm:text-lg font-semibold">{questions[currentQuestionIndex]?.question}</h3>
                          <Textarea 
                             value={aiSuggestion || ''} 
                             onChange={e => setAiSuggestion(e.target.value)} 
-                            className="bg-black/20"
+                            className="bg-black/20 text-sm sm:text-base min-h-[120px]"
                             placeholder="Your answer..."
                          />
-                         <div className="flex justify-between">
-                            <Button variant="ghost" onClick={handleSuggestAnswer} disabled={loading}>Suggest Answer</Button>
-                            <Button onClick={() => handleAnswerQuestion(aiSuggestion || '')} disabled={!aiSuggestion}>Next</Button>
+                         <div className="flex flex-col sm:flex-row gap-3 sm:justify-between">
+                            <Button variant="ghost" size="sm" onClick={handleSuggestAnswer} disabled={loading} className="w-full sm:w-auto order-2 sm:order-1">Suggest Answer</Button>
+                            <Button onClick={() => handleAnswerQuestion(aiSuggestion || '')} disabled={!aiSuggestion} className="w-full sm:w-auto order-1 sm:order-2">Next</Button>
                          </div>
                       </CardContent>
                    </Card>
                 ) : (
                    <Card className="border-white/5 bg-white/5">
-                      <CardHeader>
-                         <CardTitle>Describe your Idea</CardTitle>
-                         <CardDescription>Start by describing what you want to build.</CardDescription>
+                      <CardHeader className="p-4 sm:p-6">
+                         <CardTitle className="text-lg sm:text-xl">Describe your Idea</CardTitle>
+                         <CardDescription className="text-xs sm:text-sm">Start by describing what you want to build.</CardDescription>
                       </CardHeader>
-                      <CardContent>
+                      <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
                          <Textarea 
                             value={rawInput} 
                             onChange={e => setRawInput(e.target.value)} 
-                            className="min-h-[200px] bg-black/20 text-lg"
+                            className="min-h-[150px] sm:min-h-[200px] bg-black/20 text-base sm:text-lg"
                             placeholder="E.g., A marketplace for vintage watches..."
                          />
                       </CardContent>
-                      <CardFooter>
-                         <Button onClick={handleSubmitIdea} disabled={loading || !rawInput.trim()} className="w-full bg-primary font-bold">
+                      <CardFooter className="p-4 sm:p-6">
+                         <Button onClick={handleSubmitIdea} disabled={loading || !rawInput.trim()} className="w-full bg-primary font-bold h-10 sm:h-12">
                             {loading ? <ArrowClockwise className="animate-spin mr-2" /> : <MagicWand className="mr-2" />}
                             Start Project Architecture
                          </Button>
@@ -1045,15 +1221,16 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
 
           {/* 3. Blueprint Section (Middle) */}
           {blueprint && (
-            <div className="space-y-6 animate-in fade-in duration-700">
-               <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                 <div className="flex items-center gap-4">
-                   <div className="h-10 w-10 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center shadow-lg shadow-blue-500/10">
-                     <Layout size={20} weight="bold" />
+            <div className="space-y-6 animate-in fade-in duration-700 pt-4 sm:pt-0">
+               <div className="flex flex-row items-center justify-between border-b border-white/5 pb-4">
+                 <div className="flex items-center gap-3 sm:gap-4">
+                   <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center shadow-lg shadow-blue-500/10 shrink-0">
+                     <Layout size={18} weight="bold" className="sm:hidden" />
+                     <Layout size={20} weight="bold" className="hidden sm:block" />
                    </div>
                    <div>
-                      <h2 className="text-xl font-bold tracking-tight text-white/90">Visual Blueprint</h2>
-                      <p className="text-xs text-white/40 font-medium">Interactive architecture map</p>
+                      <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white/90">Visual Blueprint</h2>
+                      <p className="text-[10px] sm:text-xs text-white/40 font-medium">Interactive architecture map</p>
                    </div>
                  </div>
                  <TooltipProvider delayDuration={0}>
@@ -1066,8 +1243,8 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                                 onClick={handleGenerateBlueprint}
                                 disabled={loading}
                             >
-                                {loading ? <ArrowClockwise className="animate-spin" /> : <ArrowClockwise />}
-                                <span className="text-xs font-bold uppercase tracking-widest">Regenerate</span>
+                                <ArrowClockwise className={cn(loading && "animate-spin")} size={14} />
+                                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest hidden sm:inline">Regenerate</span>
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent side="left" className="bg-zinc-900 border-white/10 text-[10px] font-bold uppercase tracking-widest">
@@ -1078,22 +1255,26 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                </div>
                
                <BlueprintCanvas 
+                  className="h-[400px] sm:h-[600px]"
                   nodes={blueprint.nodes} 
                   edges={blueprint.edges}
                   onNodeClick={(node) => {
-                    console.log('Node clicked:', node);
                     setSelectedNode(node);
-                    console.log('Selected node set, opening modal');
                     setBlueprintModalOpen(true);
                   }}
+                  onCanvasClick={() => {
+                    setSelectedNode(null); // Ensure no node is pre-selected when just opening
+                    setBlueprintModalOpen(true);
+                  }}
+                  onNodesChange={handleSaveBlueprint}
                 />
                
                {/* Kanban Preview */}
-               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6">
                  {blueprint.kanban_features.slice(0, 4).map((f, i) => (
-                    <div key={i} className="p-4 rounded-lg bg-white/5 border border-white/5">
-                       <div className="text-xs font-bold text-white/60 mb-1">{f.title}</div>
-                       <Badge variant="secondary" className="text-[9px]">{f.status}</Badge>
+                    <div key={i} className="p-3 sm:p-4 rounded-lg bg-white/5 border border-white/5 flex flex-col justify-between gap-2">
+                       <div className="text-[11px] sm:text-xs font-bold text-white/60 line-clamp-2">{f.title}</div>
+                       <Badge variant="secondary" className="text-[8px] sm:text-[9px] w-fit">{f.status}</Badge>
                     </div>
                  ))}
                </div>
@@ -1102,54 +1283,53 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
 
           {/* 4. Documentation Section (Bottom) */}
           {(validationReport || blueprint) && (
-            <div className="space-y-8 animate-in fade-in duration-700 pt-8 border-t border-white/5">
+            <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-700 pt-8 sm:pt-12 border-t border-white/5">
                <div className="flex items-center justify-between">
-                   <div className="flex items-center gap-4">
-                     <div className="h-10 w-10 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center shadow-lg shadow-purple-500/10">
-                       <FileText size={20} weight="bold" />
+                   <div className="flex items-center gap-3 sm:gap-4">
+                     <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center shadow-lg shadow-purple-500/10 shrink-0">
+                       <FileText size={18} weight="bold" className="sm:hidden" />
+                       <FileText size={20} weight="bold" className="hidden sm:block" />
                      </div>
                      <div>
-                        <h2 className="text-xl font-bold tracking-tight text-white/90">Documentation</h2>
-                        <p className="text-xs text-white/40 font-medium">Technical specifications and guides</p>
+                        <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white/90">Documentation</h2>
+                        <p className="text-[10px] sm:text-xs text-white/40 font-medium">Technical specifications and guides</p>
                      </div>
                    </div>
                </div>
 
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   {Object.entries(DOC_INFO).map(([id, info]) => {
                      const isGenerated = docs.find(d => d.asset_type === id);
                      return (
                         <Card 
                           key={id} 
                           className={cn(
-                            "cursor-pointer hover:border-white/20 transition-all group overflow-hidden",
+                            "cursor-pointer hover:border-white/20 transition-all group overflow-hidden flex flex-col",
                             isGenerated ? "bg-emerald-500/5 border-emerald-500/20" : "bg-white/5 border-white/5"
                           )}
                           onClick={(e) => {
-                              // Prevent click if upload button triggered
-                              if ((e.target as HTMLElement).closest('.upload-btn')) return;
+                              if ((e.target as HTMLElement).closest('.action-btn')) return;
                               if (isGenerated) setSelectedDocType(id);
                               else handleGenerateDocFlow(id);
                           }}
                         >
-                           <CardHeader className="pb-3">
+                           <CardHeader className="pb-2 sm:pb-3 p-4 sm:p-6">
                               <div className="flex justify-between items-start">
                                  <info.icon className={isGenerated ? "text-emerald-400" : "text-white/40"} size={24} />
                                  {isGenerated && <CheckCircle className="text-emerald-400" weight="fill" />}
                               </div>
-                              <CardTitle className="text-sm mt-3">{info.label}</CardTitle>
+                              <CardTitle className="text-sm sm:text-base mt-2 sm:mt-3">{info.label}</CardTitle>
                            </CardHeader>
-                           <CardContent>
-                              <p className="text-xs text-white/40 min-h-[40px]">{info.summary}</p>
+                           <CardContent className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0">
+                              <p className="text-[11px] sm:text-xs text-white/40 line-clamp-2 sm:line-clamp-none sm:min-h-[40px]">{info.summary}</p>
                            </CardContent>
-                           <CardFooter className="pt-0 flex gap-2">
-                              {/* If not generated, show Upload option */}
-                              {!isGenerated && (
+                           <CardFooter className="p-4 pt-0 sm:p-6 sm:pt-0 flex gap-2">
+                              {!isGenerated ? (
                                 <>
                                     <Button 
                                         variant="outline" 
                                         size="sm" 
-                                        className="upload-btn h-7 text-[10px] w-full border-white/10 hover:bg-white/5"
+                                        className="action-btn h-7 text-[9px] sm:text-[10px] w-full border-white/10 hover:bg-white/5"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             handleUploadClick(id);
@@ -1159,7 +1339,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                                     </Button>
                                     <Button 
                                         size="sm" 
-                                        className="h-7 text-[10px] w-full bg-white/10 hover:bg-white/20 text-white"
+                                        className="action-btn h-7 text-[9px] sm:text-[10px] w-full bg-white/10 hover:bg-white/20 text-white"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             handleGenerateDocFlow(id);
@@ -1168,10 +1348,9 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                                         <MagicWand className="mr-1" /> Generate
                                     </Button>
                                 </>
-                              )}
-                              {isGenerated && (
+                              ) : (
                                 <span 
-                                    className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1 group-hover:translate-x-1 transition-transform"
+                                    className="text-[10px] sm:text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1 group-hover:translate-x-1 transition-transform"
                                     onClick={(e) => {
                                         if (isGenerated.content.startsWith('http')) {
                                             e.stopPropagation();
@@ -1179,7 +1358,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                                         }
                                     }}
                                 >
-                                    {isGenerated.content.startsWith('http') ? 'Open in Google Docs' : 'Open Document'} <ArrowRight />
+                                    {isGenerated.content.startsWith('http') ? 'Open in Docs' : 'Open Document'} <ArrowRight size={12} />
                                 </span>
                               )}
                            </CardFooter>
@@ -1243,12 +1422,12 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
           )}
 
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Blueprint Full-Page Modal */}
       <Dialog open={blueprintModalOpen} onOpenChange={setBlueprintModalOpen}>
         <DialogContent 
-          className="!max-w-none bg-[#0A0A0A] border-white/10 w-[98vw] md:w-[95vw] h-[95vh] md:h-[90vh] p-0 overflow-hidden flex flex-col" 
+          className="!max-w-none bg-[#0A0A0A] border-white/10 w-[98vw] md:w-[95vw] h-[98vh] md:h-[90vh] p-0 overflow-hidden flex flex-col" 
           key={blueprintModalOpen ? 'open' : 'closed'}
         >
           <VisuallyHidden>
@@ -1257,40 +1436,45 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
               Interactive blueprint canvas with node details and issue generation
             </DialogDescription>
           </VisuallyHidden>
-          <div className="flex flex-col md:flex-row h-full overflow-hidden">
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
             {/* Full Canvas Area */}
-            <div className="flex-1 relative overflow-hidden min-w-0 h-1/2 md:h-full">
+            <div className="flex-1 relative overflow-hidden min-w-0 h-full flex flex-col">
               <BlueprintCanvas 
-                className="h-full border-0 rounded-none"
+                className="flex-1 border-0 rounded-none"
                 nodes={blueprint?.nodes || []} 
                 edges={blueprint?.edges || []}
                 onNodeClick={(node) => {
                   setSelectedNode(node);
                 }}
+                onNodesChange={handleSaveBlueprint}
               />
-              {/* Close Button */}
+              {/* Close Button - positioned inside canvas area for mobile */}
               <Button
                 size="icon"
                 variant="ghost"
-                className="absolute top-4 right-4 h-8 w-8 rounded-full bg-black/80 hover:bg-black text-white/60 hover:text-white z-50"
+                className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/80 hover:bg-black text-white/60 hover:text-white z-[60]"
                 onClick={() => {
                   setBlueprintModalOpen(false);
                   setSelectedNode(null);
                 }}
               >
-                <X />
+                <X size={16} />
               </Button>
             </div>
 
-            {/* Sidebar */}
-            <div className="w-full md:w-[350px] lg:w-[400px] border-t md:border-t-0 md:border-l border-white/10 bg-[#050505] p-4 md:p-6 overflow-y-auto flex-shrink-0 h-1/2 md:h-full">
+            {/* Sidebar / Bottom Sheet */}
+            <div className={cn(
+                "w-full md:w-[350px] lg:w-[400px] border-t md:border-t-0 md:border-l border-white/10 bg-[#050505] p-4 md:p-6 overflow-y-auto flex-shrink-0 transition-all duration-300",
+                "h-1/2 md:h-full", // Takes more space on mobile if node is selected
+                !selectedNode && "hidden md:flex" // Hide on mobile if no node selected
+            )}>
               {selectedNode ? (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 md:slide-in-from-right-4 duration-300">
                   {/* Node Header */}
-                  <div>
-                    <div className="flex items-center gap-3 mb-4">
+                  <div className="flex items-center justify-between md:block">
+                    <div className="flex items-center gap-3 mb-0 md:mb-4">
                       <div className={cn(
-                        "h-10 w-10 rounded-lg flex items-center justify-center bg-gradient-to-br",
+                        "h-10 w-10 rounded-lg flex items-center justify-center bg-gradient-to-br shrink-0",
                         selectedNode.type === 'entry' ? "from-purple-500/20 to-purple-500/5 text-purple-400" :
                         selectedNode.type === 'action' ? "from-blue-500/20 to-blue-500/5 text-blue-400" :
                         selectedNode.type === 'service' ? "from-cyan-500/20 to-cyan-500/5 text-cyan-400" :
@@ -1302,49 +1486,58 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                          selectedNode.type === 'external' ? <ArrowSquareOut size={20} weight="duotone" /> :
                          <Layout size={20} weight="duotone" />}
                       </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-white">{selectedNode.label}</h3>
-                        <p className="text-xs text-white/40 uppercase tracking-wider font-bold">{selectedNode.type}</p>
+                      <div className="min-w-0">
+                        <h3 className="text-base sm:text-lg font-bold text-white truncate">{selectedNode.label}</h3>
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider font-bold">{selectedNode.type}</p>
                       </div>
                     </div>
+                    
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="md:hidden h-8 w-8 text-white/20"
+                        onClick={() => setSelectedNode(null)}
+                    >
+                        <XCircle size={20} />
+                    </Button>
+                  </div>
 
-                    {/* Completion */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs font-bold text-white/40">
-                        <span>COMPLETION</span>
-                        <span>{(nodeDetails?.completion ?? selectedNode.completion) || 0}%</span>
-                      </div>
-                      <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                        <div 
-                          className={cn(
-                            "h-full rounded-full transition-all duration-1000",
-                            ((nodeDetails?.completion ?? selectedNode.completion) || 0) === 100 ? "bg-emerald-500" : 
-                            selectedNode.type === 'database' ? "bg-amber-500" :
-                            selectedNode.type === 'service' ? "bg-cyan-500" :
-                            "bg-primary"
-                          )}
-                          style={{ width: `${(nodeDetails?.completion ?? selectedNode.completion) || 0}%` }}
-                        />
-                      </div>
-                      {nodeDetails?.stats && (
-                        <p className="text-[10px] text-white/30 text-right font-medium">
-                          {nodeDetails.stats.done_issues} / {nodeDetails.stats.total_issues} issues completed
-                        </p>
-                      )}
+                  {/* Completion */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-[10px] sm:text-xs font-bold text-white/40">
+                      <span>COMPLETION</span>
+                      <span>{(nodeDetails?.completion ?? selectedNode.completion) || 0}%</span>
                     </div>
+                    <div className="h-1.5 sm:h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                      <div 
+                        className={cn(
+                          "h-full rounded-full transition-all duration-1000",
+                          ((nodeDetails?.completion ?? selectedNode.completion) || 0) === 100 ? "bg-emerald-500" : 
+                          selectedNode.type === 'database' ? "bg-amber-500" :
+                          selectedNode.type === 'service' ? "bg-cyan-500" :
+                          "bg-primary"
+                        )}
+                        style={{ width: `${(nodeDetails?.completion ?? selectedNode.completion) || 0}%` }}
+                      />
+                    </div>
+                    {nodeDetails?.stats && (
+                      <p className="text-[9px] sm:text-[10px] text-white/30 text-right font-medium">
+                        {nodeDetails.stats.done_issues} / {nodeDetails.stats.total_issues} issues completed
+                      </p>
+                    )}
                   </div>
 
                   {/* Issues Section */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-white/40">Linked Issues</h4>
+                      <h4 className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white/40">Linked Issues</h4>
                       <Button 
                         variant="ghost" 
                         size="sm" 
                         className="h-6 px-2 text-[10px] text-primary hover:text-primary hover:bg-primary/10 font-bold"
                         onClick={() => setIsLinkingIssue(!isLinkingIssue)}
                       >
-                        {isLinkingIssue ? 'Cancel' : <><Plus className="mr-1" /> Add Issue</>}
+                        {isLinkingIssue ? 'Cancel' : <><Plus className="mr-1" size={12} /> Add Issue</>}
                       </Button>
                     </div>
 
@@ -1357,14 +1550,14 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                           exit={{ height: 0, opacity: 0 }}
                           className="overflow-hidden"
                         >
-                          <div className="p-3 rounded-lg bg-white/5 border border-white/10 space-y-3">
+                          <div className="p-2 sm:p-3 rounded-lg bg-white/5 border border-white/10 space-y-3">
                             <Input 
                               placeholder="Search project issues..."
                               value={issueSearchQuery}
                               onChange={(e) => setIssueSearchQuery(e.target.value)}
                               className="h-8 text-xs bg-black/40 border-white/5"
                             />
-                            <div className="max-h-[200px] overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                            <div className="max-h-[150px] sm:max-h-[200px] overflow-y-auto space-y-1 pr-1 custom-scrollbar">
                               {projectIssues
                                 .filter(i => i.title.toLowerCase().includes(issueSearchQuery.toLowerCase()))
                                 .filter(i => !nodeDetails?.issues.some((ni: any) => ni.id === i.id))
@@ -1375,10 +1568,10 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                                     onClick={() => handleLinkIssue(issue.id)}
                                   >
                                     <div className="flex flex-col min-w-0">
-                                      <span className="text-[10px] font-mono text-white/40">{issue.identifier}</span>
-                                      <span className="text-xs text-white/70 truncate">{issue.title}</span>
+                                      <span className="text-[9px] font-mono text-white/40">{issue.identifier}</span>
+                                      <span className="text-[11px] text-white/70 truncate">{issue.title}</span>
                                     </div>
-                                    <Plus size={14} className="text-white/20 group-hover:text-primary transition-colors shrink-0" />
+                                    <Plus size={12} className="text-white/20 group-hover:text-primary transition-colors shrink-0" />
                                   </div>
                                 ))}
                               {projectIssues.length === 0 && <p className="text-[10px] text-white/20 text-center py-4">No other issues found</p>}
@@ -1392,12 +1585,12 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                     <div className="space-y-2">
                       {nodeDetails?.issues && nodeDetails.issues.length > 0 ? (
                         nodeDetails.issues.map((issue: any) => (
-                          <div key={issue.id} className="group flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-all">
+                          <div key={issue.id} className="group flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-all">
                             <div className="flex flex-col min-w-0">
                               <div className="flex items-center gap-2 mb-1">
-                                <span className="text-[10px] font-mono text-white/30">{issue.identifier}</span>
+                                <span className="text-[9px] font-mono text-white/30">{issue.identifier}</span>
                                 <Badge variant="outline" className={cn(
-                                  "text-[8px] h-4 px-1.5 uppercase font-black",
+                                  "text-[7px] h-3.5 px-1 uppercase font-black",
                                   issue.status === 'done' ? "text-emerald-400 border-emerald-500/20 bg-emerald-500/5" :
                                   issue.status === 'in_progress' ? "text-blue-400 border-blue-500/20 bg-blue-500/5" :
                                   "text-white/30 border-white/5 bg-white/5"
@@ -1405,7 +1598,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                                   {issue.status.replace('_', ' ')}
                                 </Badge>
                               </div>
-                              <span className="text-xs font-medium text-white/80 truncate">{issue.title}</span>
+                              <span className="text-[11px] sm:text-xs font-medium text-white/80 truncate">{issue.title}</span>
                             </div>
                             <Button 
                               variant="ghost" 
@@ -1418,9 +1611,9 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                           </div>
                         ))
                       ) : !isLinkingIssue && (
-                        <div className="py-8 text-center space-y-2">
-                          <p className="text-xs text-white/20">No issues linked to this component.</p>
-                          <p className="text-[10px] text-white/10 italic">Generate issues or link existing ones to track progress.</p>
+                        <div className="py-6 sm:py-8 text-center space-y-2">
+                          <p className="text-[11px] text-white/20">No issues linked to this component.</p>
+                          <p className="text-[9px] text-white/10 italic">Generate issues or link existing ones to track progress.</p>
                         </div>
                       )}
                     </div>
@@ -1435,7 +1628,6 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                         try {
                           const response = await aiService.generateIssuesForNode(ideaId, selectedNode.id);
                           toast.success(response.data?.message || 'Issues generated successfully!');
-                          // Close modal after successful generation
                           setTimeout(() => {
                             setBlueprintModalOpen(false);
                             setSelectedNode(null);
@@ -1447,29 +1639,29 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                         }
                       }}
                       disabled={generatingIssues}
-                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20"
+                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 h-10 sm:h-11"
                     >
                       {generatingIssues ? (
                         <>
-                          <ArrowClockwise className="mr-2 animate-spin" />
-                          Generating Issues...
+                          <ArrowClockwise className="mr-2 animate-spin" size={16} />
+                          Generating...
                         </>
                       ) : (
                         <>
-                          <Rocket className="mr-2" weight="duotone" />
+                          <Rocket className="mr-2" weight="duotone" size={18} />
                           Generate Issues
                         </>
                       )}
                     </Button>
-                    <p className="text-xs text-white/30 mt-2 text-center">
-                      AI will create issues, features, and milestones for this component
+                    <p className="text-[10px] text-white/30 mt-2 text-center">
+                      AI will create tasks, features, and milestones
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-white/40">
-                  <Layout size={48} weight="thin" className="mb-4" />
-                  <p className="text-sm">Click a node to view details</p>
+                <div className="flex flex-col items-center justify-center h-full text-white/20">
+                  <Layout size={40} weight="thin" className="mb-4 opacity-50" />
+                  <p className="text-xs uppercase tracking-widest font-black">Select a node</p>
                 </div>
               )}
             </div>
@@ -1479,28 +1671,28 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
 
       {/* Doc Questions Dialog */}
       <Dialog open={docQuestionsOpen} onOpenChange={setDocQuestionsOpen}>
-        <DialogContent className="bg-[#0A0A0A] border-white/10 sm:max-w-[500px]">
+        <DialogContent className="bg-[#0A0A0A] border-white/10 w-[95vw] sm:max-w-[500px] p-4 sm:p-6 rounded-2xl">
           <DialogHeader>
-             <DialogTitle>Clarification Needed</DialogTitle>
-             <DialogDescription>
+             <DialogTitle className="text-lg sm:text-xl">Clarification Needed</DialogTitle>
+             <DialogDescription className="text-xs sm:text-sm">
                 Question {docQuestionIndex + 1} of {docQuestions.length} for {DOC_INFO[generatingDocType || '']?.label}
              </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-             <p className="text-lg font-medium leading-relaxed">{docQuestions[docQuestionIndex]?.question}</p>
+          <div className="space-y-4 py-2 sm:py-4">
+             <p className="text-base sm:text-lg font-medium leading-relaxed">{docQuestions[docQuestionIndex]?.question}</p>
              <Textarea 
                 value={docAiSuggestion || ''}
                 onChange={e => setDocAiSuggestion(e.target.value)}
                 placeholder="Your answer..."
-                className="bg-white/5 min-h-[100px]"
+                className="bg-white/5 min-h-[100px] text-sm sm:text-base"
              />
-             <div className="flex justify-between gap-2 pt-2">
-                <Button variant="ghost" size="sm" onClick={() => setDocAiSuggestion(docQuestions[docQuestionIndex].suggestion || '')} className="text-xs">
+             <div className="flex flex-col sm:flex-row justify-between gap-3 pt-2 sm:pt-4">
+                <Button variant="ghost" size="sm" onClick={() => setDocAiSuggestion(docQuestions[docQuestionIndex].suggestion || '')} className="text-[10px] sm:text-xs order-3 sm:order-1 w-full sm:w-auto">
                    <Lightbulb className="mr-2" /> Use Suggestion
                 </Button>
-                <div className="flex gap-2">
-                   <Button variant="outline" onClick={() => handleDocQuestionAnswer(docQuestions[docQuestionIndex].suggestion || "Skipped")}>Skip</Button>
-                   <Button onClick={() => handleDocQuestionAnswer(docAiSuggestion || '')} disabled={!docAiSuggestion}>Next</Button>
+                <div className="flex gap-2 order-1 sm:order-2 w-full sm:w-auto">
+                   <Button variant="outline" size="sm" className="flex-1 sm:flex-none text-xs" onClick={() => handleDocQuestionAnswer(docQuestions[docQuestionIndex].suggestion || "Skipped")}>Skip</Button>
+                   <Button size="sm" className="flex-1 sm:flex-none text-xs" onClick={() => handleDocQuestionAnswer(docAiSuggestion || '')} disabled={!docAiSuggestion}>Next</Button>
                 </div>
              </div>
           </div>

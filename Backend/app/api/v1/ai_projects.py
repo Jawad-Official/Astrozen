@@ -874,6 +874,35 @@ async def generate_blueprint(
     }
 
 
+@router.put("/idea/{idea_id}/blueprint")
+async def save_blueprint(
+    idea_id: str,
+    blueprint_in: Dict[str, Any],
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    """
+    Manually save updated blueprint data (node positions, etc.).
+    """
+    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
+    if not idea:
+        raise HTTPException(status_code=404, detail="Idea not found")
+
+    import json
+    content = json.dumps({
+        "nodes": blueprint_in.get("nodes", []),
+        "edges": blueprint_in.get("edges", []),
+        "user_flow_mermaid": blueprint_in.get("user_flow_mermaid", "")
+    })
+
+    crud_project_idea.project_idea.create_or_update_asset(
+        db=db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_USER_FLOW,
+        content=content, status=AssetStatus.COMPLETED
+    )
+
+    return {"message": "Blueprint saved successfully"}
+
+
 @router.get("/idea/{idea_id}/doc/{doc_type}/questions")
 async def get_doc_questions(
     idea_id: str,
@@ -1233,7 +1262,7 @@ async def get_idea_details(
 
     # Process Blueprint Asset to add dynamic completion
     processed_assets = []
-    blueprint_data = None
+    blueprint_data = {} # Initialize as dict
     
     for a in assets:
         asset_dict = {
@@ -1247,10 +1276,13 @@ async def get_idea_details(
         if a.asset_type == AssetType.DIAGRAM_USER_FLOW and a.content:
             import json
             try:
-                blueprint_data = json.loads(a.content)
-                if "nodes" in blueprint_data:
+                # Try to parse as JSON (new format with nodes/edges)
+                flow_data = json.loads(a.content)
+                if isinstance(flow_data, dict) and "nodes" in flow_data:
+                    blueprint_data.update(flow_data) # Merge nodes/edges
+                    
                     # Update each node with actual completion from linked issues
-                    for node in blueprint_data["nodes"]:
+                    for node in blueprint_data.get("nodes", []):
                         node_id = node.get("id")
                         issues = db.query(Issue).filter(Issue.blueprint_node_id == node_id).all()
                         if issues:
@@ -1259,11 +1291,29 @@ async def get_idea_details(
                             node["completion"] = round((done / total) * 100)
                             node["issue_count"] = total
                         else:
-                            # Fallback to 0 if no issues linked yet
                             node["completion"] = 0
+                    
+                    # Update asset content with dynamic completion for frontend
                     asset_dict["content"] = json.dumps(blueprint_data)
+                else:
+                    # Legacy: Content is just mermaid string
+                    blueprint_data["user_flow_mermaid"] = a.content
             except:
-                pass
+                # Fallback if not JSON
+                blueprint_data["user_flow_mermaid"] = a.content
+
+        elif a.asset_type == AssetType.DIAGRAM_KANBAN and a.content:
+            try:
+                import json
+                kanban_data = json.loads(a.content)
+                blueprint_data["kanban_features"] = kanban_data
+            except:
+                try:
+                    import ast
+                    kanban_data = ast.literal_eval(a.content)
+                    blueprint_data["kanban_features"] = kanban_data
+                except:
+                    blueprint_data["kanban_features"] = []
         
         processed_assets.append(asset_dict)
 
@@ -1276,7 +1326,7 @@ async def get_idea_details(
         "clarification_questions": idea.clarification_questions,
         "validation_report": validation_report_data,
         "assets": processed_assets,
-        "blueprint": blueprint_data # Also return structured blueprint for convenience
+        "blueprint": blueprint_data if blueprint_data else None # Return None if empty
     }
 
     return response

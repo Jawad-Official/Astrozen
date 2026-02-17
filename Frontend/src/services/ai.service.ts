@@ -140,6 +140,9 @@ export const aiService = {
   generateBlueprint: (ideaId: string) =>
     api.post<{ user_flow_mermaid: string; kanban_features: KanbanFeature[]; nodes?: FlowNode[]; edges?: FlowEdge[] }>(`/ai/idea/${ideaId}/blueprint`),
 
+  saveBlueprint: (ideaId: string, blueprint: Partial<Blueprint>) =>
+    api.put(`/ai/idea/${ideaId}/blueprint`, blueprint),
+
   getDocQuestions: (ideaId: string, docType: string) =>
     api.get<{ has_questions: boolean; questions: DocQuestion[] }>(`/ai/idea/${ideaId}/doc/${docType}/questions`),
 

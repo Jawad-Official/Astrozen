@@ -1,4 +1,5 @@
 from openai import OpenAI
+from fastapi import HTTPException
 from app.core.config import settings
 import json
 import logging
@@ -32,11 +33,48 @@ DOC_SECTIONS = {
 
 class AIService:
     def __init__(self):
+        api_key = settings.OPENROUTER_API_KEY
+        if api_key:
+            # Clean key of common whitespace/quote issues from .env
+            api_key = api_key.strip().strip('"').strip("'")
+            
+        if not api_key or api_key == "missing_key":
+            logger.error("CRITICAL: OPENROUTER_API_KEY is not set or invalid in settings! AI features will fail.")
+            
         self.client = OpenAI(
             base_url="https://openrouter.ai/api/v1",
-            api_key=settings.OPENROUTER_API_KEY,
+            api_key=api_key or "missing_key",
         )
         self.model = settings.MODEL_NAME
+
+    def _parse_json(self, content: str) -> Any:
+        """Helper to parse JSON from AI response robustly."""
+        if not content:
+            logger.error("AI returned an empty response content.")
+            return None
+            
+        clean_content = content.strip()
+        # Handle markdown blocks if present
+        if clean_content.startswith("```json"):
+            clean_content = clean_content[7:]
+        if clean_content.endswith("```"):
+            clean_content = clean_content[:-3]
+        
+        clean_content = clean_content.strip()
+        
+        # Check if the content looks truncated (common with max_tokens limit)
+        if not (clean_content.endswith("}") or clean_content.endswith("]")):
+            logger.warning("AI response appears to be truncated. Attempting to parse anyway, but expect errors.")
+        
+        try:
+            return json.loads(clean_content)
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON from AI response. Error: {str(e)}")
+            # Log more context about where it failed
+            snippet_start = max(0, e.pos - 50)
+            snippet_end = min(len(clean_content), e.pos + 50)
+            logger.error(f"Error snippet (at pos {e.pos}): ...{clean_content[snippet_start:snippet_end]}...")
+            raise e
 
     async def generate_clarification_questions(self, idea: str, max_questions: int = 7) -> List[str]:
         """
@@ -70,17 +108,25 @@ class AIService:
             )
             content = response.choices[0].message.content
             try:
-                data = json.loads(content)
+                data = self._parse_json(content)
                 if isinstance(data, list):
                     return data
                 return data.get("questions", [])
-            except json.JSONDecodeError:
-                logger.error(f"Failed to decode JSON from AI: {content}")
+            except Exception:
                 return []
         except Exception as e:
-            logger.error(f"AI Clarification failed: {str(e)}")
+            error_msg = str(e)
+            logger.error(f"AI Clarification failed: {error_msg}")
+            
+            if "401" in error_msg or "User not found" in error_msg:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="AI API Configuration Error: The OpenRouter API key provided in the backend is invalid. Please check OPENROUTER_API_KEY in the .env file."
+                )
+            
+            # For clarification, we can fallback to no questions if it's not an auth error
+            # but still log the error.
             return []
-
     async def suggest_answer(
         self,
         idea: str,
@@ -148,9 +194,9 @@ class AIService:
         {pillars_text}
         For each pillar, provide a status (Strong, Moderate, Weak, Concern) and a brief reason.
 
-        2. Generate 3-5 specific improvement suggestions.
+        2. Generate specific improvement suggestions.
 
-        3. Identify 5-8 core features with name, description, and type (Core, Important, Nice-to-have).
+        3. Identify all core features required for a successful implementation, with name, description, and type (Core, Important, Nice-to-have). Do not limit the number of features; be as comprehensive as needed.
 
         4. Recommend a tech stack with specific technologies for Frontend, Backend, Database, and Infrastructure.
 
@@ -197,21 +243,16 @@ class AIService:
                 response_format={"type": "json_object"},
                 max_tokens=4000
             )
-            return json.loads(response.choices[0].message.content)
+            return self._parse_json(response.choices[0].message.content)
         except Exception as e:
-            logger.error(f"AI Validation failed: {str(e)}")
-            # Return default structure on error
-            return {
-                "market_feasibility": {
-                    "score": 50,
-                    "analysis": "Unable to complete validation due to an error.",
-                    "pillars": [{"name": p, "status": "Unknown", "reason": "Validation failed"} for p in CORE_PILLARS]
-                },
-                "improvements": ["Please try again later"],
-                "core_features": [{"name": "Core Feature", "description": "TBD", "type": "Core"}],
-                "tech_stack": {"frontend": [], "backend": [], "infrastructure": []},
-                "pricing_model": {"type": "TBD", "tiers": []}
-            }
+            error_msg = str(e)
+            if "401" in error_msg or "User not found" in error_msg:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="AI API Configuration Error: The OpenRouter API key provided in the backend is invalid. Please check OPENROUTER_API_KEY in the .env file."
+                )
+            
+            raise HTTPException(status_code=500, detail=f"AI Validation Failed: {error_msg}")
 
     async def regenerate_validation_field(
         self,
@@ -241,7 +282,7 @@ class AIService:
                 response_format={"type": "json_object"},
                 max_tokens=3000
             )
-            return json.loads(response.choices[0].message.content)
+            return self._parse_json(response.choices[0].message.content)
         except Exception as e:
             logger.error(f"Field regeneration failed: {str(e)}")
             return current_value
@@ -268,16 +309,16 @@ class AIService:
                click B call mermaidClick()
 
         2. A node-based system architecture with nodes, positions, and connections.
-        Crucial: Include at least 10-15 nodes covering the entire stack:
-        - Frontend Pages (Landing, Auth, Dashboard, Settings, etc.)
-        - Backend Services (API Gateway, Auth Service, Core Logic, Workers)
-        - Data Stores (Main DB, Cache, Blob Storage)
-        - External Integrations (Stripe, OpenAI, SendGrid, etc.)
+        Crucial: Map out EVERY necessary component of the system architecture. Be as granular as possible, covering:
+        - All Frontend Pages and major UI components
+        - All Backend Services, APIs, and microservices
+        - Every Data Store and Cache required
+        - Every External Integration and Third-party Service
         
         For each node, provide:
         - id, label, type (entry, action, main, service, database, external)
         - x, y coordinates (layout them logically: Frontend Left/Top -> Backend Middle -> DB/External Right/Bottom)
-        - subtasks: 3-5 specific implementation tasks
+        - subtasks: specific implementation tasks for this component
         - status: 'pending' (default)
         - completion: 0 (default)
 
@@ -306,15 +347,18 @@ class AIService:
                 response_format={"type": "json_object"},
                 max_tokens=5000
             )
-            return json.loads(response.choices[0].message.content)
+            return self._parse_json(response.choices[0].message.content)
         except Exception as e:
-            logger.error(f"Blueprint generation failed: {str(e)}")
-            return {
-                "user_flow_mermaid": "graph TD\n  A[Start] --> B[End]",
-                "nodes": [],
-                "edges": [],
-                "kanban_features": []
-            }
+            error_msg = str(e)
+            logger.error(f"Blueprint generation failed: {error_msg}")
+            
+            if "401" in error_msg or "User not found" in error_msg:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="AI API Configuration Error: The OpenRouter API key provided in the backend is invalid. Please check OPENROUTER_API_KEY in the .env file."
+                )
+            
+            raise HTTPException(status_code=500, detail=f"AI Blueprint Generation Failed: {error_msg}")
 
     async def generate_issues_for_blueprint_node(
         self,
@@ -342,10 +386,10 @@ class AIService:
         Requirements:
         1. STRATEGIC LINKING: If the component matches an existing feature, use it. If not, create a New Feature. 
            If it's a specific part of an existing feature, create it as a Sub-Feature.
-        2. MILESTONES: Define 1-2 major milestones for this component.
-        3. DETAILED ISSUES: Create 5-8 primary technical issues. 
+        2. MILESTONES: Define major milestones for this component.
+        3. DETAILED ISSUES: Create all primary technical issues needed to fully implement this component. 
            - Each primary issue MUST have a detailed 'description' with implementation steps.
-           - Each primary issue should have 2-3 'sub_issues' providing granular tasks.
+           - Each primary issue should have all necessary 'sub_issues' providing granular tasks for a developer to follow.
         4. DATA TYPES: Priority (urgent, high, medium, low), Type (task, chore).
         5. LINKING: Ensure all created issues and features are conceptually linked to this node ID: "{node_details.get('id')}".
 
@@ -385,10 +429,18 @@ class AIService:
                 response_format={"type": "json_object"},
                 max_tokens=5000
             )
-            return json.loads(response.choices[0].message.content)
+            return self._parse_json(response.choices[0].message.content)
         except Exception as e:
-            logger.error(f"Issue generation for node failed: {str(e)}")
-            return {"new_features": [], "milestones": [], "issues": []}
+            error_msg = str(e)
+            logger.error(f"Issue generation for node failed: {error_msg}")
+            
+            if "401" in error_msg or "User not found" in error_msg:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="AI API Configuration Error: The OpenRouter API key provided in the backend is invalid or has expired. Please update OPENROUTER_API_KEY in the .env file."
+                )
+            
+            raise HTTPException(status_code=500, detail=f"AI Issue Generation Failed: {error_msg}")
 
     async def auto_link_issue_to_node(
         self,
@@ -424,7 +476,7 @@ class AIService:
                 response_format={"type": "json_object"},
                 max_tokens=500
             )
-            data = json.loads(response.choices[0].message.content)
+            data = self._parse_json(response.choices[0].message.content)
             return data.get("node_id")
         except Exception as e:
             logger.error(f"Auto-link issue failed: {str(e)}")
@@ -448,7 +500,7 @@ class AIService:
         3. A Priority (urgent, high, medium, low, none).
         4. A Status (discovery, validated, in_build, in_review, shipped, adopted, killed). Set most to 'discovery' or 'validated'.
         5. A Feature Type (new_capability, enhancement, experiment, infrastructure).
-        6. A list of 2-5 Sub-Features (if applicable) with the same structure (name, description, priority, status, type).
+        6. A comprehensive list of Sub-Features (if applicable) with the same structure (name, description, priority, status, type) to fully define the implementation scope.
 
         Return a JSON object with a "features" key containing the list.
         Example:
@@ -474,7 +526,7 @@ class AIService:
                 response_format={"type": "json_object"},
                 max_tokens=4000
             )
-            data = json.loads(response.choices[0].message.content)
+            data = self._parse_json(response.choices[0].message.content)
             return data.get("features", [])
         except Exception as e:
             logger.error(f"Feature expansion failed: {str(e)}")
@@ -549,7 +601,7 @@ class AIService:
                 response_format={"type": "json_object"},
                 max_tokens=3000
             )
-            result = json.loads(response.choices[0].message.content)
+            result = self._parse_json(response.choices[0].message.content)
 
             # Ensure each question has an id
             if result.get("questions"):
