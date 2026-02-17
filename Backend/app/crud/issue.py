@@ -161,6 +161,32 @@ class CRUDIssue(CRUDBase[Issue, IssueCreate, IssueUpdate]):
             return f"{parent_identifier}-S{current_num + 1}"
         except (ValueError, IndexError, AttributeError):
             return f"{parent_identifier}-S1"
+
+    def get_max_identifier_num(self, db: Session, prefix: str) -> int:
+        """Get the current maximum identifier number for a team (excluding sub-issues)."""
+        pattern = f"{prefix}-%"
+        max_id = db.query(Issue.identifier).filter(
+            Issue.identifier.like(pattern),
+            Issue.identifier.not_like("%-S%")
+        ).order_by(
+            func.length(Issue.identifier).desc(),
+            Issue.identifier.desc()
+        ).first()
+        
+        if not max_id:
+            return 0
+            
+        try:
+            if hasattr(max_id, "_mapping"):
+                id_str = max_id[0]
+            elif isinstance(max_id, (tuple, list)):
+                id_str = max_id[0]
+            else:
+                id_str = str(max_id)
+                
+            return int(id_str.rsplit("-", 1)[1])
+        except (ValueError, IndexError, AttributeError):
+            return 0
     
     def get_filtered(
         self,

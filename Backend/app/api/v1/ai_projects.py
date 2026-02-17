@@ -5,11 +5,12 @@ import mammoth
 import logging
 from app.api import deps
 from app.schemas import ai as schemas
-from app.crud import crud_project_idea
+from app.crud import crud_project_idea, feature as crud_feature, issue as crud_issue
 from app.services.ai_service import ai_service
 from app.services.storage_service import storage_service
 from app.models.project_idea import IdeaStatus, AssetType, AssetStatus, ProjectIdea, ProjectAsset
 from app.models.user import User
+from app.models.team_model import Team
 from app.core.database import SessionLocal
 from app.models.feature import Feature, FeatureStatus, FeatureType, FeatureHealth
 from app.models.issue import IssuePriority
@@ -34,6 +35,11 @@ async def generate_issues_for_node(
     idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
     if not idea or not idea.project_id:
         raise HTTPException(status_code=404, detail="Idea or linked project not found")
+
+    from app.models.project import Project
+    project = db.query(Project).filter(Project.id == idea.project_id).first()
+    team = db.query(Team).filter(Team.id == project.team_id).first() if project else None
+    team_prefix = team.identifier if team else "AST"
 
     # Get blueprint asset to find node details
     blueprint_asset = crud_project_idea.project_idea.get_asset(db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_USER_FLOW)
@@ -98,7 +104,8 @@ async def generate_issues_for_node(
                 type=f_type,
                 status=FeatureStatus.VALIDATED,
                 owner_id=current_user.id,
-                blueprint_node_id=node_id
+                blueprint_node_id=node_id,
+                identifier=crud_feature.get_next_identifier(db, team_prefix)
             )
             db.add(new_f)
             db.flush()
@@ -124,6 +131,9 @@ async def generate_issues_for_node(
     from app.models.project import Project
     project = db.query(Project).filter(Project.id == idea.project_id).first()
     team_id = project.team_id if project else None
+    
+    # Get current max identifier number to increment locally
+    current_issue_num = crud_issue.get_max_identifier_num(db, team_prefix)
 
     for i_data in plan.get("issues", []):
         target_f = feature_map.get(i_data["feature_name"])
@@ -141,39 +151,26 @@ async def generate_issues_for_node(
         except ValueError:
             i_priority = IssuePriority.MEDIUM
 
-        from sqlalchemy.exc import IntegrityError
+        # Generate unique identifier locally
+        current_issue_num += 1
+        p_identifier = f"{team_prefix}-{current_issue_num}"
         
-        # Initial identifier for parent
-        p_identifier = f"AUTO-{node_id[:3].upper()}-{created_count+1}"
+        # Create Parent Issue
+        parent_issue = Issue(
+            title=i_data["title"],
+            description=i_data.get("description"),
+            priority=i_priority,
+            issue_type=i_type,
+            status=IssueStatus.BACKLOG,
+            feature_id=target_f.id if target_f else None,
+            milestone_id=target_m.id if target_m else None,
+            team_id=team_id,
+            identifier=p_identifier,
+            blueprint_node_id=node_id
+        )
+        db.add(parent_issue)
+        db.flush() # Flush to get parent_issue.id for sub-issues
         
-        # Parent Issue with collision retry
-        parent_issue = None
-        for attempt in range(5):
-            try:
-                with db.begin_nested():
-                    parent_issue = Issue(
-                        title=i_data["title"],
-                        description=i_data.get("description"),
-                        priority=i_priority,
-                        issue_type=i_type,
-                        status=IssueStatus.BACKLOG,
-                        feature_id=target_f.id if target_f else None,
-                        milestone_id=target_m.id if target_m else None,
-                        team_id=team_id,
-                        identifier=p_identifier,
-                        blueprint_node_id=node_id
-                    )
-                    db.add(parent_issue)
-                    db.flush()
-                break # Success
-            except IntegrityError:
-                db.rollback()
-                created_count += 1 # Increment to get a new number
-                p_identifier = f"AUTO-{node_id[:3].upper()}-{created_count+1}"
-        
-        if not parent_issue:
-            continue
-
         created_count += 1
 
         # Create Sub-issues
@@ -201,8 +198,6 @@ async def generate_issues_for_node(
                 blueprint_node_id=node_id
             )
             db.add(sub_issue)
-            # No need for retry on sub-issues as they derive from unique parent identifier
-            # unless multiple sub-issues get same index, which loop avoids.
 
     db.commit()
     return {"message": f"Generated {created_count} items (including sub-issues) across {len(milestone_map)} milestones and {len(new_features_data)} features."}
@@ -222,6 +217,12 @@ async def create_features_background(idea_id: str, user_id: str):
         if not idea.project_id:
             logging.error(f"Background feature creation aborted: Idea {idea_id} has no project_id.")
             return
+
+        # Get team prefix for identifiers
+        from app.models.project import Project
+        project = db.query(Project).filter(Project.id == idea.project_id).first()
+        team = db.query(Team).filter(Team.id == project.team_id).first() if project else None
+        team_prefix = team.identifier if team else "AST"
 
         # Prepare context for AI
         context = {
@@ -260,7 +261,8 @@ async def create_features_background(idea_id: str, user_id: str):
                 priority=priority,
                 type=f_type,
                 owner_id=user_id,
-                health=FeatureHealth.ON_TRACK
+                health=FeatureHealth.ON_TRACK,
+                identifier=crud_feature.get_next_identifier(db, team_prefix)
             )
             db.add(parent_feature)
             db.flush() # Flush to get ID for sub-features
@@ -292,7 +294,8 @@ async def create_features_background(idea_id: str, user_id: str):
                     priority=sub_priority,
                     type=sub_type,
                     owner_id=user_id,
-                    health=FeatureHealth.ON_TRACK
+                    health=FeatureHealth.ON_TRACK,
+                    identifier=crud_feature.get_next_identifier(db, team_prefix)
                 )
                 db.add(sub_feature)
 
@@ -1346,6 +1349,9 @@ async def convert_to_project(
     if not idea or not idea.validation_report:
         raise HTTPException(status_code=400, detail="Idea not validated")
 
+    team = db.query(Team).filter(Team.id == team_id).first()
+    team_prefix = team.identifier if team else "AST"
+
     from app.models.project import Project, ProjectStatus
     from app.models.feature import Feature, FeatureStatus
     from app.models.issue import Issue, IssueStatus, IssueType
@@ -1371,7 +1377,7 @@ async def convert_to_project(
             problem_statement=f_data.get('description'),
             status=FeatureStatus.VALIDATED,
             owner_id=current_user.id,
-            identifier=f"F-{i+1}"
+            identifier=crud_feature.get_next_identifier(db, team_prefix)
         )
         db.add(feature)
         features_map[f_data['name']] = feature
@@ -1394,7 +1400,7 @@ async def convert_to_project(
                     issue_type=IssueType.TASK,
                     team_id=team_id,
                     feature_id=feature_id,
-                    identifier=f"ISSUE-{i+1}"
+                    identifier=crud_issue.get_next_identifier(db, team_prefix)
                 )
                 db.add(issue)
         except:

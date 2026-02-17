@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from app.crud import team as crud_team, user_role as crud_role, user as crud_user
+from app.crud import team as crud_team, user_role as crud_role, user as crud_user, feature as crud_feature, issue as crud_issue
 from app.services.project_service import project_service
 from app.models.team_model import Team
 from app.models.user_role import UserRoleType
@@ -236,7 +236,8 @@ class TeamService:
                     type=s_feature.type,
                     status=s_feature.status,
                     health=s_feature.health,
-                    owner_id=user_id
+                    owner_id=user_id,
+                    identifier=crud_feature.get_next_identifier(db, target_team.identifier)
                 )
                 db.add(new_feature)
                 db.flush()
