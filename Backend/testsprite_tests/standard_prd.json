@@ -1,10 +1,10 @@
 {
   "meta": {
-    "project": "SwiftFlow Backend API",
+    "project": "Astrozen Backend API",
     "date": "2026-01-21",
     "prepared_by": "Software Development Manager"
   },
-  "product_overview": "SwiftFlow is a high-performance issue tracking system designed to connect strategic planning with granular execution through a strict hierarchical model of organizations, teams, projects, features, and issues.",
+  "product_overview": "Astrozen is a high-performance issue tracking system designed to connect strategic planning with granular execution through a strict hierarchical model of organizations, teams, projects, features, and issues.",
   "core_goals": [
     "Implement a secure and scalable backend API to support the hierarchical data model from Organizations down to Issues.",
     "Ensure strict data integrity enforcing parent-child relationships in the hierarchy, e.g., Issues must belong to Features, Features belong to Projects, and so forth.",

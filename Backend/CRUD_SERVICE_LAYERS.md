@@ -24,39 +24,39 @@ PostgreSQL Database
 
 ### Files Created:
 
-1. **[base.py](file:///c:/Users/jawad/Documents/Projects/Linear/Backend/app/crud/base.py)** - Generic CRUD base class
+1. **[base.py](file:///c:/Users/jawad/Documents/Projects/Astrozen/Backend/app/crud/base.py)** - Generic CRUD base class
    - `get(id)` - Get single record
    - `get_multi(skip, limit)` - Get multiple with pagination
    - `create(obj_in)` - Create new record
    - `update(db_obj, obj_in)` - Update existing record
    - `delete(id)` - Delete record
 
-2. **[user.py](file:///c:/Users/jawad/Documents/Projects/Linear/Backend/app/crud/user.py)** - User CRUD operations
+2. **[user.py](file:///c:/Users/jawad/Documents/Projects/Astrozen/Backend/app/crud/user.py)** - User CRUD operations
    - `get_by_email(email)`
    - `get_by_username(username)`
    - `create()` - With password hashing
    - `authenticate(username, password)`
    - `is_active(user)`
 
-3. **[issue.py](file:///c:/Users/jawad/Documents/Projects/Linear/Backend/app/crud/issue.py)** - Issue CRUD operations
+3. **[issue.py](file:///c:/Users/jawad/Documents/Projects/Astrozen/Backend/app/crud/issue.py)** - Issue CRUD operations
    - `create_with_labels(obj_in, identifier, label_ids)`
    - `update_with_labels(db_obj, obj_in)`
    - `get_by_assignee(assignee_id)`
    - `get_triage_issues()`
    - `get_filtered(status, priority, project_id, ...)` - Advanced filtering
 
-4. **[project.py](file:///c:/Users/jawad/Documents/Projects/Linear/Backend/app/crud/project.py)** - Project CRUD operations
+4. **[project.py](file:///c:/Users/jawad/Documents/Projects/Astrozen/Backend/app/crud/project.py)** - Project CRUD operations
    - `create_with_relations(obj_in, member_ids, team_ids)`
    - `update_with_relations(db_obj, obj_in)`
 
-5. **[label.py](file:///c:/Users/jawad/Documents/Projects/Linear/Backend/app/crud/label.py)** - Label CRUD operations
+5. **[label.py](file:///c:/Users/jawad/Documents/Projects/Astrozen/Backend/app/crud/label.py)** - Label CRUD operations
    - Uses base CRUD operations
 
-6. **[comment.py](file:///c:/Users/jawad/Documents/Projects/Linear/Backend/app/crud/comment.py)** - Comment CRUD operations
+6. **[comment.py](file:///c:/Users/jawad/Documents/Projects/Astrozen/Backend/app/crud/comment.py)** - Comment CRUD operations
    - `get_by_issue(issue_id)`
    - `create_for_issue(obj_in, issue_id, author_id)`
 
-7. **[activity.py](file:///c:/Users/jawad/Documents/Projects/Linear/Backend/app/crud/activity.py)** - Activity tracking CRUD
+7. **[activity.py](file:///c:/Users/jawad/Documents/Projects/Astrozen/Backend/app/crud/activity.py)** - Activity tracking CRUD
    - `create(issue_id, type, actor_id, old_value, new_value)`
    - `get_by_issue(issue_id)`
 
@@ -66,16 +66,16 @@ PostgreSQL Database
 
 ### Files Created:
 
-1. **[auth_service.py](file:///c:/Users/jawad/Documents/Projects/Linear/Backend/app/services/auth_service.py)** - Authentication logic
+1. **[auth_service.py](file:///c:/Users/jawad/Documents/Projects/Astrozen/Backend/app/services/auth_service.py)** - Authentication logic
    - `register_user(user_in)` - Validates and creates user
    - `login_user(username, password)` - Authenticates and generates JWT token
 
-2. **[issue_service.py](file:///c:/Users/jawad/Documents/Projects/Linear/Backend/app/services/issue_service.py)** - Issue business logic
+2. **[issue_service.py](file:///c:/Users/jawad/Documents/Projects/Astrozen/Backend/app/services/issue_service.py)** - Issue business logic
    - `create_issue(issue_in, current_user_id)` - Creates issue with auto-generated identifier and activity log
    - `update_issue(issue_id, issue_in, current_user_id)` - Updates issue and tracks all changes (status, priority, assignee, cycle)
    - `add_comment(issue_id, content, author_id)` - Adds comment with activity tracking
 
-3. **[project_service.py](file:///c:/Users/jawad/Documents/Projects/Linear/Backend/app/services/project_service.py)** - Project business logic
+3. **[project_service.py](file:///c:/Users/jawad/Documents/Projects/Astrozen/Backend/app/services/project_service.py)** - Project business logic
    - `create_project(project_in)` - Creates project with members and teams
    - `update_project(project_id, project_in)` - Updates project
    - `create_milestone(project_id, milestone_in)` - Creates milestone
@@ -85,10 +85,10 @@ PostgreSQL Database
 
 All routes now use the CRUD and Service layers:
 
-1. **[auth.py](file:///c:/Users/jawad/Documents/Projects/Linear/Backend/app/api/v1/auth.py)** - Uses `auth_service`
-2. **[issues.py](file:///c:/Users/jawad/Documents/Projects/Linear/Backend/app/api/v1/issues.py)** - Uses `crud_issue`, `issue_service`
-3. **[projects.py](file:///c:/Users/jawad/Documents/Projects/Linear/Backend/app/api/v1/projects.py)** - Uses `crud_project`, `project_service`
-4. **[labels.py](file:///c:/Users/jawad/Documents/Projects/Linear/Backend/app/api/v1/labels.py)** - Uses `crud_label`
+1. **[auth.py](file:///c:/Users/jawad/Documents/Projects/Astrozen/Backend/app/api/v1/auth.py)** - Uses `auth_service`
+2. **[issues.py](file:///c:/Users/jawad/Documents/Projects/Astrozen/Backend/app/api/v1/issues.py)** - Uses `crud_issue`, `issue_service`
+3. **[projects.py](file:///c:/Users/jawad/Documents/Projects/Astrozen/Backend/app/api/v1/projects.py)** - Uses `crud_project`, `project_service`
+4. **[labels.py](file:///c:/Users/jawad/Documents/Projects/Astrozen/Backend/app/api/v1/labels.py)** - Uses `crud_label`
 
 ## Benefits
 
@@ -129,7 +129,7 @@ All routes now use the CRUD and Service layers:
 ```python
 @router.post("/issues")
 def create_issue(issue_in: IssueCreate, db: Session):
-    identifier = f"LIN-{counter}"
+    identifier = f"AST-{counter}"
     issue = Issue(**issue_in.dict(), identifier=identifier)
     db.add(issue)
     db.commit()

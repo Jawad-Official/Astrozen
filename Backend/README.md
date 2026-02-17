@@ -1,6 +1,6 @@
-# Linear API - FastAPI Backend
+# Astrozen API - FastAPI Backend
 
-A comprehensive RESTful API backend for a Linear-like project management application built with FastAPI and PostgreSQL.
+A comprehensive RESTful API backend for Astrozen project management application built with FastAPI and PostgreSQL.
 
 ## Features
 
@@ -128,11 +128,11 @@ pip install -r requirements.txt
 
 ```bash
 # Create database
-createdb linear_db
+createdb astrozen
 
 # Or using psql
 psql -U postgres
-CREATE DATABASE linear_db;
+CREATE DATABASE astrozen;
 \q
 ```
 
@@ -309,12 +309,56 @@ alembic current
 
 | Variable                      | Description                  | Default                                                   |
 | ----------------------------- | ---------------------------- | --------------------------------------------------------- |
-| `DATABASE_URL`                | PostgreSQL connection string | `postgresql://postgres:password@localhost:5432/linear_db` |
+| `DATABASE_URL`                | PostgreSQL connection string | `postgresql://postgres:password@localhost:5432/astrozen`  |
 | `SECRET_KEY`                  | Secret key for JWT           | Required                                                  |
 | `ALGORITHM`                   | JWT algorithm                | `HS256`                                                   |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Token expiration time        | `30`                                                      |
 | `BACKEND_CORS_ORIGINS`        | Allowed CORS origins         | `["http://localhost:5173"]`                               |
-| `PROJECT_NAME`                | API project name             | `Linear API`                                              |
+| `PROJECT_NAME`                | API project name             | `Astrozen API`                                            |
+
+## Security Notes
+
+- Always use HTTPS in production
+- Change the default `SECRET_KEY` to a secure random string
+- Use environment variables for sensitive data
+- Implement rate limiting for production
+- Keep dependencies up to date
+- Use strong passwords and enforce password policies
+
+## Troubleshooting
+
+### Database connection errors
+
+- Verify PostgreSQL is running: `pg_isready`
+- Check DATABASE_URL in `.env`
+- Ensure database exists: `psql -l`
+
+### Import errors
+
+- Ensure virtual environment is activated
+- Reinstall dependencies: `pip install -r requirements.txt`
+
+### Migration errors
+
+- Check Alembic configuration in `alembic.ini`
+- Verify all models are imported in `alembic/env.py`
+- Reset database if needed and rerun migrations
+
+## Contributing
+
+1. Create a feature branch
+2. Make your changes
+3. Write tests
+4. Run tests and linting
+5. Submit a pull request
+
+## License
+
+MIT License
+
+## Support
+
+For issues and questions, please open an issue in the repository.
 
 ## Security Notes
 

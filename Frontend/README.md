@@ -1,6 +1,6 @@
-# Linear Clone Frontend
+# Astrozen Frontend
 
-This is a Linear clone frontend built with Vite, React, Tailwind CSS, and Shadcn UI.
+This is a modern project management frontend built with Vite, React, Tailwind CSS, and Shadcn UI.
 
 ## Getting Started
 

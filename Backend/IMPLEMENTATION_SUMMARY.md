@@ -2,7 +2,7 @@
 
 ## Summary
 
-I've successfully created a **production-ready FastAPI backend** for your Linear-like project management application. Here's what was built:
+I've successfully created a **production-ready FastAPI backend** for your Astrozen project management application. Here's what was built:
 
 ## ✅ Completed Work
 
@@ -19,7 +19,7 @@ I've successfully created a **production-ready FastAPI backend** for your Linear
 - ✅ Label (7 colors)
 - ✅ Cycle (sprint management)
 - ✅ Project (with Milestone, ProjectUpdate, ProjectResource)
-- ✅ Issue (with auto-generated identifiers LIN-1, LIN-2, etc.)
+- ✅ Issue (with auto-generated identifiers AST-1, AST-2, etc.)
 - ✅ Comment
 - ✅ Activity (complete audit trail)
 - ✅ CustomView
@@ -101,22 +101,10 @@ To get the backend running:
    pip install -r requirements.txt
    ```
 
-3. **Configure Database**:
+### Quick Start Guide
 
-   ```bash
-   # Create database
-   createdb linear_db
-
-   # Copy and edit .env
-   copy .env.example .env
-   # Update DATABASE_URL and SECRET_KEY
-   ```
-
-4. **Run Migrations**:
-
-   ```bash
-   alembic upgrade head
-   ```
+1. **Setup DB**: `createdb astrozen`
+2. **Migrations**: `alembic upgrade head`
 
 5. **Start Server**:
 

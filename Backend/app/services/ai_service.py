@@ -47,6 +47,43 @@ class AIService:
         )
         self.model = settings.MODEL_NAME
 
+    def _repair_json(self, json_str: str) -> str:
+        """Attempt to repair truncated JSON by balancing braces and quotes."""
+        json_str = json_str.strip()
+        
+        # 1. Handle truncated string at the end
+        # Count non-escaped quotes to check if we are inside a string
+        quote_count = 0
+        escape = False
+        for char in json_str:
+            if char == '\\':
+                escape = not escape
+            elif char == '"' and not escape:
+                quote_count += 1
+            else:
+                escape = False
+        
+        if quote_count % 2 != 0:
+            # We are inside a string, close it
+            json_str += '"'
+            
+        # 2. Balance braces/brackets
+        stack = []
+        for char in json_str:
+            if char == '{':
+                stack.append('}')
+            elif char == '[':
+                stack.append(']')
+            elif char == '}' or char == ']':
+                if stack and stack[-1] == char:
+                    stack.pop()
+        
+        # Append missing closing characters
+        while stack:
+            json_str += stack.pop()
+            
+        return json_str
+
     def _parse_json(self, content: str) -> Any:
         """Helper to parse JSON from AI response robustly."""
         if not content:
@@ -62,19 +99,21 @@ class AIService:
         
         clean_content = clean_content.strip()
         
-        # Check if the content looks truncated (common with max_tokens limit)
-        if not (clean_content.endswith("}") or clean_content.endswith("]")):
-            logger.warning("AI response appears to be truncated. Attempting to parse anyway, but expect errors.")
-        
         try:
             return json.loads(clean_content)
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON from AI response. Error: {str(e)}")
-            # Log more context about where it failed
-            snippet_start = max(0, e.pos - 50)
-            snippet_end = min(len(clean_content), e.pos + 50)
-            logger.error(f"Error snippet (at pos {e.pos}): ...{clean_content[snippet_start:snippet_end]}...")
-            raise e
+        except json.JSONDecodeError:
+            # Attempt repair
+            logger.warning("JSON parse failed, attempting repair of truncated JSON...")
+            try:
+                repaired_content = self._repair_json(clean_content)
+                return json.loads(repaired_content)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON even after repair. Error: {str(e)}")
+                # Log more context about where it failed
+                snippet_start = max(0, e.pos - 50)
+                snippet_end = min(len(clean_content), e.pos + 50)
+                logger.error(f"Error snippet (at pos {e.pos}): ...{clean_content[snippet_start:snippet_end]}...")
+                raise e
 
     async def generate_clarification_questions(self, idea: str, max_questions: int = 7) -> List[str]:
         """
@@ -345,7 +384,7 @@ class AIService:
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                max_tokens=5000
+                max_tokens=8192
             )
             return self._parse_json(response.choices[0].message.content)
         except Exception as e:
@@ -427,7 +466,7 @@ class AIService:
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                max_tokens=5000
+                max_tokens=8192
             )
             return self._parse_json(response.choices[0].message.content)
         except Exception as e:

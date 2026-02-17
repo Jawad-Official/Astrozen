@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-The purpose of this document is to define the testing requirements for the SwiftFlow (Linear clone) backend API. The test suite should validate the core hierarchical architecture, data integrity, security, and performance across all primary modules.
+The purpose of this document is to define the testing requirements for the Astrozen backend API. The test suite should validate the core hierarchical architecture, data integrity, security, and performance across all primary modules.
 
 **Backend Stack:**
 

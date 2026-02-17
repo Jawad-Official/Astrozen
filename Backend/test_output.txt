@@ -12,11 +12,11 @@ Out-File -FilePath t ...
   n
     + FullyQualifiedErrorId : NativeCommandError
  
-  File "C:\Users\jawad\Documents\Projects\Linear\Backend
+  File "C:\Users\jawad\Documents\00 - Work Projects\Astrozen\Astrozen\Backend
 \comprehensive_test.py", line 328, in <module>
     tester.run_all_tests()
     ~~~~~~~~~~~~~~~~~~~~^^
-  File "C:\Users\jawad\Documents\Projects\Linear\Backend
+  File "C:\Users\jawad\Documents\00 - Work Projects\Astrozen\Astrozen\Backend
 \comprehensive_test.py", line 72, in run_all_tests
     print("\n\U0001f539 DEFAULT ENDPOINTS")
     ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^

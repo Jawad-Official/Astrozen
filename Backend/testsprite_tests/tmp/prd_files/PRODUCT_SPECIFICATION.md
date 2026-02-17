@@ -1,14 +1,14 @@
-# Product Specification: SwiftFlow (The Visionary Issue Tracker)
+# Product Specification: Astrozen (The Visionary Issue Tracker)
 
 ## 1. Product Purpose
 
-SwiftFlow is a high-performance, developer-first issue tracking system inspired by Linear, designed to bridge the gap between **High-Level Strategy** and **Low-Level Execution**.
+Astrozen is a high-performance, developer-first issue tracking system designed to bridge the gap between **High-Level Strategy** and **Low-Level Execution**.
 
-Unlike traditional trackers where projects are just flat lists of tasks, SwiftFlow enforces a hierarchical delivery model that ensures every individual code change (Issue) contributes to a tangible business value (Feature), which roll up into strategic initiatives (Projects).
+Unlike traditional trackers where projects are just flat lists of tasks, Astrozen enforces a hierarchical delivery model that ensures every individual code change (Issue) contributes to a tangible business value (Feature), which roll up into strategic initiatives (Projects).
 
 ## 2. Core Architecture: The "Success Chain"
 
-SwiftFlow operates on a strict 4-tier hierarchy to maintain maximum clarity and data integrity:
+Astrozen operates on a strict 4-tier hierarchy to maintain maximum clarity and data integrity:
 
 1.  **Strategic Project**: A broad objective for the organization (e.g., "Mobile Growth Q1").
 2.  **Domain Feature**: A specific capability or improvement within that project (e.g., "In-App Referral System").

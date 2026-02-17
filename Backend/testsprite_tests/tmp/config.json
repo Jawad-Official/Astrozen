@@ -8,7 +8,7 @@
   "backendPassword": "string",
   "executionArgs": {
     "projectName": "Backend",
-    "projectPath": "C:\\Users\\jawad\\Documents\\Projects\\Linear\\Backend",
+    "projectPath": "C:\\Users\\jawad\\Documents\\00 - Work Projects\\Astrozen\\Astrozen\\Backend",
     "testIds": [],
     "additionalInstruction": "Use correct prefixes (/auth, /organizations, /teams, /projects, /features, /issues).\nRegistration requires: email, password, first_name, last_name.\nLogin requires form-data: username, password.\nIssue status: backlog, todo, in_progress, done, cancelled.\nFeature status: discovery, validated, in_build, in_review, shipped, adopted, killed.\nUse unique identifiers for teams. Note that creating an organization automatically creates a default team.\nCreate organization, then team, then project, then feature, then issue in sequence for dependency resolution.\nEach test case should use unique email/names to avoid conflicts.\nTeam identifier must be max 5 chars.\nIf team identifier exists, try a different one.",
     "envs": {

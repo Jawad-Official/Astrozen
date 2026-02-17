@@ -3,7 +3,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Linear-inspired design system */
+/* Astrozen-inspired design system */
 
 @layer base {
   :root {
@@ -76,7 +76,7 @@
   }
 
   .dark {
-    /* Linear is always dark, so same values */
+    /* Astrozen is always dark, so same values */
     --background: 0 0% 3.5%;
     --foreground: 220 9% 94%;
     --card: 220 13% 13%;

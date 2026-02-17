@@ -31,7 +31,7 @@ app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 def root():
     """Root endpoint"""
     return {
-        "message": "Welcome to Linear API",
+        "message": "Welcome to Astrozen API",
         "docs": "/docs",
         "version": settings.VERSION
     }

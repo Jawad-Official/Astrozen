@@ -128,7 +128,10 @@ export function MainLayout() {
             <Button variant="ghost" size="icon" className="-ml-2" onClick={() => setMobileMenuOpen(true)}>
               <List className="h-5 w-5" />
             </Button>
-            <span className="font-semibold ml-2">Linear</span>
+                  <div className="flex h-6 w-6 items-center justify-center rounded bg-zinc-800">
+                    <div className="h-3 w-3 rounded-full bg-white"></div>
+                  </div>
+                  <span className="font-semibold ml-2 text-zinc-100">Astrozen</span>
           </div>
 
           {/* Main Content Area */}
