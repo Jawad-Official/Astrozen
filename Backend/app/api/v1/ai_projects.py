@@ -74,6 +74,9 @@ async def generate_issues_for_node(
     feature_map = {f.name: f for f in existing_features}
     new_features_data = plan.get("new_features", [])
     
+    # Get current max identifier number to increment locally
+    current_feature_num = crud_feature.get_max_identifier_num(db, team_prefix)
+    
     # Simple two-pass approach for sub-features
     for pass_num in range(2):
         for f_data in new_features_data:
@@ -96,16 +99,34 @@ async def generate_issues_for_node(
                 except ValueError:
                     f_type = FeatureType.NEW_CAPABILITY
 
+            # Map status safely
+            try:
+                f_status = FeatureStatus(f_data.get("status", "validated").lower())
+            except ValueError:
+                f_status = FeatureStatus.VALIDATED
+
+            # Map priority safely
+            try:
+                f_priority = IssuePriority(f_data.get("priority", "medium").lower())
+            except ValueError:
+                f_priority = IssuePriority.MEDIUM
+
+            # Generate unique identifier locally
+            current_feature_num += 1
+            f_identifier = f"{team_prefix}-F{current_feature_num}"
+
             new_f = Feature(
                 project_id=idea.project_id,
                 parent_id=parent_id,
                 name=f_data["name"],
                 problem_statement=f_data.get("description"),
                 type=f_type,
-                status=FeatureStatus.VALIDATED,
+                status=f_status,
+                priority=f_priority,
                 owner_id=current_user.id,
+                health=FeatureHealth.ON_TRACK,
                 blueprint_node_id=node_id,
-                identifier=crud_feature.get_next_identifier(db, team_prefix)
+                identifier=f_identifier
             )
             db.add(new_f)
             db.flush()
@@ -234,6 +255,9 @@ async def create_features_background(idea_id: str, user_id: str):
         # Call AI to expand features
         expanded_features = await ai_service.expand_features_for_creation(context)
 
+        # Get current max identifier number to increment locally
+        current_feature_num = crud_feature.get_max_identifier_num(db, team_prefix)
+
         # Create features in DB
         for f_data in expanded_features:
             # Map string values to Enums (handling case sensitivity)
@@ -252,17 +276,24 @@ async def create_features_background(idea_id: str, user_id: str):
             except ValueError:
                 f_type = FeatureType.NEW_CAPABILITY
 
+            # Generate parent identifier
+            current_feature_num += 1
+            p_identifier = f"{team_prefix}-F{current_feature_num}"
+
             # Create Parent Feature
             parent_feature = Feature(
                 project_id=idea.project_id,
                 name=f_data.get('name', 'Unnamed Feature'),
                 problem_statement=f_data.get('description'),
+                target_user=f_data.get('target_user'),
+                expected_outcome=f_data.get('expected_outcome'),
+                success_metric=f_data.get('success_metric'),
                 status=status,
                 priority=priority,
                 type=f_type,
                 owner_id=user_id,
                 health=FeatureHealth.ON_TRACK,
-                identifier=crud_feature.get_next_identifier(db, team_prefix)
+                identifier=p_identifier
             )
             db.add(parent_feature)
             db.flush() # Flush to get ID for sub-features
@@ -285,17 +316,24 @@ async def create_features_background(idea_id: str, user_id: str):
                 except ValueError:
                     sub_type = FeatureType.NEW_CAPABILITY
 
+                # Generate sub-feature identifier
+                current_feature_num += 1
+                s_identifier = f"{team_prefix}-F{current_feature_num}"
+
                 sub_feature = Feature(
                     project_id=idea.project_id,
                     parent_id=parent_feature.id,
                     name=sub_data.get('name', 'Unnamed Sub-feature'),
                     problem_statement=sub_data.get('description'),
+                    target_user=sub_data.get('target_user'),
+                    expected_outcome=sub_data.get('expected_outcome'),
+                    success_metric=sub_data.get('success_metric'),
                     status=sub_status,
                     priority=sub_priority,
                     type=sub_type,
                     owner_id=user_id,
                     health=FeatureHealth.ON_TRACK,
-                    identifier=crud_feature.get_next_identifier(db, team_prefix)
+                    identifier=s_identifier
                 )
                 db.add(sub_feature)
 
@@ -1370,14 +1408,16 @@ async def convert_to_project(
 
     # Create Features
     features_map = {}
+    current_feature_num = crud_feature.get_max_identifier_num(db, team_prefix)
     for i, f_data in enumerate(idea.validation_report.core_features):
+        current_feature_num += 1
         feature = Feature(
             project_id=new_project.id,
             name=f_data['name'],
             problem_statement=f_data.get('description'),
             status=FeatureStatus.VALIDATED,
             owner_id=current_user.id,
-            identifier=crud_feature.get_next_identifier(db, team_prefix)
+            identifier=f"{team_prefix}-F{current_feature_num}"
         )
         db.add(feature)
         features_map[f_data['name']] = feature
@@ -1390,17 +1430,19 @@ async def convert_to_project(
         import ast
         try:
             kanban_data = ast.literal_eval(kanban_asset.content)
+            current_issue_num = crud_issue.get_max_identifier_num(db, team_prefix)
             for i, issue_data in enumerate(kanban_data):
                 feature_list = list(features_map.values())
                 feature_id = feature_list[i % len(feature_list)].id if feature_list else None
 
+                current_issue_num += 1
                 issue = Issue(
                     title=issue_data['title'],
                     status=IssueStatus.TODO,
                     issue_type=IssueType.TASK,
                     team_id=team_id,
                     feature_id=feature_id,
-                    identifier=crud_issue.get_next_identifier(db, team_prefix)
+                    identifier=f"{team_prefix}-{current_issue_num}"
                 )
                 db.add(issue)
         except:

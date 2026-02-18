@@ -48,17 +48,59 @@ class CRUDFeature(CRUDBase[Feature, FeatureCreate, FeatureUpdate]):
         # We use a distinct suffix for features, like prefix-F{number}
         feature_prefix = f"{prefix}-F"
         pattern = f"{feature_prefix}%"
-        max_id = db.query(func.max(Feature.identifier)).filter(Feature.identifier.like(pattern)).scalar()
         
-        if not max_id:
+        # We sort by length first, then alphabetically to handle numeric strings correctly
+        # e.g., 'JAW-F10' (len 7) should be > 'JAW-F9' (len 6)
+        max_id_row = db.query(Feature.identifier).filter(
+            Feature.identifier.like(pattern)
+        ).order_by(
+            func.length(Feature.identifier).desc(),
+            Feature.identifier.desc()
+        ).first()
+        
+        if not max_id_row:
             return f"{feature_prefix}1"
         
         try:
             # Extract number from prefix-Fnumber
-            current_num = int(max_id.replace(feature_prefix, ""))
+            if hasattr(max_id_row, "_mapping"):
+                id_str = max_id_row[0]
+            elif isinstance(max_id_row, (tuple, list)):
+                id_str = max_id_row[0]
+            else:
+                id_str = str(max_id_row)
+
+            current_num = int(id_str.replace(feature_prefix, ""))
             return f"{feature_prefix}{current_num + 1}"
-        except (ValueError, IndexError):
+        except (ValueError, IndexError, AttributeError):
             return f"{feature_prefix}1"
+
+    def get_max_identifier_num(self, db: Session, prefix: str) -> int:
+        """Get the current maximum identifier number for a team's features."""
+        feature_prefix = f"{prefix}-F"
+        pattern = f"{feature_prefix}%"
+        
+        max_id_row = db.query(Feature.identifier).filter(
+            Feature.identifier.like(pattern)
+        ).order_by(
+            func.length(Feature.identifier).desc(),
+            Feature.identifier.desc()
+        ).first()
+        
+        if not max_id_row:
+            return 0
+            
+        try:
+            if hasattr(max_id_row, "_mapping"):
+                id_str = max_id_row[0]
+            elif isinstance(max_id_row, (tuple, list)):
+                id_str = max_id_row[0]
+            else:
+                id_str = str(max_id_row)
+                
+            return int(id_str.replace(feature_prefix, ""))
+        except (ValueError, IndexError, AttributeError):
+            return 0
 
     def create(
         self, 

@@ -29,6 +29,7 @@ import Mermaid from '@/components/Mermaid';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
+import { useIssueStore } from '@/store/issueStore';
 import { 
   Sheet, 
   SheetContent, 
@@ -111,6 +112,8 @@ export default function AIGeneratorPage() {
   const [isCanvasExpanded, setIsCanvasExpanded] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isNodeSidebarOpen, setIsNodeSidebarOpen] = useState(false);
+
+  const { fetchData } = useIssueStore();
 
   const selectedDoc = docs.find(d => d.asset_type === selectedDocType);
   const selectedNode = blueprint?.nodes?.find(n => n.id === selectedNodeId);
@@ -214,6 +217,7 @@ export default function AIGeneratorPage() {
     try {
       await aiService.generateIssuesForNode(ideaId, selectedNodeId);
       toast.success(`Successfully generated and linked issues for ${selectedNodeId}`);
+      await fetchData(); // Refresh global issue store
       setIsNodeSidebarOpen(false);
     } catch (error) {
       toast.error("Failed to generate issues");

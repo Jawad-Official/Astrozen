@@ -65,7 +65,7 @@ class Feature(Base):
     project = relationship("Project", back_populates="features")
     owner = relationship("User", foreign_keys=[owner_id])
     milestones = relationship("Milestone", back_populates="feature", cascade="all, delete-orphan")
-    issues = relationship("Issue", back_populates="feature")
+    issues = relationship("Issue", back_populates="feature", cascade="all, delete-orphan")
     
     # Sub-features relationship
     sub_features = relationship("Feature", cascade="all, delete-orphan", back_populates="parent")

@@ -429,7 +429,11 @@ class AIService:
         3. DETAILED ISSUES: Create all primary technical issues needed to fully implement this component. 
            - Each primary issue MUST have a detailed 'description' with implementation steps.
            - Each primary issue should have all necessary 'sub_issues' providing granular tasks for a developer to follow.
-        4. DATA TYPES: Priority (urgent, high, medium, low), Type (task, chore).
+        4. DATA TYPES: Use strict lowercase enum strings:
+           Priority: [urgent, high, medium, low, none]
+           Issue Type: [bug, task, refactor, chore, technical_debt, investigation]
+           Feature Type: [new_capability, enhancement, experiment, infrastructure]
+           Status: [discovery, validated, in_build, in_review, shipped, adopted, killed]
         5. LINKING: Ensure all created issues and features are conceptually linked to this node ID: "{node_details.get('id')}".
 
         Return a JSON object:
@@ -439,6 +443,8 @@ class AIService:
                     "name": "Feature Name", 
                     "description": "Detailed spec...", 
                     "type": "new_capability", 
+                    "priority": "high",
+                    "status": "validated",
                     "parent_feature_name": "Optional: Name of existing feature to nest under" 
                 }}
             ],
@@ -533,21 +539,42 @@ class AIService:
         Project Context:
         {json.dumps(idea_context, indent=2)}
 
-        For EACH core feature, generate:
+        For EACH core feature, make a strategic decision to assign:
         1. A clear, actionable Name.
         2. A detailed Description (Problem Statement/Spec).
-        3. A Priority (urgent, high, medium, low, none).
-        4. A Status (discovery, validated, in_build, in_review, shipped, adopted, killed). Set most to 'discovery' or 'validated'.
-        5. A Feature Type (new_capability, enhancement, experiment, infrastructure).
-        6. A comprehensive list of Sub-Features (if applicable) with the same structure (name, description, priority, status, type) to fully define the implementation scope.
+        3. Target User: Who is this specifically for?
+        4. Expected Outcome: What is the primary benefit?
+        5. Success Metric: How will we measure if this feature is successful?
+        6. A Priority: 
+           - 'urgent': Critical blockers or core value pillars.
+           - 'high': Essential for MVP.
+           - 'medium': Important but not strictly blocking.
+           - 'low': Nice-to-haves.
+        7. A Status:
+           - 'validated': If it's a core, well-understood requirement from the validation report.
+           - 'discovery': If it's a complex area needing more research.
+        8. A Feature Type:
+           - 'new_capability': Entirely new functionality.
+           - 'enhancement': Improving existing flows.
+           - 'infrastructure': Backend/DevOps foundations.
+           - 'experiment': High-risk/speculative features.
+        9. A comprehensive list of Sub-Features (if applicable) with the same structure (name, description, priority, status, type).
 
         Return a JSON object with a "features" key containing the list.
+        Ensure all values strictly match these lowercase enum strings:
+        Priority: [urgent, high, medium, low, none]
+        Status: [discovery, validated, in_build, in_review, shipped, adopted, killed]
+        Type: [new_capability, enhancement, experiment, infrastructure]
+
         Example:
         {{
             "features": [
                 {{
                     "name": "User Authentication",
                     "description": "Secure login/signup flow...",
+                    "target_user": "All registered users",
+                    "expected_outcome": "Users can securely access their accounts",
+                    "success_metric": "99.9% successful login rate",
                     "priority": "high",
                     "status": "validated",
                     "type": "new_capability",
