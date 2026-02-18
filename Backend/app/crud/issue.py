@@ -3,7 +3,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, and_, func
 from app.crud.base import CRUDBase
-from app.models.issue import Issue, IssueStatus, IssuePriority, TriageStatus, Visibility, IssueResource
+from app.models.issue import Issue, IssueStatus, IssuePriority, TriageStatus, Visibility, IssueResource, IssueType
 from app.schemas.issue import IssueCreate, IssueUpdate
 from uuid import UUID
 
