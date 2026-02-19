@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Body, Body
 from sqlalchemy.orm import Session
 from typing import Any, List, Dict, Optional
 import mammoth
@@ -8,7 +8,9 @@ from app.schemas import ai as schemas
 from app.crud import crud_project_idea, feature as crud_feature, issue as crud_issue
 from app.services.ai_service import ai_service
 from app.services.storage_service import storage_service
+from app.services.notification_service import notification_service
 from app.models.project_idea import IdeaStatus, AssetType, AssetStatus, ProjectIdea, ProjectAsset
+from app.models.notification import NotificationType
 from app.models.user import User
 from app.models.team_model import Team
 from app.core.database import SessionLocal
@@ -221,6 +223,18 @@ async def generate_issues_for_node(
             db.add(sub_issue)
 
     db.commit()
+
+    # Notify user
+    notification_service.notify_user(
+        db,
+        recipient_id=current_user.id,
+        type=NotificationType.AI_ISSUES_CREATED,
+        title="Issues Generated",
+        content=f"Generated {created_count} items for component '{node_id}'.",
+        target_id=str(idea.id),
+        target_type="ai_idea"
+    )
+
     return {"message": f"Generated {created_count} items (including sub-issues) across {len(milestone_map)} milestones and {len(new_features_data)} features."}
 
 
@@ -544,13 +558,18 @@ async def sync_blueprint_from_docs(
     # 1. Generate validation report from docs
     report_data = await ai_service.validate_idea(idea.raw_input, [], docs_context)
 
+    required_fields = ["market_feasibility", "improvements", "core_features", "tech_stack", "pricing_model"]
+
     if idea.validation_report:
-        for key, value in report_data.items():
-            setattr(idea.validation_report, key, value)
+        for key in required_fields:
+            if key in report_data:
+                setattr(idea.validation_report, key, report_data[key])
         report = idea.validation_report
     else:
+        # Filter report_data to only include required fields
+        filtered_report = {k: v for k, v in report_data.items() if k in required_fields}
         report = crud_project_idea.project_idea.create_validation_report(
-            db=db, idea_id=idea_id, report_data=report_data
+            db=db, idea_id=idea_id, report_data=filtered_report
         )
 
     # 2. Generate blueprint from new report data
@@ -739,8 +758,15 @@ async def validate_idea(
     if not idea:
         raise HTTPException(status_code=404, detail="Idea not found")
 
+    # If validation report exists and no feedback, return serialized version
     if idea.validation_report and not feedback:
-        return idea.validation_report
+        return {
+            "market_feasibility": idea.validation_report.market_feasibility,
+            "core_features": idea.validation_report.core_features,
+            "tech_stack": idea.validation_report.tech_stack,
+            "pricing_model": idea.validation_report.pricing_model,
+            "improvements": idea.validation_report.improvements,
+        }
 
     # Build clarifications from questions if available
     clarifications = []
@@ -757,19 +783,67 @@ async def validate_idea(
 
     report_data = await ai_service.validate_idea(full_text, clarifications, feedback)
 
+    if not report_data:
+        raise HTTPException(status_code=500, detail="AI Validation failed to generate report data.")
+
+    # Ensure all required fields are present
+    required_fields = ["market_feasibility", "improvements", "core_features", "tech_stack", "pricing_model"]
+    
+    # Log the received report_data keys
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Report data keys: {list(report_data.keys())}")
+
+    missing_fields = [field for field in required_fields if field not in report_data]
+    if missing_fields:
+        logger.error(f"Missing fields in validation report: {missing_fields}")
+        # Set default values for missing fields
+        if "market_feasibility" not in report_data:
+            report_data["market_feasibility"] = {"score": 50, "analysis": "Unable to analyze", "pillars": []}
+        if "improvements" not in report_data:
+            report_data["improvements"] = []
+        if "core_features" not in report_data:
+            report_data["core_features"] = []
+        if "tech_stack" not in report_data:
+            report_data["tech_stack"] = {"frontend": [], "backend": [], "infrastructure": []}
+        if "pricing_model" not in report_data:
+            report_data["pricing_model"] = {"type": "Unknown", "tiers": []}
+
     if idea.validation_report:
-        for key, value in report_data.items():
-            setattr(idea.validation_report, key, value)
+        for key in required_fields:
+            if key in report_data:
+                setattr(idea.validation_report, key, report_data[key])
         report = idea.validation_report
     else:
+        # Filter report_data to only include required fields
+        filtered_report = {k: v for k, v in report_data.items() if k in required_fields}
         report = crud_project_idea.project_idea.create_validation_report(
-            db=db, idea_id=idea_id, report_data=report_data
+            db=db, idea_id=idea_id, report_data=filtered_report
         )
 
     idea.status = IdeaStatus.VALIDATED
     db.commit()
     db.refresh(report)
-    return report
+
+    # Notify user
+    notification_service.notify_user(
+        db,
+        recipient_id=current_user.id,
+        type=NotificationType.AI_VALIDATION_READY,
+        title="Validation Report Ready",
+        content=f"Market analysis for '{idea.refined_description or idea.raw_input[:30]}' is complete.",
+        target_id=str(idea.id),
+        target_type="ai_idea"
+    )
+
+    # Return serialized version to avoid Pydantic serialization issues
+    return {
+        "market_feasibility": report.market_feasibility,
+        "core_features": report.core_features,
+        "tech_stack": report.tech_stack,
+        "pricing_model": report.pricing_model,
+        "improvements": report.improvements,
+    }
 
 
 @router.put("/idea/{idea_id}/validate", response_model=schemas.ValidationReportResponse)
@@ -807,7 +881,15 @@ async def update_validation_report(
 
     db.commit()
     db.refresh(report)
-    return report
+
+    # Return serialized version to avoid Pydantic serialization issues
+    return {
+        "market_feasibility": report.market_feasibility,
+        "core_features": report.core_features,
+        "tech_stack": report.tech_stack,
+        "pricing_model": report.pricing_model,
+        "improvements": report.improvements,
+    }
 
 
 @router.post("/idea/{idea_id}/validate/regenerate-field")
@@ -853,7 +935,102 @@ async def regenerate_validation_field(
     db.commit()
     db.refresh(idea.validation_report)
 
-    return idea.validation_report
+    # Return serialized version to avoid Pydantic serialization issues
+    return {
+        "market_feasibility": idea.validation_report.market_feasibility,
+        "core_features": idea.validation_report.core_features,
+        "tech_stack": idea.validation_report.tech_stack,
+        "pricing_model": idea.validation_report.pricing_model,
+        "improvements": idea.validation_report.improvements,
+    }
+
+
+@router.post("/idea/{idea_id}/validate/accept-improvements")
+async def accept_improvements_and_revalidate(
+    idea_id: str,
+    accepted_improvements: List[int] = Body(..., description="List of improvement indices to accept (0-based)"),
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    """
+    Phase 2: Accept selected improvements and re-validate the idea.
+    The AI will incorporate the accepted improvements into the validation and re-run the 6-pillar analysis.
+    """
+    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
+    if not idea or not idea.validation_report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    # Get the improvements
+    all_improvements = idea.validation_report.improvements or []
+    if not all_improvements:
+        raise HTTPException(status_code=400, detail="No improvements available")
+
+    # Filter accepted improvements
+    selected_improvements = [all_improvements[i] for i in accepted_improvements if 0 <= i < len(all_improvements)]
+
+    if not selected_improvements:
+        raise HTTPException(status_code=400, detail="No valid improvements selected")
+
+    # Build feedback text incorporating accepted improvements
+    improvements_text = "\n".join([f"- {imp}" for imp in selected_improvements])
+    feedback = f"The user has accepted these improvements and wants them incorporated into the validation:\n{improvements_text}\n\nPlease re-validate the idea against the 6 core pillars, considering these improvements have been accepted."
+
+    # Build clarifications from questions if available
+    clarifications = []
+    if idea.clarification_questions:
+        clarifications = [
+            {"question": q["question"], "answer": q.get("answer", "")}
+            for q in idea.clarification_questions
+            if q.get("answer")
+        ]
+
+    # Re-run validation with the feedback
+    full_text = f"{idea.raw_input}\n{idea.refined_description or ''}"
+    full_text += f"\n\nUSER ACCEPTED IMPROVEMENTS:\n{improvements_text}"
+
+    report_data = await ai_service.validate_idea(full_text, clarifications, feedback)
+
+    # Ensure all required fields are present
+    required_fields = ["market_feasibility", "improvements", "core_features", "tech_stack", "pricing_model"]
+    missing_fields = [field for field in required_fields if field not in report_data]
+    if missing_fields:
+        logger.error(f"Missing fields in validation report: {missing_fields}")
+        if "market_feasibility" not in report_data:
+            report_data["market_feasibility"] = {"score": 50, "analysis": "Unable to analyze", "pillars": []}
+        if "improvements" not in report_data:
+            report_data["improvements"] = []
+        if "core_features" not in report_data:
+            report_data["core_features"] = []
+        if "tech_stack" not in report_data:
+            report_data["tech_stack"] = {"frontend": [], "backend": [], "infrastructure": []}
+        if "pricing_model" not in report_data:
+            report_data["pricing_model"] = {"type": "Unknown", "tiers": []}
+
+    # Update the validation report
+    for key, value in report_data.items():
+        setattr(idea.validation_report, key, value)
+    db.commit()
+    db.refresh(idea.validation_report)
+
+    # Notify user
+    notification_service.notify_user(
+        db,
+        recipient_id=current_user.id,
+        type=NotificationType.AI_VALIDATION_READY,
+        title="Validation Updated",
+        content=f"Validation re-run with {len(selected_improvements)} accepted improvements.",
+        target_id=str(idea.id),
+        target_type="ai_idea"
+    )
+
+    # Return the updated report
+    return {
+        "market_feasibility": idea.validation_report.market_feasibility,
+        "core_features": idea.validation_report.core_features,
+        "tech_stack": idea.validation_report.tech_stack,
+        "pricing_model": idea.validation_report.pricing_model,
+        "improvements": idea.validation_report.improvements,
+    }
 
 
 @router.post("/idea/{idea_id}/blueprint", response_model=schemas.BlueprintResponse)
@@ -903,9 +1080,19 @@ async def generate_blueprint(
             content=json.dumps({"nodes": nodes_data, "edges": edges_data}),
             status=AssetStatus.COMPLETED
         )
-
     idea.status = IdeaStatus.BLUEPRINT_GENERATED
     db.commit()
+
+    # Notify user
+    notification_service.notify_user(
+        db,
+        recipient_id=current_user.id,
+        type=NotificationType.AI_BLUEPRINT_READY,
+        title="Blueprint Generated",
+        content=f"Visual blueprint and roadmap for '{idea.refined_description or idea.raw_input[:30]}' are ready.",
+        target_id=str(idea.id),
+        target_type="ai_idea"
+    )
 
     return {
         "user_flow_mermaid": blueprint_data.get("user_flow_mermaid", ""),
@@ -1101,6 +1288,17 @@ async def generate_document(
     if chat_history:
         asset.chat_history = chat_history
         db.commit()
+
+    # Notify user
+    notification_service.notify_user(
+        db,
+        recipient_id=current_user.id,
+        type=NotificationType.AI_DOC_GENERATED,
+        title=f"{doc_type.value.replace('_', ' ')} Generated",
+        content=f"The {doc_type.value} for your project has been generated successfully.",
+        target_id=str(idea.id),
+        target_type="ai_idea"
+    )
 
     return asset
 

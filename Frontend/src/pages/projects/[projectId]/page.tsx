@@ -1267,7 +1267,7 @@ const ProjectDetailPage = () => {
                         <Users className="h-4 w-4 text-muted-foreground" />
                       ) : (
                         <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary text-[9px] font-medium">
-                          {stat.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                          {stat.name ? stat.name.split(' ').map(n => n[0]).join('').slice(0, 2) : '??'}
                         </div>
                       )}
                       <span className="text-xs flex-1">{stat.name}</span>

@@ -150,6 +150,7 @@ export interface FilterState {
   priorities: IssuePriority[];
   types: IssueType[];
   projects: string[];
+  labels: string[];
   cycles: string[];
   assignees: string[];
   hasNoCycle: boolean;
@@ -171,6 +172,7 @@ export interface Issue {
   assignee?: string;
   assigneeName?: string;
   parentId?: string;
+  labels?: Label[];
   subIssues?: Issue[];
   resources?: IssueResource[];
   triageStatus?: TriageStatus;

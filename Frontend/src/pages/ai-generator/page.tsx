@@ -13,7 +13,11 @@ import {
   Rocket,
   ArrowsIn,
   ArrowsOut,
-  Lightning
+  Lightning,
+  Plus,
+  X,
+  Lightbulb,
+  CurrencyDollar
 } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,87 +26,61 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { TextShimmer } from '@/components/ui/text-shimmer';
-import { aiService } from '@/services/ai.service';
 import { toast } from 'sonner';
 import Mermaid from '@/components/Mermaid';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useIssueStore } from '@/store/issueStore';
-import { 
-  Sheet, 
-  SheetContent, 
-  SheetHeader, 
-  SheetTitle, 
-  SheetDescription 
-} from '@/components/ui/sheet';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-
-type Phase = 'INPUT' | 'CLARIFICATION' | 'VALIDATION' | 'BLUEPRINT' | 'DOCUMENTATION';
-
-interface Pillar {
-  name: string;
-  status: string;
-  reason: string;
-}
-
-interface Feature {
-  name: string;
-  description: string;
-  type: string;
-}
-
-interface TechStack {
-  frontend: string[];
-  backend: string[];
-  infrastructure: string[];
-}
-
-interface ValidationReport {
-  market_feasibility: {
-    pillars: Pillar[];
-    score: number;
-    analysis: string;
-  };
-  core_features: Feature[];
-  tech_stack: TechStack;
-  pricing_model: any;
-}
-
-interface FlowNode {
-  id: string;
-  label: string;
-  type: string;
-  subtasks: string[];
-  status: string;
-}
-
-interface Blueprint {
-  user_flow_mermaid: string;
-  kanban_features: { title: string; status: string; priority: string }[];
-  nodes?: FlowNode[];
-}
-
-interface Doc {
-  id: string;
-  asset_type: string;
-  content: string;
-}
+import { useAIStore, TechStack } from '@/store/aiStore';
+import {
+  Dialog, DialogContent 
+} from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useState, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 
 export default function AIGeneratorPage() {
   const navigate = useNavigate();
-  const [phase, setPhase] = useState<Phase>('INPUT');
-  const [ideaId, setIdeaId] = useState<string | null>(null);
-  const [rawInput, setRawInput] = useState('');
-  const [questions, setQuestions] = useState<string[]>([]);
-  const [answers, setAnswers] = useState<{question: string, answer: string}[]>([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [validationReport, setValidationReport] = useState<ValidationReport | null>(null);
-  const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
-  const [docs, setDocs] = useState<Doc[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState('');
+  const [searchParams] = useSearchParams();
+  const queryIdeaId = searchParams.get('idea');
+
+  const { 
+    phase, 
+    rawInput, 
+    setRawInput, 
+    questions, 
+    currentQuestionIndex, 
+    validationReport, 
+    updateValidationReport,
+    blueprint, 
+    docs, 
+    isGenerating, 
+    generationMessage,
+    submitIdea,
+    answerQuestion,
+    validateIdea,
+    generateBlueprint,
+    generateDoc,
+    chatDoc,
+    generateIssues,
+    ideaId,
+    reset,
+    selectedImprovementIndices,
+    setSelectedImprovements,
+    acceptImprovements
+  } = useAIStore();
+
+  // Handle incoming idea from notification or URL
+  useEffect(() => {
+    if (queryIdeaId && queryIdeaId !== ideaId) {
+      // Logic to fetch and load existing idea
+      // For now we'll just trigger validation to load the state
+      useAIStore.setState({ ideaId: queryIdeaId });
+      validateIdea();
+    }
+  }, [queryIdeaId, validateIdea, ideaId]);
+
   const [chatMessage, setChatMessage] = useState('');
   const [selectedDocType, setSelectedDocType] = useState<string | null>(null);
   const [isRefining, setIsRefining] = useState(false);
@@ -118,90 +96,6 @@ export default function AIGeneratorPage() {
   const selectedDoc = docs.find(d => d.asset_type === selectedDocType);
   const selectedNode = blueprint?.nodes?.find(n => n.id === selectedNodeId);
 
-  // Handle Initial Submission
-  const handleSubmitIdea = async () => {
-    if (!rawInput.trim()) return;
-    setLoading(true);
-    setLoadingMessage('Analyzing your idea...');
-    try {
-      const res = await aiService.submitIdea(rawInput);
-      setIdeaId(res.data.id);
-      if (res.data.status === 'CLARIFICATION_NEEDED') {
-        setQuestions(res.data.clarification_questions);
-        setPhase('CLARIFICATION');
-      } else {
-        setPhase('VALIDATION');
-        handleValidate(res.data.id);
-      }
-    } catch (error) {
-      toast.error("Failed to submit idea");
-    } finally {
-      setLoading(false);
-      setLoadingMessage('');
-    }
-  };
-
-  // Handle Clarification Answers
-  const handleAnswerQuestion = async (answer: string) => {
-    const newAnswers = [...answers, { question: questions[currentQuestionIndex], answer }];
-    setAnswers(newAnswers);
-
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-    } else {
-      setLoading(true);
-      setLoadingMessage('Processing your answers...');
-      try {
-        await aiService.answerQuestions(ideaId!, newAnswers);
-        setPhase('VALIDATION');
-        handleValidate(ideaId!);
-      } catch (error) {
-        toast.error("Failed to save answers");
-      } finally {
-        setLoading(false);
-        setLoadingMessage('');
-      }
-    }
-  };
-
-  // Handle Validation
-  const handleValidate = async (id: string, feedback?: string) => {
-    setLoading(true);
-    setLoadingMessage(feedback ? 'Regenerating analysis...' : 'Validating your idea...');
-    try {
-      const res = await aiService.validateIdea(id, feedback);
-      setValidationReport(res.data);
-      setIsRefining(false);
-      setRefineFeedback('');
-      if (feedback) toast.success("Analysis regenerated with your feedback");
-    } catch (error) {
-      toast.error("Validation failed");
-    } finally {
-      setLoading(false);
-      setLoadingMessage('');
-    }
-  };
-
-  // Handle Blueprint Generation
-  const handleGenerateBlueprint = async () => {
-    setLoading(true);
-    setLoadingMessage('Generating visual blueprint...');
-    try {
-      // Save any manual edits first
-      if (validationReport) {
-        await aiService.updateValidationReport(ideaId!, validationReport);
-      }
-      const res = await aiService.generateBlueprint(ideaId!);
-      setBlueprint(res.data);
-      setPhase('BLUEPRINT');
-    } catch (error) {
-      toast.error("Blueprint generation failed");
-    } finally {
-      setLoading(false);
-      setLoadingMessage('');
-    }
-  };
-
   // Handle Node Interaction
   const handleNodeClick = (id: string) => {
     setSelectedNodeId(id);
@@ -209,60 +103,29 @@ export default function AIGeneratorPage() {
     setIsCanvasExpanded(true); // Auto-expand canvas if not already
   };
 
-  // Handle Issue Generation
   const handleGenerateIssues = async () => {
-    if (!selectedNodeId || !ideaId) return;
-    setLoading(true);
-    setLoadingMessage(`Generating detailed issues for ${selectedNodeId}...`);
-    try {
-      await aiService.generateIssuesForNode(ideaId, selectedNodeId);
-      toast.success(`Successfully generated and linked issues for ${selectedNodeId}`);
+    if (selectedNodeId) {
+      await generateIssues(selectedNodeId);
       await fetchData(); // Refresh global issue store
       setIsNodeSidebarOpen(false);
-    } catch (error) {
-      toast.error("Failed to generate issues");
-    } finally {
-      setLoading(false);
-      setLoadingMessage('');
     }
   };
 
-  // Handle Doc Generation
-  const handleGenerateDoc = async (type: string) => {
-    setLoading(true);
-    setLoadingMessage(`Generating ${type.replace('_', ' ')}...`);
-    try {
-      const res = await aiService.generateDoc(ideaId!, type);
-      setDocs(prev => [...prev, res.data]);
-      setSelectedDocType(type);
-    } catch (error) {
-      toast.error(`Failed to generate ${type}`);
-    } finally {
-      setLoading(false);
-      setLoadingMessage('');
+  // Debug logging for validation report
+  useEffect(() => {
+    if (phase === 'VALIDATION' && validationReport) {
+      console.log('Rendering Phase 2 with validationReport:', validationReport);
+      console.log('validationReport keys:', Object.keys(validationReport));
+      console.log('market_feasibility:', validationReport.market_feasibility);
+      console.log('improvements:', validationReport.improvements);
+      console.log('core_features:', validationReport.core_features);
+      console.log('tech_stack:', validationReport.tech_stack);
+      console.log('pricing_model:', validationReport.pricing_model);
     }
-  };
-
-  // Handle Doc Chat
-  const handleChatDoc = async () => {
-    if (!chatMessage.trim() || !selectedDocType) return;
-    setLoading(true);
-    setLoadingMessage('Updating document...');
-    try {
-      const res = await aiService.chatDoc(ideaId!, selectedDocType, chatMessage);
-      setDocs(prev => prev.map(d => d.asset_type === selectedDocType ? res.data : d));
-      setChatMessage('');
-      toast.success("Document updated");
-    } catch (error) {
-      toast.error("Failed to update document");
-    } finally {
-      setLoading(false);
-      setLoadingMessage('');
-    }
-  };
+  }, [phase, validationReport]);
 
   return (
-    <div className="flex flex-col h-full bg-background p-4 sm:p-6 overflow-hidden">
+    <div className="flex flex-col h-full bg-background p-4 sm:p-6 overflow-hidden relative">
       <div className="flex items-center gap-3 mb-6 sm:mb-8">
         <div className="p-2 rounded-xl bg-primary/10 text-primary">
           <MagicWand size={24} weight="duotone" />
@@ -273,21 +136,28 @@ export default function AIGeneratorPage() {
         </div>
       </div>
 
-      {/* Loading Overlay */}
-      {loading && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
-          <div className="text-center space-y-4">
-            <div className="p-6 rounded-2xl bg-white/5 border border-white/10 shadow-2xl">
-              <MagicWand size={48} weight="duotone" className="mx-auto text-primary mb-4 animate-pulse" />
-              <TextShimmer className="text-2xl font-bold" duration={1.5}>
-                {loadingMessage || 'Generating Magic...'}
-              </TextShimmer>
+      {/* Non-blocking Progress Indicator */}
+      <AnimatePresence>
+        {isGenerating && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-6 right-6 z-50 flex items-center gap-4 p-4 pr-6 bg-background/80 backdrop-blur-md border border-primary/20 rounded-2xl shadow-2xl shadow-primary/10 ring-1 ring-white/5"
+          >
+            <div className="relative">
+              <div className="absolute inset-0 bg-primary/20 rounded-full blur-md animate-pulse" />
+              <ArrowClockwise className="animate-spin text-primary relative z-10" size={24} weight="bold" />
             </div>
-          </div>
-        </div>
-      )}
+            <div className="space-y-0.5">
+              <p className="text-sm font-bold text-primary">AI is working...</p>
+              <p className="text-xs text-muted-foreground">{generationMessage}</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <div className="flex-1 overflow-y-auto max-w-7xl mx-auto w-full space-y-8 pb-12">
+      <div className="flex-1 overflow-y-auto max-w-7xl mx-auto w-full space-y-8 pb-24">
         
         {/* Phase 1: Input */}
         {phase === 'INPUT' && (
@@ -306,11 +176,11 @@ export default function AIGeneratorPage() {
             </CardContent>
             <CardFooter>
               <Button 
-                onClick={handleSubmitIdea} 
-                disabled={loading || !rawInput.trim()}
+                onClick={submitIdea} 
+                disabled={isGenerating || !rawInput.trim()}
                 className="w-full"
               >
-                {loading ? <ArrowClockwise className="animate-spin mr-2" /> : <MagicWand className="mr-2" />}
+                {isGenerating ? <ArrowClockwise className="animate-spin mr-2" /> : <MagicWand className="mr-2" />}
                 Generate Initial Validation
               </Button>
             </CardFooter>
@@ -335,7 +205,7 @@ export default function AIGeneratorPage() {
                     className="flex-1"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && e.currentTarget.value) {
-                        handleAnswerQuestion(e.currentTarget.value);
+                        answerQuestion(e.currentTarget.value);
                         e.currentTarget.value = '';
                       }
                     }}
@@ -343,7 +213,7 @@ export default function AIGeneratorPage() {
                   <Button onClick={(e) => {
                     const input = e.currentTarget.previousElementSibling as HTMLInputElement;
                     if (input.value) {
-                      handleAnswerQuestion(input.value);
+                      answerQuestion(input.value);
                       input.value = '';
                     }
                   }}>
@@ -358,8 +228,33 @@ export default function AIGeneratorPage() {
         {/* Phase 2: Validation */}
         {phase === 'VALIDATION' && validationReport && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+
+            {/* Validation Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-white/5 p-4 rounded-xl border border-white/5">
+              <div className="space-y-1">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <ChartBar className="text-primary" /> Market Analysis
+                </h2>
+                <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
+                  {validationReport.market_feasibility?.analysis || 'No analysis available'}
+                </p>
+              </div>
+              <div className="flex items-center gap-3 sm:flex-col sm:items-end sm:gap-0 bg-black/20 sm:bg-transparent p-3 sm:p-0 rounded-lg">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Feasibility Score</span>
+                <span className={cn(
+                  "text-3xl font-black",
+                  (validationReport.market_feasibility?.score ?? 0) >= 80 ? "text-emerald-400" :
+                  (validationReport.market_feasibility?.score ?? 0) >= 60 ? "text-amber-400" : "text-red-400"
+                )}>
+                  {validationReport.market_feasibility?.score ?? 0}
+                  <span className="text-sm text-muted-foreground font-medium">/100</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Market Analysis Pillars */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-               {validationReport.market_feasibility.pillars.map((pillar: any) => (
+               {(validationReport.market_feasibility?.pillars || []).map((pillar: any) => (
                  <Card key={pillar.name} className="border-white/5 bg-white/5">
                    <CardHeader className="pb-2">
                      <div className="flex items-center justify-between">
@@ -375,6 +270,7 @@ export default function AIGeneratorPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Core Features */}
               <Card className="border-white/5 bg-white/5">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -382,49 +278,49 @@ export default function AIGeneratorPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {validationReport.core_features.map((feature: Feature, i: number) => (
+                  {(validationReport.core_features || []).map((feature: any, i: number) => (
                     <div key={i} className="flex gap-3 p-3 rounded-lg bg-white/5 border border-white/5 group relative">
                       <CheckCircle className="text-green-500 mt-1 shrink-0" />
                       <div className="flex-1">
-                        <Input 
-                          value={feature.name} 
+                        <Input
+                          value={feature.name}
                           onChange={(e) => {
-                            const newFeatures = [...validationReport.core_features];
+                            const newFeatures = [...(validationReport.core_features || [])];
                             newFeatures[i].name = e.target.value;
-                            setValidationReport({...validationReport, core_features: newFeatures});
+                            updateValidationReport({...validationReport, core_features: newFeatures});
                           }}
                           className="h-7 text-sm font-medium bg-transparent border-none p-0 focus-visible:ring-0 mb-1"
                         />
-                        <Textarea 
-                          value={feature.description} 
+                        <Textarea
+                          value={feature.description}
                           onChange={(e) => {
-                            const newFeatures = [...validationReport.core_features];
+                            const newFeatures = [...(validationReport.core_features || [])];
                             newFeatures[i].description = e.target.value;
-                            setValidationReport({...validationReport, core_features: newFeatures});
+                            updateValidationReport({...validationReport, core_features: newFeatures});
                           }}
                           className="text-xs text-muted-foreground bg-transparent border-none p-0 focus-visible:ring-0 resize-none min-h-[40px]"
                         />
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity absolute right-2 top-2"
                         onClick={() => {
-                          const newFeatures = validationReport.core_features.filter((_, idx) => idx !== i);
-                          setValidationReport({...validationReport, core_features: newFeatures});
+                          const newFeatures = (validationReport.core_features || []).filter((_, idx) => idx !== i);
+                          updateValidationReport({...validationReport, core_features: newFeatures});
                         }}
                       >
                         <XCircle size={14} className="text-red-400" />
                       </Button>
                     </div>
                   ))}
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="w-full text-[10px] uppercase font-bold tracking-widest text-muted-foreground hover:text-white"
                     onClick={() => {
-                      const newFeatures = [...validationReport.core_features, { name: 'New Feature', description: 'Description', type: 'Core' }];
-                      setValidationReport({...validationReport, core_features: newFeatures});
+                      const newFeatures = [...(validationReport.core_features || []), { name: 'New Feature', description: 'Description', type: 'Core' }];
+                      updateValidationReport({...validationReport, core_features: newFeatures});
                     }}
                   >
                     <Plus className="mr-2" size={12} /> Add Feature
@@ -432,6 +328,7 @@ export default function AIGeneratorPage() {
                 </CardContent>
               </Card>
 
+              {/* Recommended Stack */}
               <Card className="border-white/5 bg-white/5">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -439,37 +336,37 @@ export default function AIGeneratorPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                   {Object.entries(validationReport.tech_stack).map(([key, value]) => (
+                   {Object.entries(validationReport.tech_stack || {}).map(([key, value]) => (
                      <div key={key}>
                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">{key}</p>
                        <div className="flex flex-wrap gap-2">
-                         {value.map((item, i) => (
-                           <Badge 
-                            key={i} 
-                            variant="outline" 
+                         {(value || []).map((item: any, i: number) => (
+                           <Badge
+                            key={i}
+                            variant="outline"
                             className="group relative pr-6"
                            >
                              {item}
-                             <button 
+                             <button
                               className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
                               onClick={() => {
-                                const newStack = {...validationReport.tech_stack};
-                                newStack[key as keyof TechStack] = newStack[key as keyof TechStack].filter((_, idx) => idx !== i);
-                                setValidationReport({...validationReport, tech_stack: newStack});
+                                const newStack = {...(validationReport.tech_stack || {})};
+                                (newStack[key as keyof TechStack] as string[]) = (newStack[key as keyof TechStack] as string[]).filter((_, idx) => idx !== i);
+                                updateValidationReport({...validationReport, tech_stack: newStack});
                               }}
                              >
                                <X size={10} />
                              </button>
                            </Badge>
                          ))}
-                         <Input 
-                          placeholder="Add..." 
+                         <Input
+                          placeholder="Add..."
                           className="h-6 w-20 text-[10px] bg-transparent border-dashed"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && e.currentTarget.value) {
-                              const newStack = {...validationReport.tech_stack};
-                              newStack[key as keyof TechStack] = [...newStack[key as keyof TechStack], e.currentTarget.value];
-                              setValidationReport({...validationReport, tech_stack: newStack});
+                              const newStack = {...(validationReport.tech_stack || {})};
+                              (newStack[key as keyof TechStack] as string[]) = [...(newStack[key as keyof TechStack] as string[]), e.currentTarget.value];
+                              updateValidationReport({...validationReport, tech_stack: newStack});
                               e.currentTarget.value = '';
                             }
                           }}
@@ -477,6 +374,85 @@ export default function AIGeneratorPage() {
                        </div>
                      </div>
                    ))}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Improvements & Pricing (NEW) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Improvements */}
+              <Card className="border-white/5 bg-white/5">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Lightbulb className="text-primary" /> Improvements
+                  </CardTitle>
+                  <CardDescription>Select improvements to automatically apply and re-validate.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    {(validationReport.improvements || []).map((improvement, i) => (
+                      <div key={i} className="flex items-start space-x-3 p-2 rounded hover:bg-white/5 transition-colors">
+                        <Checkbox 
+                          id={`improvement-${i}`} 
+                          checked={selectedImprovementIndices.includes(i)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedImprovements([...selectedImprovementIndices, i]);
+                            } else {
+                              setSelectedImprovements(selectedImprovementIndices.filter(index => index !== i));
+                            }
+                          }}
+                        />
+                        <div className="grid gap-1.5 leading-none">
+                          <label
+                            htmlFor={`improvement-${i}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            {improvement}
+                          </label>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {selectedImprovementIndices.length > 0 && (
+                    <Button 
+                      onClick={() => acceptImprovements(selectedImprovementIndices)}
+                      disabled={isGenerating}
+                      className="w-full bg-primary/10 text-primary hover:bg-primary/20 border-primary/20 border"
+                      size="sm"
+                    >
+                      {isGenerating ? <ArrowClockwise className="animate-spin mr-2" /> : <CheckCircle className="mr-2" />}
+                      Apply {selectedImprovementIndices.length} Selected Improvement{selectedImprovementIndices.length !== 1 ? 's' : ''}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Pricing Model */}
+              <Card className="border-white/5 bg-white/5">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CurrencyDollar className="text-primary" /> Pricing Model: {validationReport.pricing_model?.type || 'Unknown'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {(validationReport.pricing_model?.tiers || []).map((tier, i) => (
+                    <div key={i} className="p-3 rounded-lg bg-black/20 border border-white/5">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-bold">{tier.name}</span>
+                        <Badge variant="outline">{tier.price}</Badge>
+                      </div>
+                      <ul className="text-xs text-muted-foreground space-y-1">
+                        {(tier.features || []).map((feat, j) => (
+                          <li key={j} className="flex gap-1.5">
+                            <CheckCircle size={12} className="text-green-500 mt-0.5" />
+                            {feat}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
                 </CardContent>
               </Card>
             </div>
@@ -494,8 +470,8 @@ export default function AIGeneratorPage() {
                     />
                     <div className="flex gap-2 justify-end">
                       <Button variant="ghost" size="sm" onClick={() => setIsRefining(false)}>Cancel</Button>
-                      <Button size="sm" onClick={() => handleValidate(ideaId!, refineFeedback)} disabled={!refineFeedback.trim() || loading}>
-                        {loading ? <ArrowClockwise className="animate-spin mr-2" /> : <MagicWand className="mr-2" />}
+                      <Button size="sm" onClick={() => { validateIdea(refineFeedback); setIsRefining(false); }} disabled={!refineFeedback.trim() || isGenerating}>
+                        {isGenerating ? <ArrowClockwise className="animate-spin mr-2" /> : <MagicWand className="mr-2" />}
                         Regenerate Section
                       </Button>
                     </div>
@@ -506,7 +482,7 @@ export default function AIGeneratorPage() {
                   <Button variant="outline" className="border-red-500/20 text-red-400 hover:bg-red-500/10" onClick={() => setIsRefining(true)}>
                     <XCircle className="mr-2" /> Decline & Refine
                   </Button>
-                  <Button onClick={handleGenerateBlueprint} className="bg-primary text-primary-foreground">
+                  <Button onClick={generateBlueprint} className="bg-primary text-primary-foreground">
                     <CheckCircle className="mr-2" /> Accept & Create Blueprint
                   </Button>
                 </div>
@@ -612,10 +588,10 @@ export default function AIGeneratorPage() {
                                </p>
                                <Button 
                                 onClick={handleGenerateIssues}
-                                disabled={loading}
+                                disabled={isGenerating}
                                 className="w-full h-10 gap-2 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
                                >
-                                 {loading ? <ArrowClockwise className="animate-spin" /> : <MagicWand weight="bold" />}
+                                 {isGenerating ? <ArrowClockwise className="animate-spin" /> : <MagicWand weight="bold" />}
                                  Generate & Link Issues
                                </Button>
                              </div>
@@ -655,7 +631,12 @@ export default function AIGeneratorPage() {
                <Button variant="outline" onClick={() => navigate('/all-issues')}>
                  Go to My Workspace
                </Button>
-               <Button onClick={() => setPhase('DOCUMENTATION')} className="bg-primary">
+               {/* No specific 'setPhase' needed as we generate docs one by one or all at once? 
+                   Previous logic set phase to DOCUMENTATION. 
+                   Wait, store logic for 'generateBlueprint' sets phase to 'BLUEPRINT'. 
+                   We need a button to go to DOCUMENTATION phase manually or auto?
+                   The original code had a button: */}
+               <Button onClick={() => useAIStore.setState({ phase: 'DOCUMENTATION' })} className="bg-primary">
                  Generate Technical Documentation <ArrowRight className="ml-2" />
                </Button>
              </div>
@@ -688,7 +669,7 @@ export default function AIGeneratorPage() {
                       isGenerated && !selectedDocType && "border-green-500/20",
                       isLocked && "opacity-50 grayscale pointer-events-none"
                     )}
-                    onClick={() => isGenerated ? setSelectedDocType(doc.id) : handleGenerateDoc(doc.id)}
+                    onClick={() => isGenerated ? setSelectedDocType(doc.id) : generateDoc(doc.id)}
                    >
                      <CardContent className="p-4 flex items-center justify-between">
                        <div className="flex items-center gap-3">
@@ -730,12 +711,12 @@ export default function AIGeneratorPage() {
                           placeholder="Ask AI to regenerate or change something..." 
                           value={chatMessage}
                           onChange={(e) => setChatMessage(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleChatDoc()}
-                          disabled={!selectedDoc || loading}
+                          onKeyDown={(e) => e.key === 'Enter' && selectedDocType && chatDoc(selectedDocType, chatMessage).then(() => setChatMessage(''))}
+                          disabled={!selectedDoc || isGenerating}
                         />
-                        <Button variant="secondary" onClick={handleChatDoc} disabled={!selectedDoc || loading}>
-                          {loading ? <ArrowClockwise className="animate-spin" /> : <ChatCircleText className="mr-2" />}
-                          {loading ? '' : 'Send'}
+                        <Button variant="secondary" onClick={() => selectedDocType && chatDoc(selectedDocType, chatMessage).then(() => setChatMessage(''))} disabled={!selectedDoc || isGenerating}>
+                          {isGenerating ? <ArrowClockwise className="animate-spin" /> : <ChatCircleText className="mr-2" />}
+                          {isGenerating ? '' : 'Send'}
                         </Button>
                       </div>
                    </CardFooter>
@@ -747,4 +728,3 @@ export default function AIGeneratorPage() {
     </div>
   );
 }
-

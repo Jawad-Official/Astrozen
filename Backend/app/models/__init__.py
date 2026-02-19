@@ -30,6 +30,7 @@ from app.models.project_idea import (
     ProjectIdea, ValidationReport, ProjectAsset,
     IdeaStatus, AssetType, AssetStatus
 )
+from app.models.notification import Notification, NotificationType
 
 __all__ = [
     "Base",
@@ -55,6 +56,7 @@ __all__ = [
     "ProjectIdea",
     "ValidationReport",
     "ProjectAsset",
+    "Notification",
     # Enums
     "CycleStatus",
     "ProjectStatus",
@@ -75,6 +77,7 @@ __all__ = [
     "IdeaStatus",
     "AssetType",
     "AssetStatus",
+    "NotificationType",
     # Association tables
     "team_members",
     "project_members",

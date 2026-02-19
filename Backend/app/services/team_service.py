@@ -2,6 +2,8 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.crud import team as crud_team, user_role as crud_role, user as crud_user, feature as crud_feature, issue as crud_issue
 from app.services.project_service import project_service
+from app.services.notification_service import notification_service
+from app.models.notification import NotificationType
 from app.models.team_model import Team
 from app.models.user_role import UserRoleType
 from app.schemas.team import TeamCreate, TeamUpdate
@@ -66,6 +68,19 @@ class TeamService:
                     team.leaders.append(leader)
                     team.members.append(leader)
                     leaders_added.append(l_id)
+                    
+                    # Notify leader
+                    if str(l_id) != str(user_id):
+                        notification_service.notify_user(
+                            db,
+                            recipient_id=l_id,
+                            type=NotificationType.TEAM_INVITE,
+                            title="Added as Team Leader",
+                            content=f"You have been added as a leader of team '{team.name}'",
+                            actor_id=user_id,
+                            target_id=str(team.id),
+                            target_type="team"
+                        )
         else:
             # Default to creator
             creator = crud_user.get(db, id=user_id)
@@ -87,6 +102,19 @@ class TeamService:
                     member = crud_user.get(db, id=m_id)
                     if member:
                         team.members.append(member)
+                        
+                        # Notify member
+                        if str(m_id) != str(user_id):
+                            notification_service.notify_user(
+                                db,
+                                recipient_id=m_id,
+                                type=NotificationType.TEAM_INVITE,
+                                title="Invited to Team",
+                                content=f"You have been added to team '{team.name}'",
+                                actor_id=user_id,
+                                target_id=str(team.id),
+                                target_type="team"
+                            )
         
         db.commit()
         db.refresh(team)

@@ -11,29 +11,18 @@ import { mapFeature, mapFeatureMilestone } from '@/services/mapper';
 
 type ViewType = 'all' | 'my-issues' | 'inbox' | 'triage' | 'insights' | 'settings' | 'project-detail' | 'projects' | 'strategy';
 
-export interface Notification {
-  id: string;
-  type: 'comment' | 'assignment' | 'status_change' | 'mention';
-  issueId?: string;
-  issueTitle?: string;
-  actorName: string;
-  content: string;
-  createdAt: string;
-  isRead: boolean;
-}
-
 interface IssueStore {
   issues: Issue[];
   projects: Project[];
   features: Feature[];
   teams: Team[];
   cycles: Cycle[];
+  labels: Label[];
   comments: Comment[];
   activities: Activity[];
   savedFilters: SavedFilter[];
   customViews: CustomView[];
   orgMembers: any[];
-  notifications: Notification[];
   
   isLoading: boolean;
   error: string | null;
@@ -60,6 +49,11 @@ interface IssueStore {
   addIssue: (issue: Partial<Issue>) => Promise<void>;
   updateIssue: (id: string, updates: Partial<Issue>) => Promise<void>;
   deleteIssue: (id: string) => Promise<void>;
+  
+  // Label Actions
+  addLabel: (label: Partial<Label>) => Promise<void>;
+  updateLabel: (id: string, updates: Partial<Label>) => Promise<void>;
+  deleteLabel: (id: string) => Promise<void>;
   
   // Project Actions
   addProject: (project: Partial<Project>) => Promise<void>;
@@ -119,8 +113,6 @@ interface IssueStore {
   getIssueActivities: (issueId: string) => Activity[];
   getActiveCycle: () => Cycle | undefined;
   getCycleIssues: (cycleId: string) => Issue[];
-  markNotificationRead: (id: string) => void;
-  clearNotifications: () => void;
 }
 
 const defaultFilters: FilterState = {
@@ -128,6 +120,7 @@ const defaultFilters: FilterState = {
   priorities: [],
   types: [],
   projects: [],
+  labels: [],
   cycles: [],
   assignees: [],
   hasNoCycle: false,
@@ -140,33 +133,17 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
   features: [],
   teams: [],
   cycles: [],
+  labels: [
+    { id: '1', name: 'Bug', color: 'red' },
+    { id: '2', name: 'Feature', color: 'blue' },
+    { id: '3', name: 'Refactor', color: 'purple' },
+    { id: '4', name: 'Urgent', color: 'orange' },
+  ],
   comments: [],
   activities: [],
   savedFilters: [],
   customViews: [],
   orgMembers: [],
-  notifications: [
-    {
-      id: '1',
-      type: 'assignment',
-      issueId: 'issue-1',
-      issueTitle: 'Implement real-time collaboration',
-      actorName: 'Sarah Chen',
-      content: 'assigned you to this issue',
-      createdAt: new Date().toISOString(),
-      isRead: false,
-    },
-    {
-      id: '2',
-      type: 'comment',
-      issueId: 'issue-2',
-      issueTitle: 'Fix mobile navigation overflow',
-      actorName: 'Alex Rivera',
-      content: 'left a comment: "I think we should use a drawer here."',
-      createdAt: new Date(Date.now() - 3600000).toISOString(),
-      isRead: false,
-    }
-  ],
   
   isLoading: false,
   error: null,
@@ -290,6 +267,28 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
     } catch (error) {
       console.error('Failed to delete issue', error);
     }
+  },
+
+  addLabel: async (labelData) => {
+    // Local implementation since backend labels are not yet ready
+    const newLabel: Label = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: labelData.name || 'New Label',
+      color: labelData.color || 'blue',
+    };
+    set((state) => ({ labels: [...state.labels, newLabel] }));
+  },
+
+  updateLabel: async (id, updates) => {
+    set((state) => ({
+      labels: state.labels.map((l) => l.id === id ? { ...l, ...updates } : l)
+    }));
+  },
+
+  deleteLabel: async (id) => {
+    set((state) => ({
+      labels: state.labels.filter((l) => l.id !== id)
+    }));
   },
 
   addProject: async (projectData) => {
@@ -730,17 +729,5 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
 
   getCycleIssues: (cycleId) => {
     return get().issues.filter((issue) => issue.cycleId === cycleId);
-  },
-
-  markNotificationRead: (id) => {
-    set((state) => ({
-      notifications: state.notifications.map((n) =>
-        n.id === id ? { ...n, isRead: true } : n
-      ),
-    }));
-  },
-
-  clearNotifications: () => {
-    set({ notifications: [] });
   },
 }));

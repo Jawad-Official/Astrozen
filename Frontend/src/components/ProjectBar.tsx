@@ -301,7 +301,7 @@ export const ProjectBar = {
     const renderComment = (comment: UpdateComment, isReply = false) => (
       <div key={comment.id} className={cn("flex gap-3", isReply && "ml-9 mt-3")}>
         <div className={cn("rounded-full bg-zinc-800 flex items-center justify-center font-bold text-zinc-400 shrink-0", isReply ? "h-5 w-5 text-[7px]" : "h-7 w-7 text-[8px]")}>
-          {(comment.authorName || comment.author).split(' ').map(n => n[0]).join('').toUpperCase()}
+          {(comment.authorName || comment.author || '??').split(' ').map(n => n[0]).join('').toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">

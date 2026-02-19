@@ -3,6 +3,8 @@ from app.crud import issue as crud_issue, activity as crud_activity
 from app.models.issue import Issue, IssueStatus, IssuePriority
 from app.models.activity import ActivityType
 from app.schemas.issue import IssueCreate, IssueUpdate
+from app.services.notification_service import notification_service
+from app.models.notification import NotificationType
 from uuid import UUID
 
 
@@ -47,6 +49,19 @@ class IssueService:
             obj_in=issue_in,
             identifier=identifier
         )
+
+        # Notify assignee if set
+        if issue.assignee_id and str(issue.assignee_id) != str(current_user_id):
+            notification_service.notify_user(
+                db,
+                recipient_id=issue.assignee_id,
+                type=NotificationType.ISSUE_ASSIGNED,
+                title="New Issue Assigned",
+                content=f"You were assigned to '{issue.title}'",
+                actor_id=current_user_id,
+                target_id=str(issue.id),
+                target_type="issue"
+            )
 
         # Trigger AI Auto-linking in background if node ID is missing
         if not issue.blueprint_node_id:
@@ -148,6 +163,19 @@ class IssueService:
                 old_value=issue.status.value,
                 new_value=update_data["status"].value
             )
+            
+            # Notify assignee
+            if issue.assignee_id and str(issue.assignee_id) != str(current_user_id):
+                notification_service.notify_user(
+                    db,
+                    recipient_id=issue.assignee_id,
+                    type=NotificationType.ISSUE_STATUS_CHANGED,
+                    title="Issue Status Updated",
+                    content=f"Issue '{issue.identifier}' moved to {update_data['status'].value}",
+                    actor_id=current_user_id,
+                    target_id=str(issue.id),
+                    target_type="issue"
+                )
         
         # Priority change
         if "priority" in update_data and update_data["priority"] != issue.priority:
@@ -159,6 +187,19 @@ class IssueService:
                 old_value=issue.priority.value,
                 new_value=update_data["priority"].value
             )
+            
+            # Notify if escalated to high/urgent
+            if update_data["priority"] in [IssuePriority.HIGH, IssuePriority.URGENT] and issue.assignee_id and str(issue.assignee_id) != str(current_user_id):
+                notification_service.notify_user(
+                    db,
+                    recipient_id=issue.assignee_id,
+                    type=NotificationType.ISSUE_PRIORITY_UPGRADE,
+                    title="Issue Escalated",
+                    content=f"Issue '{issue.identifier}' priority changed to {update_data['priority'].value}",
+                    actor_id=current_user_id,
+                    target_id=str(issue.id),
+                    target_type="issue"
+                )
 
         # Type change
         if "issue_type" in update_data and update_data["issue_type"] != issue.issue_type:
@@ -181,6 +222,19 @@ class IssueService:
                 old_value=str(issue.assignee_id) if issue.assignee_id else None,
                 new_value=str(update_data["assignee_id"]) if update_data["assignee_id"] else None
             )
+            
+            # Notify new assignee
+            if update_data["assignee_id"] and str(update_data["assignee_id"]) != str(current_user_id):
+                notification_service.notify_user(
+                    db,
+                    recipient_id=update_data["assignee_id"],
+                    type=NotificationType.ISSUE_ASSIGNED,
+                    title="Issue Assigned to You",
+                    content=f"You were assigned to '{issue.title}'",
+                    actor_id=current_user_id,
+                    target_id=str(issue.id),
+                    target_type="issue"
+                )
         
         # Cycle change
         if "cycle_id" in update_data and update_data["cycle_id"] != issue.cycle_id:
@@ -225,6 +279,20 @@ class IssueService:
             type=ActivityType.COMMENT,
             actor_id=author_id
         )
+        
+        # Notify assignee
+        issue = crud_issue.get(db, id=issue_id)
+        if issue and issue.assignee_id and str(issue.assignee_id) != str(author_id):
+            notification_service.notify_user(
+                db,
+                recipient_id=issue.assignee_id,
+                type=NotificationType.ISSUE_COMMENT,
+                title="New Comment on Issue",
+                content=f"New comment on '{issue.identifier}': {content[:50]}...",
+                actor_id=author_id,
+                target_id=str(issue.id),
+                target_type="issue"
+            )
         
         return comment
 

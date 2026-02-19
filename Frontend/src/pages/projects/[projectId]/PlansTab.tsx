@@ -28,7 +28,16 @@ import {
   MagnifyingGlassMinus,
   MagnifyingGlassPlus,
   ArrowsOutSimple,
-  ArrowSquareOut
+  ArrowSquareOut,
+  CheckSquare,
+  CreditCard,
+  TextB,
+  TextItalic,
+  TextColumns,
+  List,
+  ListNumbers,
+  Code,
+  PaperPlaneTilt
 } from '@phosphor-icons/react';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Button } from '@/components/ui/button';
@@ -38,6 +47,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { aiService } from '@/services/ai.service';
 import { toast } from 'sonner';
@@ -583,6 +593,10 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
   // File Upload Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingDocType, setUploadingDocType] = useState<string | null>(null);
+  const [improvementStatus, setImprovementStatus] = useState<Record<number, 'pending' | 'accepted' | 'declined'>>({});
+  const [selectedImprovementIndices, setSelectedImprovementIndices] = useState<number[]>([]);
+  const [showImprovements, setShowImprovements] = useState(true);
+  const [validationTab, setValidationTab] = useState<'overview' | 'features' | 'techstack' | 'pricing' | 'improvements'>('overview');
 
   // Auto-save timer
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -1075,79 +1089,290 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
     const score = validationReport.market_feasibility.score || 0;
     const scoreOutOf10 = (score / 10).toFixed(1);
 
+    const tabs = [
+      { id: 'overview', label: 'Overview', icon: ShieldCheck, count: 6 },
+      { id: 'features', label: 'Features', icon: CheckSquare, count: validationReport.core_features?.length || 0 },
+      { id: 'techstack', label: 'Tech Stack', icon: Stack, count: 4 },
+      { id: 'pricing', label: 'Pricing', icon: CreditCard, count: null },
+      { id: 'improvements', label: 'Improve', icon: Lightbulb, count: validationReport.improvements?.length || 0 },
+    ];
+
     return (
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-           <div className="flex items-center gap-3 sm:gap-4">
-             <div className="h-10 w-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/10 shrink-0">
-               <ShieldCheck size={20} weight="bold" />
+      <div className="space-y-0">
+        {/* Header with Score */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 sm:p-6 bg-gradient-to-r from-emerald-500/5 via-transparent to-blue-500/5 rounded-t-2xl border border-white/5 border-b-0">
+           <div className="flex items-center gap-4">
+             <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/10 border border-emerald-500/20">
+               <ShieldCheck size={24} weight="duotone" />
              </div>
              <div>
-                <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white/90">Architecture Validation</h2>
-                {isAccepted && <p className="text-[10px] sm:text-xs text-white/40 font-medium uppercase tracking-wider">Analysis complete & approved</p>}
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">AI Validation Report</h2>
+                {isAccepted ? (
+                  <p className="text-xs text-emerald-400/80 font-medium flex items-center gap-1">
+                    <CheckCircle size={12} weight="fill" /> Analysis approved
+                  </p>
+                ) : (
+                  <p className="text-[10px] sm:text-xs text-white/40 font-medium uppercase tracking-wider">Market feasibility analysis</p>
+                )}
              </div>
            </div>
            
-           {/* Score Display */}
-           <div className="flex items-center gap-4 bg-white/5 px-3 sm:px-4 py-2 rounded-xl border border-white/5 w-fit sm:self-auto">
+           <div className="flex items-center gap-6 bg-white/5 px-4 py-3 rounded-xl border border-white/5">
               <div className="text-right">
-                  <div className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-white/30">Feasibility</div>
+                  <div className="text-[9px] font-black uppercase tracking-widest text-white/30">Overall Score</div>
                   <div className={cn(
-                      "text-xl sm:text-2xl font-black leading-tight",
+                      "text-3xl font-black leading-tight",
                       score >= 80 ? "text-emerald-400" : score >= 60 ? "text-yellow-400" : "text-red-400"
                   )}>
-                      {scoreOutOf10}<span className="text-xs sm:text-sm text-white/20 font-bold">/10</span>
+                      {scoreOutOf10}<span className="text-sm text-white/20 font-bold">/10</span>
                   </div>
               </div>
-              <div className="h-8 w-8 sm:h-10 sm:w-10 relative flex items-center justify-center shrink-0">
+              <div className="h-12 w-12 relative">
                   <svg className="h-full w-full -rotate-90">
-                      <circle cx="50%" cy="50%" r="40%" fill="none" stroke="currentColor" strokeWidth="4" className="text-white/10" />
-                      <circle cx="50%" cy="50%" r="40%" fill="none" stroke="currentColor" strokeWidth="4" className={cn(score >= 80 ? "text-emerald-400" : score >= 60 ? "text-yellow-400" : "text-red-400")} strokeDasharray="100" strokeDashoffset={100 - score} />
+                      <circle cx="50%" cy="50%" r="45%" fill="none" stroke="currentColor" strokeWidth="5" className="text-white/10" />
+                      <circle cx="50%" cy="50%" r="45%" fill="none" stroke="currentColor" strokeWidth="5" className={cn(score >= 80 ? "text-emerald-400" : score >= 60 ? "text-yellow-400" : "text-red-400")} strokeDasharray="283" strokeDashoffset={283 - (283 * score / 10)} strokeLinecap="round" />
                   </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <TrendUp size={16} className={cn(score >= 60 ? "text-emerald-400" : "text-red-400")} />
+                  </div>
               </div>
            </div>
         </div>
 
-        {/* Validation Content (Simplified if accepted, Detailed if editing) */}
-        <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4", isAccepted && "opacity-80 grayscale-[0.3]")}>
-           {validationReport.market_feasibility.pillars.map((pillar) => {
-              const pillarScore = pillar.status === 'Strong' ? 9 : pillar.status === 'Moderate' ? 7 : pillar.status === 'Weak' ? 4 : 2;
-              return (
-              <Card key={pillar.name} className="border-white/5 bg-white/5 backdrop-blur-sm relative overflow-hidden flex flex-col">
-                <CardHeader className="py-2.5 sm:py-3 p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-white/40">{pillar.name}</span>
-                    <div className="flex items-center gap-2">
-                        <span className={cn(
-                            "text-[10px] font-bold",
-                            pillarScore >= 8 ? "text-emerald-400" : pillarScore >= 6 ? "text-yellow-400" : "text-red-400"
-                        )}>
-                            {pillarScore}/10
-                        </span>
-                        <Badge variant={pillar.status === 'Strong' ? 'default' : 'secondary'} className="h-4 sm:h-5 text-[8px] sm:text-[9px] px-1.5">{pillar.status}</Badge>
+        {/* Tabs Navigation */}
+        {!isAccepted && (
+          <div className="flex overflow-x-auto gap-1 p-2 bg-white/[0.02] border-x border-white/5 scrollbar-hide">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setValidationTab(tab.id as any)}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap",
+                  validationTab === tab.id 
+                    ? "bg-white/10 text-white shadow-lg border border-white/10" 
+                    : "text-white/40 hover:text-white/70 hover:bg-white/5"
+                )}
+              >
+                <tab.icon size={14} weight={validationTab === tab.id ? "duotone" : "regular"} />
+                {tab.label}
+                {tab.count !== null && (
+                  <span className={cn(
+                    "ml-1 px-1.5 py-0.5 rounded text-[9px]",
+                    validationTab === tab.id ? "bg-white/20 text-white" : "bg-white/5 text-white/40"
+                  )}>
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Tab Content */}
+        <div className={cn("p-4 sm:p-6 bg-black/20 border border-white/5 rounded-b-2xl", isAccepted && "opacity-60")}>
+          
+          {/* OVERVIEW TAB */}
+          {(validationTab === 'overview' || isAccepted) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+               {validationReport.market_feasibility.pillars.map((pillar) => {
+                  const pillarScore = pillar.status === 'Strong' ? 9 : pillar.status === 'Moderate' ? 7 : pillar.status === 'Weak' ? 4 : 2;
+                  const scoreColor = pillarScore >= 8 ? "emerald" : pillarScore >= 6 ? "yellow" : "red";
+                  return (
+                  <Card key={pillar.name} className="border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all group overflow-hidden">
+                    <CardHeader className="py-3 px-4 border-b border-white/5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-white/40">{pillar.name}</span>
+                        <Badge variant="secondary" className={cn(
+                          "h-5 text-[9px] px-2 font-bold",
+                          pillar.status === 'Strong' ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" :
+                          pillar.status === 'Moderate' ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30" :
+                          "bg-red-500/20 text-red-400 border border-red-500/30"
+                        )}>{pillar.status}</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4 text-xs text-white/50 leading-relaxed min-h-[80px]">
+                      {pillar.reason}
+                    </CardContent>
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/5">
+                        <div className={cn("h-full transition-all duration-500", 
+                          scoreColor === "emerald" ? "bg-emerald-500" : scoreColor === "yellow" ? "bg-yellow-500" : "bg-red-500"
+                        )} style={{ width: `${pillarScore * 10}%` }} />
+                    </div>
+                    <div className="absolute top-3 right-12">
+                      <span className={cn(
+                          "text-sm font-black",
+                          scoreColor === "emerald" ? "text-emerald-400" : scoreColor === "yellow" ? "text-yellow-400" : "text-red-400"
+                      )}>{pillarScore}</span>
+                    </div>
+                  </Card>
+               )})}
+            </div>
+          )}
+
+          {/* FEATURES TAB */}
+          {validationTab === 'features' && validationReport.core_features && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {validationReport.core_features.map((feature, idx) => (
+                <div key={idx} className="p-4 rounded-xl bg-gradient-to-br from-blue-500/5 to-transparent border border-white/10 hover:border-blue-500/30 transition-all group">
+                  <div className="flex items-start gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/30">
+                      <CheckSquare size={16} weight="duotone" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-white/90">{feature.name}</div>
+                      {feature.description && <div className="text-xs text-white/40 mt-1 leading-relaxed">{feature.description}</div>}
                     </div>
                   </div>
-                </CardHeader>
-                {!isAccepted && (
-                  <CardContent className="p-4 pt-0 sm:pt-0 text-[11px] sm:text-xs text-muted-foreground leading-relaxed">
-                    {pillar.reason}
-                  </CardContent>
-                )}
-                {/* Score Bar */}
-                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-white/5 mt-auto">
-                    <div 
-                        className={cn("h-full", pillarScore >= 8 ? "bg-emerald-500" : pillarScore >= 6 ? "bg-yellow-500" : "bg-red-500")} 
-                        style={{ width: `${pillarScore * 10}%` }} 
-                    />
                 </div>
-              </Card>
-           )})}
+              ))}
+            </div>
+          )}
+
+          {/* TECH STACK TAB */}
+          {validationTab === 'techstack' && validationReport.tech_stack && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {validationReport.tech_stack.frontend && (
+                <div className="p-5 rounded-xl bg-gradient-to-br from-purple-500/10 to-transparent border border-white/10 hover:border-purple-500/30 transition-all">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-6 w-6 rounded bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                      <Layout size={14} />
+                    </div>
+                    <div className="text-[10px] font-black uppercase tracking-wider text-purple-400/80">Frontend</div>
+                  </div>
+                  <div className="text-sm font-semibold text-white">{validationReport.tech_stack.frontend.join(', ')}</div>
+                </div>
+              )}
+              {validationReport.tech_stack.backend && (
+                <div className="p-5 rounded-xl bg-gradient-to-br from-orange-500/10 to-transparent border border-white/10 hover:border-orange-500/30 transition-all">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-6 w-6 rounded bg-orange-500/20 text-orange-400 flex items-center justify-center">
+                      <Circuitry size={14} />
+                    </div>
+                    <div className="text-[10px] font-black uppercase tracking-wider text-orange-400/80">Backend</div>
+                  </div>
+                  <div className="text-sm font-semibold text-white">{validationReport.tech_stack.backend.join(', ')}</div>
+                </div>
+              )}
+              {validationReport.tech_stack.database && (
+                <div className="p-5 rounded-xl bg-gradient-to-br from-cyan-500/10 to-transparent border border-white/10 hover:border-cyan-500/30 transition-all">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-6 w-6 rounded bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
+                      <Database size={14} />
+                    </div>
+                    <div className="text-[10px] font-black uppercase tracking-wider text-cyan-400/80">Database</div>
+                  </div>
+                  <div className="text-sm font-semibold text-white">{validationReport.tech_stack.database.join(', ')}</div>
+                </div>
+              )}
+              {validationReport.tech_stack.infrastructure && (
+                <div className="p-5 rounded-xl bg-gradient-to-br from-green-500/10 to-transparent border border-white/10 hover:border-green-500/30 transition-all">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-6 w-6 rounded bg-green-500/20 text-green-400 flex items-center justify-center">
+                      <Rocket size={14} />
+                    </div>
+                    <div className="text-[10px] font-black uppercase tracking-wider text-green-400/80">Infrastructure</div>
+                  </div>
+                  <div className="text-sm font-semibold text-white">{validationReport.tech_stack.infrastructure.join(', ')}</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* PRICING TAB */}
+          {validationTab === 'pricing' && validationReport.pricing_model && (
+            <div className="max-w-2xl">
+              {typeof validationReport.pricing_model === 'string' ? (
+                <div className="p-5 rounded-xl bg-white/5 border border-white/10 text-sm text-white/60 leading-relaxed whitespace-pre-wrap">
+                  {validationReport.pricing_model}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {validationReport.pricing_model.tiers && validationReport.pricing_model.tiers.map((tier: any, idx: number) => (
+                    <div key={idx} className="p-5 rounded-xl bg-gradient-to-br from-green-500/10 to-transparent border border-white/10 hover:border-green-500/30 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-20 h-20 bg-green-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+                      <div className="text-xs font-black uppercase tracking-wider text-green-400/60 mb-2">{tier.name}</div>
+                      <div className="text-2xl font-bold text-white">{tier.price}</div>
+                      {tier.description && <div className="text-xs text-white/40 mt-2">{tier.description}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* IMPROVEMENTS TAB */}
+          {validationTab === 'improvements' && validationReport.improvements && validationReport.improvements.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-xs text-white/40">Select improvements to apply and re-validate</p>
+                {selectedImprovementIndices.length > 0 && (
+                  <Button 
+                    size="sm"
+                    onClick={async () => {
+                      if (!ideaId) return;
+                      setRevalidating(true);
+                      try {
+                        const res = await aiService.acceptImprovementsAndRevalidate(ideaId, selectedImprovementIndices);
+                        setValidationReport(res.data);
+                        setSelectedImprovementIndices([]);
+                        toast.success(`Applied ${selectedImprovementIndices.length} improvements`);
+                      } catch (error) {
+                        toast.error("Failed to apply improvements");
+                      } finally {
+                        setRevalidating(false);
+                      }
+                    }}
+                    disabled={revalidating}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-xs"
+                  >
+                    {revalidating ? <ArrowClockwise className="animate-spin mr-2 h-3 w-3" /> : <CheckCircle className="mr-2 h-3 w-3" />}
+                    Apply & Validate
+                  </Button>
+                )}
+              </div>
+              {validationReport.improvements.map((improvement, idx) => {
+                const status = improvementStatus[idx] || 'pending';
+                const isSelected = selectedImprovementIndices.includes(idx);
+                
+                return (
+                  <div key={idx} className={cn(
+                    "flex items-start gap-3 p-4 rounded-xl border transition-all cursor-pointer",
+                    status === 'accepted' ? "bg-emerald-500/10 border-emerald-500/30" :
+                    status === 'declined' ? "bg-white/5 border-white/5 opacity-40" :
+                    isSelected ? "bg-yellow-500/10 border-yellow-500/40" : "bg-white/5 border-white/10 hover:border-white/20"
+                  )}
+                  onClick={() => {
+                    if (status !== 'pending') return;
+                    if (isSelected) {
+                      setSelectedImprovementIndices(selectedImprovementIndices.filter(i => i !== idx));
+                    } else {
+                      setSelectedImprovementIndices([...selectedImprovementIndices, idx]);
+                    }
+                  }}
+                  >
+                    <div className={cn(
+                      "h-5 w-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5",
+                      isSelected ? "bg-yellow-500 border-yellow-500" : "border-white/20"
+                    )}>
+                      {isSelected && <Check size={12} className="text-black" weight="bold" />}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm text-white/80">{improvement}</div>
+                    </div>
+                    {status === 'accepted' && <CheckCircle size={18} className="text-emerald-400 shrink-0" weight="fill" />}
+                    {status === 'declined' && <XCircle size={18} className="text-white/20 shrink-0" />}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
+        {/* Action Buttons */}
         {!isAccepted && (
-            <div className="flex justify-end pt-2 sm:pt-4">
-               <Button onClick={handleGenerateBlueprint} className="w-full sm:w-auto bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20">
-                  Accept & Generate Blueprint <ArrowRight className="ml-2" />
+            <div className="flex justify-end pt-4">
+               <Button onClick={handleGenerateBlueprint} className="w-full sm:w-auto bg-white text-black hover:bg-white/90 font-bold h-11 px-6 shadow-lg">
+                  Accept Analysis <ArrowRight className="ml-2" weight="bold" />
                </Button>
             </div>
         )}
@@ -1371,52 +1596,132 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
           
           {/* Doc Viewer */}
           {selectedDocType && selectedDoc && (
-             <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-8 animate-in fade-in duration-200">
-                <Card className="w-full max-w-5xl h-full max-h-[95vh] sm:max-h-[90vh] bg-[#0A0A0A] border-white/10 flex flex-col shadow-2xl">
-                   <CardHeader className="border-b border-white/5 flex flex-row items-center justify-between py-4">
+             <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+                <Card className="w-full h-full sm:max-w-6xl sm:max-h-[95vh] bg-[#0C0C0C] border-white/10 flex flex-col shadow-2xl overflow-hidden rounded-none sm:rounded-xl">
+                   {/* Header */}
+                   <div className="border-b border-white/10 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between bg-[#0C0C0C] shrink-0">
                       <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-lg bg-white/5 flex items-center justify-center">
-                            {React.createElement(DOC_INFO[selectedDocType].icon, { size: 18 })}
+                          <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center", DOC_INFO[selectedDocType].color === 'blue' ? "bg-blue-500/20 text-blue-400" : DOC_INFO[selectedDocType].color === 'purple' ? "bg-purple-500/20 text-purple-400" : DOC_INFO[selectedDocType].color === 'green' ? "bg-green-500/20 text-green-400" : DOC_INFO[selectedDocType].color === 'orange' ? "bg-orange-500/20 text-orange-400" : DOC_INFO[selectedDocType].color === 'red' ? "bg-red-500/20 text-red-400" : "bg-cyan-500/20 text-cyan-400")}>
+                            {React.createElement(DOC_INFO[selectedDocType].icon, { size: 20, weight: "duotone" })}
                           </div>
                           <div>
-                            <CardTitle className="text-lg">{DOC_INFO[selectedDocType].label}</CardTitle>
-                            {selectedDoc.content.startsWith('http') && (
-                                <a href={selectedDoc.content} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline flex items-center gap-1">
-                                    Open External Link <ArrowRight size={10} />
-                                </a>
-                            )}
+                            <CardTitle className="text-base sm:text-lg font-semibold text-white">{DOC_INFO[selectedDocType].label}</CardTitle>
+                            <p className="text-[10px] text-white/40 hidden sm:block">{DOC_INFO[selectedDocType].summary}</p>
                           </div>
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => setSelectedDocType(null)}><X /></Button>
-                   </CardHeader>
-                   <ScrollArea className="flex-1 p-8">
-                      <div className="prose prose-invert max-w-none prose-sm">
-                         {selectedDoc.content.startsWith('http') ? (
-                             <div className="flex flex-col items-center justify-center h-full py-20 opacity-50">
-                                 <p>This is an external document.</p>
-                                 <Button variant="outline" className="mt-4" onClick={() => window.open(selectedDoc.content, '_blank')}>
-                                     Open in New Tab
-                                 </Button>
-                             </div>
-                         ) : (
-                             <ReactMarkdown>{selectedDoc.content}</ReactMarkdown>
-                         )}
+                      <div className="flex items-center gap-2">
+                        {selectedDoc.content.startsWith('http') && (
+                          <Button variant="outline" size="sm" className="text-xs border-white/10" onClick={() => window.open(selectedDoc.content, '_blank')}>
+                            Open Link <ArrowSquareOut size={12} className="ml-1" />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-white/60 hover:text-white" onClick={() => setSelectedDocType(null)}>
+                          <X size={18} />
+                        </Button>
                       </div>
-                   </ScrollArea>
-                   <CardFooter className="p-4 border-t border-white/5 bg-white/[0.02]">
-                      <div className="flex w-full gap-2">
-                         <Input 
+                   </div>
+                   
+                   {/* Toolbar */}
+                   <div className="border-b border-white/5 px-4 py-2 flex items-center gap-1 bg-white/[0.02] shrink-0 overflow-x-auto">
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-white/60 hover:text-white hover:bg-white/10">
+                        <TextB size={14} className="mr-1" /> Bold
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-white/60 hover:text-white hover:bg-white/10">
+                        <TextItalic size={14} className="mr-1" /> Italic
+                      </Button>
+                      <div className="w-px h-4 bg-white/10 mx-1" />
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-white/60 hover:text-white hover:bg-white/10">
+                        <List size={14} className="mr-1" /> List
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-white/60 hover:text-white hover:bg-white/10">
+                        <ListNumbers size={14} className="mr-1" /> Numbered
+                      </Button>
+                      <div className="w-px h-4 bg-white/10 mx-1" />
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-white/60 hover:text-white hover:bg-white/10">
+                        <Code size={14} className="mr-1" /> Code
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-white/60 hover:text-white hover:bg-white/10">
+                        <TextColumns size={14} className="mr-1" /> Table
+                      </Button>
+                      <div className="flex-1" />
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-white/40 hover:text-white hover:bg-white/10">
+                        <MagnifyingGlassPlus size={14} className="mr-1" /> Zoom
+                      </Button>
+                   </div>
+
+                   {/* Content Area */}
+                   <div className="flex-1 flex overflow-hidden">
+                      {/* Outline Sidebar */}
+                      <div className="w-48 border-r border-white/5 bg-[#0A0A0A] p-4 overflow-y-auto hidden md:block">
+                         <div className="text-[9px] font-black uppercase tracking-wider text-white/30 mb-3">Outline</div>
+                         <div className="space-y-1">
+                           <div className="text-xs text-white/60 hover:text-white cursor-pointer py-1">Introduction</div>
+                           <div className="text-xs text-white/60 hover:text-white cursor-pointer py-1 pl-3 border-l border-white/10">Overview</div>
+                           <div className="text-xs text-white/60 hover:text-white cursor-pointer py-1 pl-3 border-l border-white/10">Goals</div>
+                           <div className="text-xs text-white hover:text-white cursor-pointer py-1 font-medium">Core Features</div>
+                           <div className="text-xs text-white/60 hover:text-white cursor-pointer py-1 pl-3 border-l border-white/10">Feature 1</div>
+                           <div className="text-xs text-white/60 hover:text-white cursor-pointer py-1 pl-3 border-l border-white/10">Feature 2</div>
+                           <div className="text-xs text-white/60 hover:text-white cursor-pointer py-1">Technical Specs</div>
+                           <div className="text-xs text-white/60 hover:text-white cursor-pointer py-1">Conclusion</div>
+                         </div>
+                      </div>
+                      
+                      {/* Main Content */}
+                      <div className="flex-1 overflow-y-auto bg-[#0C0C0C]">
+                        {selectedDoc.content.startsWith('http') ? (
+                            <div className="flex flex-col items-center justify-center h-full py-20 opacity-50">
+                                <p className="text-white/60 mb-4">This is an external document.</p>
+                                <Button variant="outline" className="border-white/20" onClick={() => window.open(selectedDoc.content, '_blank')}>
+                                    Open in New Tab
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="p-6 sm:p-10 max-w-4xl mx-auto">
+                              <div className="prose prose-invert prose-sm sm:prose max-w-none 
+                                prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-white/90
+                                prose-p:text-white/60 prose-p:leading-relaxed
+                                prose-strong:text-white/80 prose-strong:font-semibold
+                                prose-code:text-blue-300 prose-code:bg-blue-500/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
+                                prose-pre:bg-[#111] prose-pre:border prose-pre:border-white/10
+                                prose-li:text-white/60 prose-li:marker:text-white/30
+                                prose-blockquote:border-l-2 prose-blockquote:border-blue-500/50 prose-blockquote:bg-white/5 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r
+                                prose-table:border prose-table:border-white/10 prose-table:rounded-lg prose-table:overflow-hidden
+                                prose-th:bg-white/[0.02] prose-th:text-white/70 prose-th:text-xs prose-th:uppercase prose-th:tracking-wider prose-th:font-semibold prose-th:py-2 prose-th:px-3
+                                prose-td:border prose-td:border-white/5 prose-td:py-2 prose-td:px-3 prose-td:text-xs prose-td:text-white/60
+                                prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline">
+                                  <ReactMarkdown>{selectedDoc.content}</ReactMarkdown>
+                              </div>
+                            </div>
+                        )}
+                      </div>
+                   </div>
+
+                   {/* Footer / Chat Input */}
+                   <div className="p-3 sm:p-4 border-t border-white/10 bg-[#0C0C0C] shrink-0">
+                      <div className="flex w-full gap-2 items-center">
+                        <div className="flex-1 relative">
+                          <Input 
                             value={chatMessage} 
                             onChange={e => setChatMessage(e.target.value)} 
-                            placeholder="Refine this document with AI..."
-                            className="bg-black/20 border-white/10"
-                         />
-                         <Button onClick={handleChatDoc} disabled={loading}>
-                            {loading ? <ArrowClockwise className="animate-spin" /> : <Pencil className="mr-2" />}
-                            Refine
-                         </Button>
+                            placeholder="Ask AI to refine or expand this document..."
+                            className="bg-[#111] border-white/10 text-sm pr-10 h-10"
+                            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleChatDoc()}
+                          />
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-white/40 hover:text-white"
+                            onClick={handleChatDoc}
+                            disabled={loading || !chatMessage.trim()}
+                          >
+                            {loading ? <ArrowClockwise className="animate-spin h-4 w-4" /> : <PaperPlaneTilt size={16} />}
+                          </Button>
+                        </div>
+                        <Button onClick={handleChatDoc} disabled={loading || !chatMessage.trim()} className="hidden sm:flex h-10 bg-blue-600 hover:bg-blue-700">
+                           Refine
+                        </Button>
                       </div>
-                   </CardFooter>
+                   </div>
                 </Card>
              </div>
           )}

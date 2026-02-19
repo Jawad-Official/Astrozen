@@ -1,24 +1,33 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useIssueStore } from '@/store/issueStore';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Label } from '@/types/issue';
+import { Label as LabelType, Project } from '@/types/issue';
+import { Label } from '@/components/ui/label';
+import { organizationService } from '@/services/organization';
 import { 
   Gear as SettingsIcon, 
   Plus, 
   PencilSimple, 
   Trash, 
   User,
+  Buildings,
+  Copy,
+  ArrowClockwise
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { LABEL_COLORS } from '@/lib/constants';
 import { LabelDialog } from '@/components/dialogs/LabelDialog';
 import { ProjectDialog } from '@/components/dialogs/ProjectDialog';
 import { useOutletContext } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
 
 const SettingsPage = () => {
   const { onOpenAIPlanner } = useOutletContext<any>();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const { 
     labels, 
     projects,
@@ -28,19 +37,51 @@ const SettingsPage = () => {
     addProject,
     updateProject,
     deleteProject,
-    currentUser,
   } = useIssueStore();
   
   const [labelDialogOpen, setLabelDialogOpen] = useState(false);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
-  const [editingLabel, setEditingLabel] = useState<Label | undefined>();
-  const [editingProject, setEditingProject] = useState<typeof projects[0] | undefined>();
+  const [editingLabel, setEditingLabel] = useState<LabelType | undefined>();
+  const [editingProject, setEditingProject] = useState<Project | undefined>();
   
-  const handleCreateLabel = (name: string, color: Label['color']) => {
+  // Organization state
+  const [inviteCode, setInviteCode] = useState<string>('');
+  const [loadingCode, setLoadingCode] = useState(false);
+  
+  const handleGenerateCode = async () => {
+    setLoadingCode(true);
+    try {
+      const code = await organizationService.generateInviteCode();
+      setInviteCode(code.code);
+      toast({
+        title: "Invite code generated",
+        description: "Share this code with others to let them join.",
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to generate code",
+        description: "You might not have permission or there was an error.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingCode(false);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied to clipboard",
+      description: "Invite code copied to clipboard.",
+    });
+  };
+  
+  const handleCreateLabel = (name: string, color: LabelType['color']) => {
     addLabel({ name, color });
   };
   
-  const handleUpdateLabel = (name: string, color: Label['color']) => {
+  const handleUpdateLabel = (name: string, color: LabelType['color']) => {
     if (editingLabel) {
       updateLabel(editingLabel.id, { name, color });
     }
@@ -80,6 +121,7 @@ const SettingsPage = () => {
       <Tabs defaultValue="workspace" className="space-y-6">
         <TabsList>
           <TabsTrigger value="workspace">Workspace</TabsTrigger>
+          <TabsTrigger value="organization">Organization</TabsTrigger>
           <TabsTrigger value="labels">Labels</TabsTrigger>
           <TabsTrigger value="projects">Projects</TabsTrigger>
         </TabsList>
@@ -97,10 +139,61 @@ const SettingsPage = () => {
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 bg-primary/20 text-primary font-medium flex items-center justify-center">
-                  {currentUser.split(' ').map(n => n[0]).join('')}
+                <div className="h-10 w-10 bg-primary/20 text-primary font-medium flex items-center justify-center rounded-lg">
+                  {user?.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '??'}
                 </div>
-                <span className="font-medium">{currentUser}</span>
+                <div className="flex flex-col">
+                  <span className="font-medium">{user?.fullName || 'Not Logged In'}</span>
+                  <span className="text-xs text-muted-foreground">{user?.email}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="organization" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Buildings className="h-5 w-5" />
+                Organization Settings
+              </CardTitle>
+              <CardDescription>
+                Manage your organization and invite new members
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label>Join Organization Code</Label>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 p-3 bg-muted rounded-md font-mono text-center border tracking-widest text-lg min-h-[50px] flex items-center justify-center">
+                    {inviteCode || 'No code generated yet'}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-12 w-12"
+                    onClick={() => copyToClipboard(inviteCode)}
+                    disabled={!inviteCode}
+                  >
+                    <Copy className="h-5 w-5" />
+                  </Button>
+                  {user?.role === 'admin' && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-12 w-12"
+                      onClick={handleGenerateCode}
+                      disabled={loadingCode}
+                    >
+                      <ArrowClockwise className={cn("h-5 w-5", loadingCode && "animate-spin")} />
+                    </Button>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Share this code with others to let them join your organization. 
+                  {user?.role === 'admin' ? " Click the refresh icon to generate a new code." : " Only admins can generate new codes."}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -123,7 +216,7 @@ const SettingsPage = () => {
           <Card>
             <CardContent className="p-0">
               <div className="divide-y divide-border">
-                {labels.map((label) => (
+                {labels?.map((label) => (
                   <div key={label.id} className="flex items-center gap-3 p-3">
                     <span className={cn('px-2 py-1 text-sm font-medium', LABEL_COLORS[label.color])}>
                       {label.name}
@@ -158,6 +251,7 @@ const SettingsPage = () => {
           />
           
           <LabelDialog
+            key={editingLabel?.id || 'new'}
             open={!!editingLabel}
             onOpenChange={(open) => !open && setEditingLabel(undefined)}
             label={editingLabel}
@@ -182,7 +276,7 @@ const SettingsPage = () => {
           <Card>
             <CardContent className="p-0">
               <div className="divide-y divide-border">
-                {projects.map((project) => (
+                {projects?.map((project) => (
                   <div key={project.id} className="flex items-center gap-3 p-3">
                     <span className="text-xl">{project.icon}</span>
                     <span className="font-medium">{project.name}</span>
@@ -217,6 +311,7 @@ const SettingsPage = () => {
           />
           
           <ProjectDialog
+            key={editingProject?.id || 'new-project'}
             open={!!editingProject}
             onOpenChange={(open) => !open && setEditingProject(undefined)}
             project={editingProject}

@@ -137,6 +137,9 @@ export const aiService = {
   regenerateValidationField: (ideaId: string, fieldName: string, feedback: string) =>
     api.post(`/ai/idea/${ideaId}/validate/regenerate-field`, { field_name: fieldName, feedback }),
 
+  acceptImprovementsAndRevalidate: (ideaId: string, acceptedImprovements: number[]) =>
+    api.post(`/ai/idea/${ideaId}/validate/accept-improvements`, acceptedImprovements),
+
   generateBlueprint: (ideaId: string) =>
     api.post<{ user_flow_mermaid: string; kanban_features: KanbanFeature[]; nodes?: FlowNode[]; edges?: FlowEdge[] }>(`/ai/idea/${ideaId}/blueprint`),
 

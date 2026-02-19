@@ -59,6 +59,13 @@ export function MainLayout() {
     fetchData();
   }, [fetchData]);
 
+  // Sync current user to store for legacy components
+  useEffect(() => {
+    if (user?.id) {
+      setCurrentUser(user.id);
+    }
+  }, [user?.id, setCurrentUser]);
+
   // ... (keyboard shortcuts and effects)
 
     return (

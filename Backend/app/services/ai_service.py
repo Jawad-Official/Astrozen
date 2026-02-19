@@ -2,6 +2,7 @@ from openai import OpenAI
 from fastapi import HTTPException
 from app.core.config import settings
 import json
+import re
 import logging
 from typing import List, Dict, Any, Optional
 
@@ -48,26 +49,33 @@ class AIService:
         self.model = settings.MODEL_NAME
 
     def _repair_json(self, json_str: str) -> str:
-        """Attempt to repair truncated JSON by balancing braces and quotes."""
+        """Attempt to repair truncated JSON by balancing braces, quotes, and removing trailing commas."""
         json_str = json_str.strip()
-        
+
         # 1. Handle truncated string at the end
         # Count non-escaped quotes to check if we are inside a string
         quote_count = 0
         escape = False
-        for char in json_str:
+        in_string = False
+        for i, char in enumerate(json_str):
             if char == '\\':
                 escape = not escape
             elif char == '"' and not escape:
                 quote_count += 1
+                in_string = not in_string
             else:
                 escape = False
-        
-        if quote_count % 2 != 0:
+
+        if in_string:
             # We are inside a string, close it
             json_str += '"'
-            
-        # 2. Balance braces/brackets
+
+        # 2. Remove trailing commas (before closing braces/brackets or end of content)
+        # This handles: { "a": 1, } and [ "a", ]
+        # Remove trailing comma before } or ]
+        json_str = re.sub(r',(\s*[}\]])', r'\1', json_str)
+
+        # 3. Balance braces/brackets
         stack = []
         for char in json_str:
             if char == '{':
@@ -77,11 +85,11 @@ class AIService:
             elif char == '}' or char == ']':
                 if stack and stack[-1] == char:
                     stack.pop()
-        
+
         # Append missing closing characters
         while stack:
             json_str += stack.pop()
-            
+
         return json_str
 
     def _parse_json(self, content: str) -> Any:
@@ -221,68 +229,75 @@ class AIService:
         edited_text = f"\n\nUser Edited Data: {json.dumps(edited_data, indent=2)}" if edited_data else ""
 
         prompt = f"""
-        You are a startup validator and CTO. Analyze this project idea:
+        You are a Startup Validator and CTO. Analyze this project idea:
         Idea: "{idea}"
         Clarifications:
         {clarification_text}
         {feedback_text}
         {edited_text}
 
-        Perform the following:
-        1. Validate against these 6 core pillars:
-        {pillars_text}
-        For each pillar, provide a status (Strong, Moderate, Weak, Concern) and a brief reason.
+        Perform a deep analysis and return a JSON object with the following fields:
 
-        2. Generate specific improvement suggestions.
-
-        3. Identify all core features required for a successful implementation, with name, description, and type (Core, Important, Nice-to-have). Do not limit the number of features; be as comprehensive as needed.
-
-        4. Recommend a tech stack with specific technologies for Frontend, Backend, Database, and Infrastructure.
-
-        5. Suggest a pricing model with type and tiers (at least 2-3 tiers).
-
-        Return a JSON object with this exact structure:
-        {{
-            "market_feasibility": {{
-                "score": 85,
-                "analysis": "Overall assessment...",
-                "pillars": [
-                    {{"name": "Market Demand", "status": "Strong", "reason": "..."}},
-                    {{"name": "Technical Feasibility", "status": "Strong", "reason": "..."}},
-                    {{"name": "Business Model", "status": "Moderate", "reason": "..."}},
-                    {{"name": "Competition", "status": "Weak", "reason": "..."}},
-                    {{"name": "User Experience", "status": "Strong", "reason": "..."}},
-                    {{"name": "Scalability", "status": "Moderate", "reason": "..."}}
-                ]
-            }},
-            "improvements": ["Improvement 1...", "Improvement 2...", "Improvement 3..."],
-            "core_features": [
-                {{"name": "Feature 1", "description": "Description...", "type": "Core"}},
-                {{"name": "Feature 2", "description": "Description...", "type": "Core"}}
-            ],
-            "tech_stack": {{
-                "frontend": ["React", "TypeScript", "Tailwind CSS"],
-                "backend": ["Node.js", "Express", "PostgreSQL"],
-                "infrastructure": ["AWS", "Docker", "Redis"]
-            }},
-            "pricing_model": {{
-                "type": "Freemium",
-                "tiers": [
-                    {{"name": "Free", "price": "$0", "features": ["Feature 1", "Feature 2"]}},
-                    {{"name": "Pro", "price": "$29/mo", "features": ["All Free features", "Feature 3"]}},
-                    {{"name": "Enterprise", "price": "Custom", "features": ["Custom integration", "Dedicated support"]}}
-                ]
-            }}
+        1. "market_feasibility": {{
+            "score": (0-100),
+            "analysis": "Overall assessment (max 50 words)",
+            "pillars": [
+                {{"name": "Market Demand", "status": "Strong/Moderate/Weak/Concern", "reason": "reason (max 25 words)"}},
+                {{"name": "Technical Feasibility", "status": "...", "reason": "..."}},
+                {{"name": "Business Model", "status": "...", "reason": "..."}},
+                {{"name": "Competition", "status": "...", "reason": "..."}},
+                {{"name": "User Experience", "status": "...", "reason": "..."}},
+                {{"name": "Scalability", "status": "...", "reason": "..."}}
+            ]
         }}
+
+        2. "improvements": ["Suggestion 1 (max 15 words)", "Suggestion 2", "Suggestion 3"] (Generate 3-5 specific, actionable improvements).
+
+        3. "core_features": [
+            {{"name": "Feature name", "description": "max 20 words", "type": "Core/Important/Nice-to-have"}}
+        ] (Identify 5-8 core features).
+
+        4. "tech_stack": {{
+            "frontend": ["Tech 1", "Tech 2"],
+            "backend": ["Tech 1", "Tech 2"],
+            "infrastructure": ["Tech 1", "Tech 2"]
+        }} (3-5 technologies per category).
+
+        5. "pricing_model": {{
+            "type": "e.g. Freemium",
+            "tiers": [
+                {{"name": "Tier name", "price": "Price/mo", "features": ["Feature 1", "Feature 2"]}}
+            ]
+        }} (Suggest 2-3 tiers).
+
+        CRITICAL: 
+        - Return ONLY the JSON object.
+        - Ensure ALL 5 keys are present.
+        - Keep text extremely concise to avoid truncation.
         """
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                max_tokens=4000
+                max_tokens=4096
             )
-            return self._parse_json(response.choices[0].message.content)
+            content = response.choices[0].message.content
+            logger.info(f"AI validation response length: {len(content) if content else 0} characters")
+            parsed_data = self._parse_json(content)
+
+            if not parsed_data:
+                raise ValueError("AI returned an empty or unparseable response.")
+
+            # Log the parsed data to debug missing fields
+            logger.info(f"Validation report keys: {list(parsed_data.keys())}")
+            logger.info(f"market_feasibility present: {'market_feasibility' in parsed_data}")
+            logger.info(f"improvements present: {'improvements' in parsed_data}")
+            logger.info(f"core_features present: {'core_features' in parsed_data}")
+            logger.info(f"tech_stack present: {'tech_stack' in parsed_data}")
+            logger.info(f"pricing_model present: {'pricing_model' in parsed_data}")
+
+            return parsed_data
         except Exception as e:
             error_msg = str(e)
             if "401" in error_msg or "User not found" in error_msg:

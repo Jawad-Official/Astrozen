@@ -24,6 +24,7 @@ import {
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { useIssueStore } from '@/store/issueStore';
+import { useNotificationStore } from '@/store/notificationStore';
 import { useAuth } from '@/context/AuthContext';
 import { hasTeamAccess, canManageTeam } from '@/lib/permissions';
 import { Button } from '@/components/ui/button';
@@ -139,12 +140,17 @@ export function AppSidebar({
 
   const { 
     projects,
-    notifications = []
   } = useIssueStore();
+
+  const { unreadCount, fetchNotifications } = useNotificationStore();
 
   const { user, organization, teams, logout } = useAuth();
   
   const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
 
   const [workspaceOpen, setWorkspaceOpen] = useState(true);
@@ -156,7 +162,6 @@ export function AppSidebar({
     setOpenTeams(prev => ({ ...prev, [teamId]: !prev[teamId] }));
   };
   
-  const notificationCount = notifications.filter(n => !n.isRead).length;
   const favoriteProjects = projects.filter(p => p.isFavorite);
 
   const handleNavClick = (path: string) => {
@@ -237,7 +242,7 @@ export function AppSidebar({
           icon={<Tray className="h-4 w-4" />}
           label="Inbox"
           to="/inbox"
-          badge={notificationCount}
+          badge={unreadCount}
           onClick={closeMobileMenu}
         />
         <NavItem

@@ -20,7 +20,7 @@ const MyIssuesPage = () => {
     <div className="flex-1 flex flex-col overflow-hidden bg-[#090909]">
       <div className="border-b border-white/5 p-6 flex items-center gap-4 bg-[#090909] shrink-0">
         <div className="h-10 w-10 rounded-full border border-white/10 bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white shadow-inner">
-          {displayName.split(' ').map(n => n[0]).join('').toUpperCase()}
+          {displayName ? displayName.split(' ').map(n => n[0]).join('').toUpperCase() : '??'}
         </div>
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-white/90">My Issues</h1>

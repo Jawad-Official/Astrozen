@@ -127,8 +127,13 @@ class OrganizationService:
     ) -> InviteCode:
         """Generate new invite code for organization"""
         # Check permission (must be admin)
+        user = crud_user.get(db, id=user_id)
         role = crud_role.get_by_user_org(db, user_id=user_id, organization_id=organization_id)
-        if not role or role.role != UserRoleType.ADMIN:
+        
+        # Check if user is admin in User table OR has ADMIN role in UserRole table
+        is_admin = (user and user.role == "admin") or (role and role.role == UserRoleType.ADMIN)
+        
+        if not is_admin:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only admins can generate invite codes"
