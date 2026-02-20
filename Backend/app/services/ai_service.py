@@ -297,20 +297,27 @@ class AIService:
 
         is_revalidation = feedback and (
             "applied these improvements" in feedback.lower()
-            or "accepted these improvements" in feedback.lower()
+            or "applied all suggested improvements" in feedback.lower()
         )
 
         if is_revalidation:
             feedback_text = f"""
 
-        ### CRITICAL: RE-VALIDATION AFTER APPLYING IMPROVEMENTS
+        ### MANDATORY RE-VALIDATION AFTER IMPROVEMENTS APPLIED
         {feedback}
         
-        INSTRUCTIONS:
-        1. The improvements listed above have been APPLIED to the project idea
-        2. You MUST re-analyze and RECALCULATE the 6 core pillars in market_feasibility
-        3. Update the score and each pillar's status based on the improvements now being implemented
-        4. The idea is now STRONGER - reflect this in your analysis
+        CRITICAL INSTRUCTIONS - YOU MUST FOLLOW THESE:
+        
+        1. The improvements listed above have been SUCCESSFULLY IMPLEMENTED in the project
+        2. You MUST recalculate market_feasibility.score - it should be HIGHER than before
+        3. For EACH of the 6 pillars, you MUST:
+           - Re-evaluate the status (it should improve: Concern→Weak→Moderate→Strong)
+           - Update the reason to reflect how the improvement strengthened this pillar
+        4. Example: If "Add referral system" was applied, Business Model pillar should improve
+        5. If score was 45 before, it should now be 55-70 depending on impact of improvements
+        6. Do NOT return the same scores - the project is objectively better now
+        
+        FAILURE to increase scores means you are NOT properly evaluating the improved project.
         """
         else:
             feedback_text = f"\n\nUser Feedback: {feedback}" if feedback else ""

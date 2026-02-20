@@ -96,6 +96,25 @@ export default function AIGeneratorPage() {
   const selectedDoc = docs.find(d => d.asset_type === selectedDocType);
   const selectedNode = blueprint?.nodes?.find(n => n.id === selectedNodeId);
 
+  const handleDownloadDoc = async (docType: string) => {
+    if (!ideaId) return;
+    try {
+      const res = await aiService.downloadDoc(ideaId, docType);
+      const filename = `${docType.replace('_', ' ')}.docx`;
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success(`Downloaded ${filename}`);
+    } catch (error) {
+      toast.error("Download failed");
+    }
+  };
+
   // Handle Node Interaction
   const handleNodeClick = (id: string) => {
     setSelectedNodeId(id);
@@ -901,13 +920,25 @@ export default function AIGeneratorPage() {
              <div className="md:col-span-2 space-y-6">
                 {/* Active Doc Viewer & Chat */}
                 <Card className="min-h-[600px] border-white/5 bg-white/5 flex flex-col">
-                   <CardHeader className="border-b border-white/5">
-                     <CardTitle className="text-lg">
-                       {selectedDocType ? selectedDocType.replace('_', ' ') : 'Document Viewer'}
-                     </CardTitle>
-                     <CardDescription>
-                       {selectedDoc ? 'View and edit this document with AI.' : 'Select a generated document to preview its content...'}
-                     </CardDescription>
+                   <CardHeader className="border-b border-white/5 flex flex-row items-center justify-between">
+                     <div>
+                       <CardTitle className="text-lg">
+                         {selectedDocType ? selectedDocType.replace('_', ' ') : 'Document Viewer'}
+                       </CardTitle>
+                       <CardDescription>
+                         {selectedDoc ? 'View and edit this document with AI.' : 'Select a generated document to preview its content...'}
+                       </CardDescription>
+                     </div>
+                     {selectedDoc && (
+                       <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 gap-2 border-primary/20 text-primary hover:bg-primary/10"
+                        onClick={() => handleDownloadDoc(selectedDoc.asset_type)}
+                       >
+                         <FileText size={16} /> Download .docx
+                       </Button>
+                     )}
                    </CardHeader>
                    <ScrollArea className="flex-1 p-6">
                     <div className="prose prose-invert max-w-none prose-sm">

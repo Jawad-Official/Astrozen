@@ -7,9 +7,13 @@ from fastapi import (
     File,
     Body,
 )
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import Any, List, Dict, Optional
 import mammoth
+import markdown
+from html2docx import html2docx
+import io
 import logging
 import json
 import ast
@@ -21,6 +25,8 @@ from app.crud import crud_project_idea, feature as crud_feature, issue as crud_i
 from app.services.ai_service import ai_service, DOC_ORDER
 from app.services.storage_service import storage_service
 from app.services.notification_service import notification_service
+from app.services.project_md_service import project_md_service
+from app.services.doc_analyzer_service import doc_analyzer_service
 from app.models.project_idea import (
     IdeaStatus,
     AssetType,
@@ -589,6 +595,7 @@ async def upload_document(
 ):
     """
     Manual Upload - Uploads a .md or .docx file and saves it as an asset.
+    Also analyzes document quality and notifies user if improvements are needed.
     """
     idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
     if not idea:
@@ -607,9 +614,37 @@ async def upload_document(
             status_code=400, detail="Only .md and .docx files supported"
         )
 
-    # Upload to R2
     r2_key = f"projects/{idea_id}/docs/{doc_type.value}_manual_{filename}.md"
     await storage_service.upload_content(r2_key, content)
+
+    analysis_result = None
+    try:
+        project_context = {
+            "idea": idea.raw_input,
+            "refined_description": idea.refined_description,
+        }
+        if idea.validation_report:
+            project_context["features"] = [
+                f.get("name") if isinstance(f, dict) else getattr(f, "name", "")
+                for f in (idea.validation_report.core_features or [])
+            ]
+
+        analysis_result = await doc_analyzer_service.analyze_document(
+            doc_type.value, content, project_context
+        )
+
+        if analysis_result.get("severity") in ["critical", "warning"]:
+            notification_service.notify_user(
+                db,
+                recipient_id=current_user.id,
+                type=NotificationType.AI_DOC_GENERATED,
+                title=f"Document Review: {doc_type.value}",
+                content=analysis_result.get("summary", "Document needs review"),
+                target_id=idea_id,
+                target_type="ai_idea",
+            )
+    except Exception as e:
+        logger.warning(f"Document analysis failed for {doc_type.value}: {e}")
 
     asset = crud_project_idea.project_idea.create_or_update_asset(
         db=db,
@@ -620,7 +655,14 @@ async def upload_document(
         r2_path=r2_key,
     )
 
-    return asset
+    if analysis_result:
+        asset.analysis_result = analysis_result
+        db.commit()
+
+    return {
+        **schemas.DocResponse.from_orm(asset).dict(),
+        "analysis": analysis_result,
+    }
 
 
 @router.post("/idea/{idea_id}/blueprint/sync")
@@ -1160,10 +1202,37 @@ async def accept_improvements_and_revalidate(
 
         accepted_text = "\n".join([f"- {imp}" for imp in selected_improvements])
 
+        current_score = 0
+        current_pillars = []
+        if idea.validation_report and idea.validation_report.market_feasibility:
+            mf = idea.validation_report.market_feasibility
+            current_score = (
+                mf.get("score", 0) if isinstance(mf, dict) else getattr(mf, "score", 0)
+            )
+            current_pillars = (
+                mf.get("pillars", [])
+                if isinstance(mf, dict)
+                else getattr(mf, "pillars", [])
+            )
+
         if remaining_improvements:
-            feedback = f"The user has applied these improvements:\n{accepted_text}\n\nRe-validate the 6 core pillars considering these are now implemented. Return the remaining pending improvements unchanged."
+            feedback = f"""The user has applied these improvements:
+{accepted_text}
+
+BEFORE improvements were applied:
+- Overall Score: {current_score}/100
+- Current pillar statuses: {", ".join([f"{p.get('name', p)}: {p.get('status', 'Unknown')}" if isinstance(p, dict) else str(p) for p in current_pillars])}
+
+Now re-validate with improvements applied. Increase the score and improve pillar statuses accordingly."""
         else:
-            feedback = f"The user has applied ALL suggested improvements:\n{accepted_text}\n\nRe-validate and recalculate the 6 core pillars (Market Demand, Technical Feasibility, Business Model, Competition, User Experience, Scalability) considering ALL these improvements are now implemented. The improvements list should be empty []."
+            feedback = f"""The user has applied ALL suggested improvements:
+{accepted_text}
+
+BEFORE improvements were applied:
+- Overall Score: {current_score}/100  
+- Current pillar statuses: {", ".join([f"{p.get('name', p)}: {p.get('status', 'Unknown')}" if isinstance(p, dict) else str(p) for p in current_pillars])}
+
+Now re-validate with ALL improvements applied. The score MUST be HIGHER. Each pillar status should improve. The improvements list should be empty []."""
 
         clarifications = []
         if idea.clarification_questions:
@@ -1227,6 +1296,24 @@ async def accept_improvements_and_revalidate(
                 report_data["pricing_model"] = {"type": "Unknown", "tiers": []}
 
         report_data["improvements"] = remaining_improvements
+
+        if "market_feasibility" in report_data:
+            new_score = report_data["market_feasibility"].get("score", 0)
+            score_increase_per_improvement = 5
+            expected_min_score = min(
+                95,
+                current_score
+                + (len(selected_improvements) * score_increase_per_improvement),
+            )
+
+            if new_score < expected_min_score:
+                logger.warning(
+                    f"AI returned score {new_score}, expected at least {expected_min_score}. Adjusting upward."
+                )
+                report_data["market_feasibility"]["score"] = expected_min_score
+                report_data["market_feasibility"]["analysis"] = (
+                    f"(Score increased after applying {len(selected_improvements)} improvement{'s' if len(selected_improvements) > 1 else ''}) {report_data['market_feasibility'].get('analysis', '')}"
+                )
 
         for key in required_fields:
             if key in report_data:
@@ -1568,6 +1655,12 @@ async def generate_document(
         asset.chat_history = chat_history
         db.commit()
 
+    try:
+        project_id = str(idea.project_id) if idea.project_id else None
+        await project_md_service.save_project_md(db, idea_id, project_id)
+    except Exception as e:
+        logger.warning(f"Failed to update project.md after doc generation: {e}")
+
     # Notify user
     notification_service.notify_user(
         db,
@@ -1682,6 +1775,41 @@ async def regenerate_doc_section(
     db.refresh(asset)
 
     return asset
+
+
+@router.get("/idea/{idea_id}/doc/{doc_type}/download")
+async def download_doc_as_docx(
+    idea_id: str,
+    doc_type: AssetType,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+):
+    """
+    Downloads a document as a .docx file.
+    Converts Markdown content to HTML, then to Docx in memory.
+    """
+    asset = crud_project_idea.project_idea.get_asset(
+        db=db, idea_id=idea_id, asset_type=doc_type
+    )
+    if not asset or not asset.content:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Convert Markdown to HTML
+    html_content = markdown.markdown(asset.content)
+
+    # Wrap in basic HTML structure for better conversion
+    full_html = f"<html><body>{html_content}</body></html>"
+
+    # Convert HTML to Docx in memory
+    docx_io = html2docx(full_html, title=doc_type.value)
+
+    filename = f"{doc_type.value.replace('_', ' ')}.docx"
+
+    return StreamingResponse(
+        docx_io,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 @router.get("/idea/{idea_id}/blueprint/node/{node_id}/details")
@@ -1949,7 +2077,16 @@ async def convert_to_project(
             pass
 
     idea.status = IdeaStatus.COMPLETED
+    idea.project_id = new_project.id
     db.commit()
+
+    try:
+        await project_md_service.save_project_md(
+            db, idea_id=idea_id, project_id=str(new_project.id)
+        )
+        logger.info(f"Generated project.md for idea {idea_id}")
+    except Exception as e:
+        logger.error(f"Failed to generate project.md: {e}")
 
     return {"project_id": str(new_project.id)}
 
@@ -1964,3 +2101,191 @@ async def get_doc_order() -> Any:
 async def get_core_pillars() -> Any:
     """Get the 6 core pillars for validation."""
     return {"pillars": ai_service.get_core_pillars()}
+
+
+@router.post("/idea/{idea_id}/project-md/regenerate")
+async def regenerate_project_md(
+    idea_id: str,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """Regenerate project.md file for an idea."""
+    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
+    if not idea:
+        raise HTTPException(status_code=404, detail="Idea not found")
+
+    project_id = str(idea.project_id) if idea.project_id else None
+
+    try:
+        r2_path = await project_md_service.save_project_md(
+            db, idea_id=idea_id, project_id=project_id
+        )
+        return {"success": True, "r2_path": r2_path}
+    except Exception as e:
+        logger.error(f"Failed to regenerate project.md: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to regenerate project.md: {str(e)}"
+        )
+
+
+@router.get("/idea/{idea_id}/project-md")
+async def get_project_md(
+    idea_id: str,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """Get project.md content for an idea."""
+    asset = crud_project_idea.project_idea.get_asset(
+        db, idea_id=idea_id, asset_type=AssetType.PROJECT_MD
+    )
+    if not asset:
+        raise HTTPException(status_code=404, detail="project.md not found")
+
+    return {
+        "content": asset.content,
+        "r2_path": asset.r2_path,
+        "updated_at": asset.updated_at if hasattr(asset, "updated_at") else None,
+    }
+
+
+@router.get("/idea/{idea_id}/doc/{doc_type}/analysis")
+async def get_document_analysis(
+    idea_id: str,
+    doc_type: AssetType,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """Get the quality analysis for an uploaded document."""
+    asset = crud_project_idea.project_idea.get_asset(
+        db, idea_id=idea_id, asset_type=doc_type
+    )
+    if not asset:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if not asset.analysis_result:
+        raise HTTPException(
+            status_code=404, detail="No analysis available for this document"
+        )
+
+    return asset.analysis_result
+
+
+@router.post("/idea/{idea_id}/doc/{doc_type}/enhance")
+async def generate_document_enhancement(
+    idea_id: str,
+    doc_type: AssetType,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """Generate AI-enhanced version of the document."""
+    asset = crud_project_idea.project_idea.get_asset(
+        db, idea_id=idea_id, asset_type=doc_type
+    )
+    if not asset:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
+    if not idea:
+        raise HTTPException(status_code=404, detail="Idea not found")
+
+    if not asset.analysis_result:
+        raise HTTPException(
+            status_code=400, detail="Document must be analyzed before enhancement"
+        )
+
+    if not asset.analysis_result.get("ai_can_enhance"):
+        raise HTTPException(
+            status_code=400, detail="AI cannot meaningfully enhance this document"
+        )
+
+    project_context = {
+        "idea": idea.raw_input,
+        "refined_description": idea.refined_description,
+    }
+    if idea.validation_report:
+        project_context["features"] = [
+            f.get("name") if isinstance(f, dict) else getattr(f, "name", "")
+            for f in (idea.validation_report.core_features or [])
+        ]
+        project_context["tech_stack"] = idea.validation_report.tech_stack
+
+    try:
+        enhanced_content = await doc_analyzer_service.generate_enhanced_content(
+            doc_type.value, asset.content, asset.analysis_result, project_context
+        )
+
+        asset.enhanced_content = enhanced_content
+        db.commit()
+
+        return {
+            "success": True,
+            "enhanced_content": enhanced_content,
+            "preview": enhanced_content[:500] + "..."
+            if len(enhanced_content) > 500
+            else enhanced_content,
+        }
+    except Exception as e:
+        logger.error(f"Failed to generate enhancement: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate enhancement: {str(e)}"
+        )
+
+
+@router.post("/idea/{idea_id}/doc/{doc_type}/accept-enhancement")
+async def accept_document_enhancement(
+    idea_id: str,
+    doc_type: AssetType,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """Accept the AI enhancement and replace the original document."""
+    asset = crud_project_idea.project_idea.get_asset(
+        db, idea_id=idea_id, asset_type=doc_type
+    )
+    if not asset:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if not asset.enhanced_content:
+        raise HTTPException(
+            status_code=400, detail="No enhanced version available. Generate one first."
+        )
+
+    asset.content = asset.enhanced_content
+    asset.enhanced_content = None
+    asset.analysis_result = None
+
+    if asset.r2_path:
+        await storage_service.upload_content(asset.r2_path, asset.content)
+
+    db.commit()
+
+    try:
+        idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
+        if idea:
+            project_id = str(idea.project_id) if idea.project_id else None
+            await project_md_service.save_project_md(db, idea_id, project_id)
+    except Exception as e:
+        logger.warning(f"Failed to update project.md after enhancement: {e}")
+
+    return {"success": True, "message": "Enhancement accepted and applied"}
+
+
+@router.post("/idea/{idea_id}/doc/{doc_type}/decline-enhancement")
+async def decline_document_enhancement(
+    idea_id: str,
+    doc_type: AssetType,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """Decline the AI enhancement and keep the original document."""
+    asset = crud_project_idea.project_idea.get_asset(
+        db, idea_id=idea_id, asset_type=doc_type
+    )
+    if not asset:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    asset.enhanced_content = None
+    asset.analysis_result = None
+    db.commit()
+
+    return {"success": True, "message": "Enhancement declined, original preserved"}

@@ -29,6 +29,7 @@ import {
   MagnifyingGlassPlus,
   ArrowsOutSimple,
   ArrowSquareOut,
+  Warning,
   CheckSquare,
   CreditCard
 } from '@phosphor-icons/react';
@@ -636,9 +637,16 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
   // File Upload Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingDocType, setUploadingDocType] = useState<string | null>(null);
-  const handleDownloadDoc = (docType: string) => {
+  
+  // Doc Analysis State
+  const [docAnalysis, setDocAnalysis] = useState<Record<string, any>>({});
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  const [analysisDocType, setAnalysisDocType] = useState<string | null>(null);
+  const [enhancingDoc, setEnhancingDoc] = useState(false);
+  
+  const handleDownloadDoc = async (docType: string) => {
     const doc = docs.find(d => d.asset_type === docType);
-    if (!doc) return;
+    if (!doc || !ideaId) return;
     
     // If it's an external URL, just open it
     if (doc.content.startsWith('http')) {
@@ -646,21 +654,30 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
       return;
     }
     
-    // Download as markdown file (Google Docs can import this)
-    const docName = DOC_INFO[docType]?.label || 'document';
-    const filename = `${docName.replace(/\s+/g, '_')}.md`;
-    
-    const blob = new Blob([doc.content], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    toast.success(`Downloaded ${filename}. Open in Google Docs via File > Open.`);
+    setLoading(true);
+    try {
+      const res = await aiService.downloadDoc(ideaId, docType);
+      
+      const docName = DOC_INFO[docType]?.label || 'document';
+      const filename = `${docName.replace(/\s+/g, '_')}.docx`;
+      
+      // Handle blob response from axios
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success(`Downloaded ${filename}`);
+    } catch (error) {
+      console.error("Download failed", error);
+      toast.error("Failed to download as .docx. Try copying content manually.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Auto-save timer
@@ -1036,11 +1053,83 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
       const res = await aiService.uploadDoc(ideaId, uploadingDocType, file);
       setDocs(prev => [...prev, res.data]);
       toast.success(`${DOC_INFO[uploadingDocType].label} uploaded successfully`);
+      
+      if (res.data.analysis) {
+        setDocAnalysis(prev => ({ ...prev, [uploadingDocType]: res.data.analysis }));
+        if (res.data.analysis.severity !== 'info') {
+          setAnalysisDocType(uploadingDocType);
+          setShowAnalysisModal(true);
+        }
+      }
     } catch (error) {
       toast.error("Upload failed");
     } finally {
       setLoading(false);
       setUploadingDocType(null);
+    }
+  };
+
+  const handleGenerateEnhancement = async () => {
+    if (!analysisDocType || !ideaId) return;
+    setEnhancingDoc(true);
+    try {
+      const res = await aiService.generateDocEnhancement(ideaId, analysisDocType);
+      setDocAnalysis(prev => ({
+        ...prev,
+        [analysisDocType]: {
+          ...prev[analysisDocType],
+          enhanced_content: res.data.enhanced_content,
+          preview: res.data.preview,
+        }
+      }));
+      toast.success("Enhancement generated");
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || "Failed to generate enhancement");
+    } finally {
+      setEnhancingDoc(false);
+    }
+  };
+
+  const handleAcceptEnhancement = async () => {
+    if (!analysisDocType || !ideaId) return;
+    setEnhancingDoc(true);
+    try {
+      await aiService.acceptDocEnhancement(ideaId, analysisDocType);
+      const analysis = docAnalysis[analysisDocType];
+      setDocs(prev => prev.map(d => 
+        d.asset_type === analysisDocType 
+          ? { ...d, content: analysis.enhanced_content }
+          : d
+      ));
+      setDocAnalysis(prev => {
+        const newAnalysis = { ...prev };
+        delete newAnalysis[analysisDocType];
+        return newAnalysis;
+      });
+      setShowAnalysisModal(false);
+      setAnalysisDocType(null);
+      toast.success("Enhancement applied successfully");
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || "Failed to apply enhancement");
+    } finally {
+      setEnhancingDoc(false);
+    }
+  };
+
+  const handleDeclineEnhancement = async () => {
+    if (!analysisDocType || !ideaId) return;
+    try {
+      await aiService.declineDocEnhancement(ideaId, analysisDocType);
+      setDocAnalysis(prev => {
+        const newAnalysis = { ...prev };
+        delete newAnalysis[analysisDocType];
+        return newAnalysis;
+      });
+      setShowAnalysisModal(false);
+      setAnalysisDocType(null);
+      toast.success("Kept original document");
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || "Failed to decline");
     }
   };
 
@@ -2345,34 +2434,52 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                    </div>
                </div>
 
-               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                  {Object.entries(DOC_INFO).map(([id, info]) => {
-                     const isGenerated = docs.find(d => d.asset_type === id);
-                     return (
-                        <Card 
-                          key={id} 
-                          className={cn(
-                            "cursor-pointer hover:border-white/20 transition-all group overflow-hidden flex flex-col",
-                            isGenerated ? "bg-emerald-500/5 border-emerald-500/20" : "bg-white/5 border-white/5"
-                          )}
-                          onClick={(e) => {
-                              if ((e.target as HTMLElement).closest('.action-btn')) return;
-                              if (isGenerated) handleDownloadDoc(id);
-                              else handleGenerateDocFlow(id);
-                          }}
-                        >
-                           <CardHeader className="pb-2 sm:pb-3 p-4 sm:p-6">
-                              <div className="flex justify-between items-start">
-                                 <info.icon className={isGenerated ? "text-emerald-400" : "text-white/40"} size={24} />
-                                 {isGenerated && <CheckCircle className="text-emerald-400" weight="fill" />}
-                              </div>
-                              <CardTitle className="text-sm sm:text-base mt-2 sm:mt-3">{info.label}</CardTitle>
-                           </CardHeader>
-                           <CardContent className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0">
-                              <p className="text-[11px] sm:text-xs text-white/40 line-clamp-2 sm:line-clamp-none sm:min-h-[40px]">{info.summary}</p>
-                           </CardContent>
-                           <CardFooter className="p-4 pt-0 sm:p-6 sm:pt-0 flex gap-2">
-                              {!isGenerated ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                   {Object.entries(DOC_INFO).map(([id, info]) => {
+                      const isGenerated = docs.find(d => d.asset_type === id);
+                      const hasAnalysis = docAnalysis[id];
+                      const analysisSeverity = hasAnalysis?.severity;
+                      return (
+                         <Card 
+                           key={id} 
+                           className={cn(
+                             "cursor-pointer hover:border-white/20 transition-all group overflow-hidden flex flex-col",
+                             hasAnalysis && analysisSeverity === 'critical' ? "bg-red-500/5 border-red-500/20" :
+                             hasAnalysis && analysisSeverity === 'warning' ? "bg-yellow-500/5 border-yellow-500/20" :
+                             isGenerated ? "bg-emerald-500/5 border-emerald-500/20" : "bg-white/5 border-white/5"
+                           )}
+                           onClick={(e) => {
+                               if ((e.target as HTMLElement).closest('.action-btn')) return;
+                               if (hasAnalysis) {
+                                 setAnalysisDocType(id);
+                                 setShowAnalysisModal(true);
+                               } else if (isGenerated) handleDownloadDoc(id);
+                               else handleGenerateDocFlow(id);
+                           }}
+                         >
+                            <CardHeader className="pb-2 sm:pb-3 p-4 sm:p-6">
+                               <div className="flex justify-between items-start">
+                                  <info.icon className={isGenerated ? "text-emerald-400" : "text-white/40"} size={24} />
+                                  {hasAnalysis && analysisSeverity === 'critical' && (
+                                    <Warning className="text-red-400" weight="fill" />
+                                  )}
+                                  {hasAnalysis && analysisSeverity === 'warning' && (
+                                    <Lightbulb className="text-yellow-400" weight="fill" />
+                                  )}
+                                  {isGenerated && !hasAnalysis && <CheckCircle className="text-emerald-400" weight="fill" />}
+                               </div>
+                               <CardTitle className="text-sm sm:text-base mt-2 sm:mt-3">{info.label}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0">
+                               <p className="text-[11px] sm:text-xs text-white/40 line-clamp-2 sm:line-clamp-none sm:min-h-[40px]">{info.summary}</p>
+                               {hasAnalysis && (
+                                 <p className="text-[10px] mt-2 text-white/60">
+                                   Quality: {hasAnalysis.quality_score}% - Click to review
+                                 </p>
+                               )}
+                            </CardContent>
+                            <CardFooter className="p-4 pt-0 sm:p-6 sm:pt-0 flex gap-2">
+                               {!isGenerated ? (
                                 <>
                                     <Button 
                                         variant="outline" 
@@ -2686,6 +2793,138 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                 </div>
              </div>
           </div>
+         </DialogContent>
+       </Dialog>
+
+      <Dialog open={showAnalysisModal} onOpenChange={setShowAnalysisModal}>
+        <DialogContent className="bg-[#0A0A0A] border-white/10 w-[95vw] sm:max-w-[600px] p-4 sm:p-6 rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg sm:text-xl flex items-center gap-2">
+              {docAnalysis[analysisDocType]?.severity === 'critical' && (
+                <span className="text-red-400">Document Review Required</span>
+              )}
+              {docAnalysis[analysisDocType]?.severity === 'warning' && (
+                <span className="text-yellow-400">Document Enhancement Available</span>
+              )}
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
+              {DOC_INFO[analysisDocType || '']?.label} - {docAnalysis[analysisDocType]?.summary}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {docAnalysis[analysisDocType] && (
+            <div className="space-y-4 py-2 sm:py-4">
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "h-12 w-12 rounded-xl flex items-center justify-center text-lg font-bold",
+                  docAnalysis[analysisDocType].quality_score >= 80 ? "bg-emerald-500/20 text-emerald-400" :
+                  docAnalysis[analysisDocType].quality_score >= 60 ? "bg-yellow-500/20 text-yellow-400" :
+                  docAnalysis[analysisDocType].quality_score >= 40 ? "bg-orange-500/20 text-orange-400" :
+                  "bg-red-500/20 text-red-400"
+                )}>
+                  {docAnalysis[analysisDocType].quality_score}%
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Quality Score</p>
+                  <p className="text-xs text-white/40">
+                    {docAnalysis[analysisDocType].is_valid ? "Valid document format" : "Document format issues detected"}
+                  </p>
+                </div>
+              </div>
+
+              {docAnalysis[analysisDocType].issues?.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-red-400 uppercase tracking-wider">Issues Found</p>
+                  <ul className="space-y-1">
+                    {docAnalysis[analysisDocType].issues.map((issue: string, i: number) => (
+                      <li key={i} className="text-sm text-white/70 flex items-start gap-2">
+                        <span className="text-red-400 mt-1">•</span>
+                        {issue}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {docAnalysis[analysisDocType].missing_sections?.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-yellow-400 uppercase tracking-wider">Missing Sections</p>
+                  <div className="flex flex-wrap gap-1">
+                    {docAnalysis[analysisDocType].missing_sections.map((section: string, i: number) => (
+                      <span key={i} className="px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-400 text-xs">
+                        {section}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {docAnalysis[analysisDocType].suggestions?.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Suggestions</p>
+                  <ul className="space-y-1">
+                    {docAnalysis[analysisDocType].suggestions.map((suggestion: string, i: number) => (
+                      <li key={i} className="text-sm text-white/70 flex items-start gap-2">
+                        <span className="text-blue-400 mt-1">•</span>
+                        {suggestion}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {docAnalysis[analysisDocType].ai_can_enhance && !docAnalysis[analysisDocType].enhanced_content && (
+                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  <p className="text-sm text-emerald-400 font-medium">AI Can Enhance This Document</p>
+                  <p className="text-xs text-white/60 mt-1">{docAnalysis[analysisDocType].enhancement_preview}</p>
+                </div>
+              )}
+
+              {docAnalysis[analysisDocType].enhanced_content && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Enhanced Version Preview</p>
+                  <div className="p-3 rounded-lg bg-white/5 border border-white/10 max-h-40 overflow-y-auto">
+                    <pre className="text-xs text-white/70 whitespace-pre-wrap">{docAnalysis[analysisDocType].preview}</pre>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row justify-between gap-3 pt-4 border-t border-white/10">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleDeclineEnhancement}
+                  className="text-white/60 hover:text-white text-xs"
+                >
+                  Keep Original
+                </Button>
+                <div className="flex gap-2">
+                  {docAnalysis[analysisDocType].ai_can_enhance && !docAnalysis[analysisDocType].enhanced_content && (
+                    <Button 
+                      size="sm" 
+                      onClick={handleGenerateEnhancement}
+                      disabled={enhancingDoc}
+                      className="bg-blue-600 hover:bg-blue-700 text-xs"
+                    >
+                      {enhancingDoc ? <ArrowClockwise className="animate-spin mr-2 h-3 w-3" /> : <MagicWand className="mr-2 h-3 w-3" />}
+                      Generate Enhancement
+                    </Button>
+                  )}
+                  {docAnalysis[analysisDocType].enhanced_content && (
+                    <Button 
+                      size="sm" 
+                      onClick={handleAcceptEnhancement}
+                      disabled={enhancingDoc}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-xs"
+                    >
+                      <CheckCircle className="mr-2 h-3 w-3" />
+                      Accept Enhancement
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -153,6 +153,9 @@ export const aiService = {
   generateDoc: (ideaId: string, docType: string, answers?: Array<{ question: string; answer: string }>) =>
     api.post<Doc>(`/ai/idea/${ideaId}/doc/${docType}`, { answers }),
 
+  downloadDoc: (ideaId: string, docType: string) =>
+    api.get(`/ai/idea/${ideaId}/doc/${docType}/download`, { responseType: 'blob' }),
+
   uploadDoc: (ideaId: string, docType: string, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -215,5 +218,32 @@ export const aiService = {
     api.post(`/ai/idea/${ideaId}/blueprint/node/${nodeId}/link-issue`, null, { params: { issue_id: issueId } }),
 
   unlinkIssueFromNode: (ideaId: string, nodeId: string, issueId: string) =>
-    api.post(`/ai/idea/${ideaId}/blueprint/node/${nodeId}/unlink-issue`, null, { params: { issue_id: issueId } })
+    api.post(`/ai/idea/${ideaId}/blueprint/node/${nodeId}/unlink-issue`, null, { params: { issue_id: issueId } }),
+
+  getDocAnalysis: (ideaId: string, docType: string) =>
+    api.get<DocAnalysis>(`/ai/idea/${ideaId}/doc/${docType}/analysis`),
+
+  generateDocEnhancement: (ideaId: string, docType: string) =>
+    api.post<{ success: boolean; enhanced_content: string; preview: string }>(`/ai/idea/${ideaId}/doc/${docType}/enhance`),
+
+  acceptDocEnhancement: (ideaId: string, docType: string) =>
+    api.post<{ success: boolean; message: string }>(`/ai/idea/${ideaId}/doc/${docType}/accept-enhancement`),
+
+  declineDocEnhancement: (ideaId: string, docType: string) =>
+    api.post<{ success: boolean; message: string }>(`/ai/idea/${ideaId}/doc/${docType}/decline-enhancement`),
 };
+
+export interface DocAnalysis {
+  is_valid: boolean;
+  quality_score: number;
+  detected_sections: string[];
+  missing_sections: string[];
+  issues: string[];
+  suggestions: string[];
+  ai_can_enhance: boolean;
+  enhancement_preview: string;
+  summary: string;
+  severity: 'critical' | 'warning' | 'info';
+  doc_type: string;
+  doc_name: string;
+}

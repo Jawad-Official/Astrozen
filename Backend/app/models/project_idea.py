@@ -17,6 +17,7 @@ class IdeaStatus(str, enum.Enum):
 
 
 class AssetType(str, enum.Enum):
+    PROJECT_MD = "PROJECT_MD"
     PRD = "PRD"
     APP_FLOW = "APP_FLOW"
     TECH_STACK = "TECH_STACK"
@@ -118,6 +119,11 @@ class ProjectAsset(Base):
     chat_history = Column(
         JSON, nullable=True
     )  # History for this specific doc generation
+
+    analysis_result = Column(JSON, nullable=True)  # Doc quality analysis result
+    enhanced_content = Column(
+        Text, nullable=True
+    )  # AI-enhanced version (before accept)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
