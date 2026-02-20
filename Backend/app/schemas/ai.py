@@ -89,7 +89,7 @@ class FlowEdge(BaseModel):
 
 
 class KanbanFeature(BaseModel):
-    id: str
+    id: Union[str, UUID]
     title: str
     status: str
     priority: str
@@ -111,7 +111,7 @@ class DocGenerationRequest(BaseModel):
 
 
 class DocResponse(BaseModel):
-    id: str
+    id: Union[str, UUID]
     asset_type: AssetType
     content: str
     status: AssetStatus

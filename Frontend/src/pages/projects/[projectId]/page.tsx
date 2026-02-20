@@ -115,7 +115,7 @@ const ProjectDetailPage = () => {
     toggleProjectFavorite, fetchProject, addFeature, updateFeature, deleteFeature,
     addFeatureMilestone, updateFeatureMilestone, deleteFeatureMilestone, toggleFeatureMilestone,
     addUpdateComment, deleteUpdateComment, toggleUpdateReaction, toggleUpdateCommentReaction,
-    fetchOrgMembers, fetchTeams, addIssue, selectedIssueId, updateIssue, deleteIssue
+    fetchOrgMembers, fetchTeams, addIssue, selectedIssueId, updateIssue, deleteIssue, deleteProject
   } = useIssueStore();
   
   const { onCreateSubIssue } = useOutletContext<MainLayoutContext>();
@@ -261,6 +261,21 @@ const ProjectDetailPage = () => {
       </div>
     );
   }
+
+  const handleDeleteProject = async () => {
+    if (!confirm(`Delete project "${project.name}"? This action cannot be undone.`)) return;
+    try {
+      await deleteProject(project.id);
+      toast({ title: 'Project deleted' });
+      navigate('/projects');
+    } catch (error: any) {
+      toast({ 
+        title: 'Failed to delete project', 
+        description: error.response?.data?.detail || 'An error occurred',
+        variant: 'destructive' 
+      });
+    }
+  };
 
   const handleStatusChange = async (status: ProjectStatus) => {
     try {
@@ -869,7 +884,7 @@ const ProjectDetailPage = () => {
                   <div className="bg-card/50 border border-border rounded-lg p-4">
                     <h3 className="text-sm font-medium mb-2">Danger zone</h3>
                     <p className="text-xs text-muted-foreground mb-4">Delete this project and all associated data.</p>
-                    <Button variant="destructive" size="sm">Delete project</Button>
+                    <Button variant="destructive" size="sm" onClick={handleDeleteProject}>Delete project</Button>
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground italic">You do not have permission to manage this project's settings.</p>

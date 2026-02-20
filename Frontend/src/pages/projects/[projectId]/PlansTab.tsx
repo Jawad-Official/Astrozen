@@ -30,14 +30,7 @@ import {
   ArrowsOutSimple,
   ArrowSquareOut,
   CheckSquare,
-  CreditCard,
-  TextB,
-  TextItalic,
-  TextColumns,
-  List,
-  ListNumbers,
-  Code,
-  PaperPlaneTilt
+  CreditCard
 } from '@phosphor-icons/react';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Button } from '@/components/ui/button';
@@ -52,7 +45,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { aiService } from '@/services/ai.service';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Tooltip,
@@ -79,7 +71,22 @@ interface Feature {
 interface TechStack {
   frontend: string[];
   backend: string[];
+  database: string[];
   infrastructure: string[];
+}
+
+interface PricingTier {
+  name: string;
+  price: string;
+  annual_price?: string;
+  features: string[];
+}
+
+interface PricingModel {
+  type: string;
+  recommended_type?: string;
+  reasoning?: string;
+  tiers: PricingTier[];
 }
 
 interface ValidationReport {
@@ -90,7 +97,7 @@ interface ValidationReport {
   };
   core_features: Feature[];
   tech_stack: TechStack;
-  pricing_model: any;
+  pricing_model: PricingModel;
   improvements: string[];
 }
 
@@ -132,6 +139,39 @@ interface Doc {
   chat_history?: Array<{ role: string; content: string }>;
   status?: string;
 }
+
+const DEFAULT_PRICING_TIERS: Record<string, PricingTier[]> = {
+  'One-Time Purchase': [
+    { name: 'Basic', price: '$49', features: ['Core features access', 'Basic support', '1 user license'] },
+    { name: 'Pro', price: '$99', features: ['All Basic features', 'Priority support', '5 user licenses', 'Advanced features'] },
+    { name: 'Lifetime', price: '$299', features: ['All Pro features', 'Lifetime updates', 'Unlimited users', 'Premium support'] }
+  ],
+  'Subscription': [
+    { name: 'Starter', price: '$9 / month', annual_price: '$89 / year', features: ['Basic features', '1 user', 'Email support'] },
+    { name: 'Growth', price: '$29 / month', annual_price: '$279 / year', features: ['All Starter features', '5 users', 'Priority support', 'Analytics'] },
+    { name: 'Business', price: '$99 / month', annual_price: '$949 / year', features: ['All Growth features', 'Unlimited users', 'Dedicated support', 'Custom integrations'] }
+  ],
+  'Freemium': [
+    { name: 'Free', price: '$0', features: ['Limited features', '1 project', 'Community support'] },
+    { name: 'Plus', price: '$15 / month', annual_price: '$149 / year', features: ['All Free features', '10 projects', 'Priority support', 'Advanced features'] },
+    { name: 'Pro', price: '$49 / month', annual_price: '$469 / year', features: ['All Plus features', 'Unlimited projects', 'Premium support', 'API access'] }
+  ],
+  'Pay-Per-Use / Credits': [
+    { name: 'Starter Pack', price: '$10 / 1k credits', features: ['1,000 credits', 'Basic usage', 'No expiry'] },
+    { name: 'Standard Pack', price: '$49 / 10k credits', features: ['10,000 credits', '20% bonus credits', 'Priority processing'] },
+    { name: 'Enterprise Pack', price: '$199 / 50k credits', features: ['50,000 credits', '50% bonus credits', 'Dedicated support', 'Custom limits'] }
+  ],
+  'Pay-Per-User': [
+    { name: 'Team', price: '$5 / user / month', features: ['Per user billing', 'Basic features', 'Email support'] },
+    { name: 'Business', price: '$15 / user / month', features: ['All Team features', 'Advanced features', 'Priority support'] },
+    { name: 'Enterprise', price: '$35 / user / month', features: ['All Business features', 'SSO', 'Dedicated support', 'Custom limits'] }
+  ],
+  'In-App Purchases': [
+    { name: 'Remove Ads', price: '$4.99 one-time', features: ['Ad-free experience', 'Permanent unlock'] },
+    { name: 'Theme Pack', price: '$2.99 one-time', features: ['5 premium themes', 'Dark mode variants'] },
+    { name: 'Pro Bundle', price: '$9.99 / month', features: ['All premium features', 'Early access', 'Exclusive content'] }
+  ]
+};
 
 const DOC_INFO: Record<string, { label: string; icon: any; summary: string; color: string }> = {
   PRD: {
@@ -567,6 +607,9 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
   // UI State
   const [loading, setLoading] = useState(false);
   const [revalidating, setRevalidating] = useState(false);
+  const [validationTab, setValidationTab] = useState<'overview' | 'features' | 'techstack' | 'pricing' | 'improvements'>('overview');
+  const [selectedImprovementIndices, setSelectedImprovementIndices] = useState<number[]>([]);
+  const [improvementStatus, setImprovementStatus] = useState<Record<number, string>>({});
   const [chatMessage, setChatMessage] = useState('');
   const [selectedDocType, setSelectedDocType] = useState<string | null>(null);
   const [isRefining, setIsRefining] = useState(false);
@@ -593,10 +636,32 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
   // File Upload Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingDocType, setUploadingDocType] = useState<string | null>(null);
-  const [improvementStatus, setImprovementStatus] = useState<Record<number, 'pending' | 'accepted' | 'declined'>>({});
-  const [selectedImprovementIndices, setSelectedImprovementIndices] = useState<number[]>([]);
-  const [showImprovements, setShowImprovements] = useState(true);
-  const [validationTab, setValidationTab] = useState<'overview' | 'features' | 'techstack' | 'pricing' | 'improvements'>('overview');
+  const handleDownloadDoc = (docType: string) => {
+    const doc = docs.find(d => d.asset_type === docType);
+    if (!doc) return;
+    
+    // If it's an external URL, just open it
+    if (doc.content.startsWith('http')) {
+      window.open(doc.content, '_blank');
+      return;
+    }
+    
+    // Download as markdown file (Google Docs can import this)
+    const docName = DOC_INFO[docType]?.label || 'document';
+    const filename = `${docName.replace(/\s+/g, '_')}.md`;
+    
+    const blob = new Blob([doc.content], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast.success(`Downloaded ${filename}. Open in Google Docs via File > Open.`);
+  };
 
   // Auto-save timer
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -912,12 +977,12 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
     }
   };
 
-  const handleValidationEdit = () => {
-    if (!ideaId || !validationReport) return;
+  const handleValidationEdit = (updatedReport: ValidationReport) => {
+    if (!ideaId) return;
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     autoSaveTimerRef.current = setTimeout(async () => {
       try {
-        await aiService.updateValidationReport(ideaId, validationReport);
+        await aiService.updateValidationReport(ideaId, updatedReport);
       } catch (error) { console.error("Auto-save failed", error); }
     }, 2000);
   };
@@ -1082,6 +1147,33 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
     }
   };
 
+  // Tech Stack Local State
+  const [editingTech, setEditingTech] = useState<string | null>(null);
+  const [techFeedback, setTechFeedback] = useState<Record<string, string>>({});
+  const [isRegeneratingTech, setIsRegeneratingTech] = useState<string | null>(null);
+
+  const handleRegenerateTech = async (field: string) => {
+    if (!ideaId) return;
+    setIsRegeneratingTech(field);
+    try {
+      const res = await aiService.regenerateValidationField(ideaId, `tech_stack.${field}`, techFeedback[field] || '');
+      // The backend returns the updated field value in the result or we might need to update the whole report
+      // Based on common patterns, we update the local report state
+      if (res.data && validationReport) {
+          const updatedTech = { ...validationReport.tech_stack, [field]: res.data.value };
+          const updatedReport = { ...validationReport, tech_stack: updatedTech };
+          setValidationReport(updatedReport);
+          handleValidationEdit(updatedReport);
+          toast.success(`${field} tech stack updated`);
+      }
+    } catch (error) {
+      toast.error(`Failed to regenerate ${field}`);
+    } finally {
+      setIsRegeneratingTech(null);
+      setEditingTech(null);
+    }
+  };
+
   // Render Helpers
   const renderValidationSection = () => {
     if (!validationReport) return null;
@@ -1210,127 +1302,846 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
           )}
 
           {/* FEATURES TAB */}
-          {validationTab === 'features' && validationReport.core_features && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {validationReport.core_features.map((feature, idx) => (
-                <div key={idx} className="p-4 rounded-xl bg-gradient-to-br from-blue-500/5 to-transparent border border-white/10 hover:border-blue-500/30 transition-all group">
-                  <div className="flex items-start gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/30">
-                      <CheckSquare size={16} weight="duotone" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-semibold text-white/90">{feature.name}</div>
-                      {feature.description && <div className="text-xs text-white/40 mt-1 leading-relaxed">{feature.description}</div>}
-                    </div>
-                  </div>
+          {validationTab === 'features' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckSquare size={18} className="text-blue-400" weight="duotone" />
+                  <h3 className="text-base font-bold text-white/90">Project Core Features</h3>
                 </div>
-              ))}
+                {!isAccepted && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-[10px] uppercase font-bold tracking-widest border-white/10 hover:bg-white/5 text-primary"
+                    onClick={() => {
+                      const newFeatures = [...(validationReport.core_features || []), { name: 'New Feature', description: 'Description', type: 'Core' }];
+                      const updatedReport = {...validationReport, core_features: newFeatures};
+                      setValidationReport(updatedReport);
+                      handleValidationEdit(updatedReport);
+                    }}
+                  >
+                    <Plus className="mr-1" size={14} weight="bold" /> Add Feature
+                  </Button>
+                )}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(validationReport.core_features || []).map((feature, idx) => (
+                  <div key={idx} className="p-4 rounded-2xl bg-white/[0.02] border border-white/10 group relative flex items-start gap-4 hover:border-white/20 transition-all">
+                    <div className="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                      <CheckSquare size={16} weight="bold" />
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <Input
+                        value={feature.name}
+                        readOnly={isAccepted}
+                        onChange={(e) => {
+                          const newFeatures = [...(validationReport.core_features || [])];
+                          newFeatures[idx].name = e.target.value;
+                          const updatedReport = {...validationReport, core_features: newFeatures};
+                          setValidationReport(updatedReport);
+                          handleValidationEdit(updatedReport);
+                        }}
+                        className={cn(
+                          "h-7 text-sm font-bold bg-transparent border-none p-0 focus-visible:ring-0 text-white/90",
+                          isAccepted && "cursor-default"
+                        )}
+                        placeholder="Feature Name"
+                      />
+                      <Textarea
+                        value={feature.description}
+                        readOnly={isAccepted}
+                        onChange={(e) => {
+                          const newFeatures = [...(validationReport.core_features || [])];
+                          newFeatures[idx].description = e.target.value;
+                          const updatedReport = {...validationReport, core_features: newFeatures};
+                          setValidationReport(updatedReport);
+                          handleValidationEdit(updatedReport);
+                        }}
+                        className={cn(
+                          "text-[11px] text-white/40 bg-transparent border-none p-0 focus-visible:ring-0 resize-none min-h-[40px] leading-relaxed",
+                          isAccepted && "cursor-default"
+                        )}
+                        placeholder="Describe the feature purpose..."
+                      />
+                    </div>
+                    {!isAccepted && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-full"
+                        onClick={() => {
+                          const newFeatures = (validationReport.core_features || []).filter((_, i) => i !== idx);
+                          const updatedReport = {...validationReport, core_features: newFeatures};
+                          setValidationReport(updatedReport);
+                          handleValidationEdit(updatedReport);
+                        }}
+                      >
+                        <XCircle size={16} />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                
+                {validationReport.core_features?.length === 0 && (
+                  <div className="col-span-full py-12 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-3xl opacity-40">
+                    <CheckSquare size={48} weight="thin" />
+                    <p className="mt-4 text-xs font-bold uppercase tracking-widest text-white">No features defined</p>
+                    <Button 
+                      variant="link" 
+                      onClick={() => {
+                        const newFeatures = [{ name: 'New Feature', description: 'Description', type: 'Core' }];
+                        const updatedReport = {...validationReport, core_features: newFeatures};
+                        setValidationReport(updatedReport);
+                        handleValidationEdit(updatedReport);
+                      }}
+                      className="text-primary text-[10px] mt-2"
+                    >
+                      Add your first feature
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           {/* TECH STACK TAB */}
           {validationTab === 'techstack' && validationReport.tech_stack && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {validationReport.tech_stack.frontend && (
-                <div className="p-5 rounded-xl bg-gradient-to-br from-purple-500/10 to-transparent border border-white/10 hover:border-purple-500/30 transition-all">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="h-6 w-6 rounded bg-purple-500/20 text-purple-400 flex items-center justify-center">
-                      <Layout size={14} />
-                    </div>
-                    <div className="text-[10px] font-black uppercase tracking-wider text-purple-400/80">Frontend</div>
-                  </div>
-                  <div className="text-sm font-semibold text-white">{validationReport.tech_stack.frontend.join(', ')}</div>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Stack size={18} className="text-green-400" weight="duotone" />
+                  <h3 className="text-base font-bold text-white/90">Technology Stack</h3>
                 </div>
-              )}
-              {validationReport.tech_stack.backend && (
-                <div className="p-5 rounded-xl bg-gradient-to-br from-orange-500/10 to-transparent border border-white/10 hover:border-orange-500/30 transition-all">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="h-6 w-6 rounded bg-orange-500/20 text-orange-400 flex items-center justify-center">
-                      <Circuitry size={14} />
-                    </div>
-                    <div className="text-[10px] font-black uppercase tracking-wider text-orange-400/80">Backend</div>
+              </div>
+
+              <div className="p-6 rounded-[2rem] bg-[#080808] border border-white/10 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-cyan-500/5" />
+                
+                <div className="relative z-10">
+                  <div className="flex items-center gap-2 mb-6">
+                    <Circuitry size={14} className="text-white/40" weight="duotone" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Architecture Overview</span>
                   </div>
-                  <div className="text-sm font-semibold text-white">{validationReport.tech_stack.backend.join(', ')}</div>
-                </div>
-              )}
-              {validationReport.tech_stack.database && (
-                <div className="p-5 rounded-xl bg-gradient-to-br from-cyan-500/10 to-transparent border border-white/10 hover:border-cyan-500/30 transition-all">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="h-6 w-6 rounded bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
-                      <Database size={14} />
-                    </div>
-                    <div className="text-[10px] font-black uppercase tracking-wider text-cyan-400/80">Database</div>
+
+                  <div className="flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-8 py-4">
+                    <motion.div 
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 }}
+                      className="flex flex-col items-center gap-3"
+                    >
+                      <div className="relative group">
+                        <div className="absolute -inset-3 bg-purple-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
+                        <div className="relative h-20 w-20 rounded-2xl bg-gradient-to-br from-purple-500/20 to-purple-500/5 border border-purple-500/30 flex items-center justify-center shadow-lg shadow-purple-500/10 group-hover:scale-110 transition-transform">
+                          <Layout size={32} weight="duotone" className="text-purple-400" />
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xs font-black uppercase tracking-wider text-white/80">Frontend</div>
+                        <div className="text-[9px] text-white/30 mt-0.5">Client Side</div>
+                      </div>
+                      <div className="flex flex-wrap justify-center gap-1.5 max-w-[160px]">
+                        {(validationReport.tech_stack.frontend || []).slice(0, 3).map((tech: string, i: number) => (
+                          <span key={i} className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-purple-500/15 text-purple-400 border border-purple-500/20">
+                            {tech}
+                          </span>
+                        ))}
+                        {(validationReport.tech_stack.frontend || []).length > 3 && (
+                          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-purple-500/10 text-purple-400/60">
+                            +{(validationReport.tech_stack.frontend || []).length - 3}
+                          </span>
+                        )}
+                      </div>
+                    </motion.div>
+
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.2 }}
+                      className="hidden lg:flex items-center"
+                    >
+                      <div className="flex items-center gap-1">
+                        <div className="h-px w-8 bg-gradient-to-r from-purple-500/50 to-transparent" />
+                        <ArrowRight size={16} className="text-white/20" />
+                        <div className="h-px w-8 bg-gradient-to-l from-orange-500/50 to-transparent" />
+                      </div>
+                    </motion.div>
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.2 }}
+                      className="lg:hidden flex items-center"
+                    >
+                      <div className="w-px h-6 bg-gradient-to-b from-purple-500/50 to-transparent" />
+                      <ArrowRight size={16} className="text-white/20 rotate-90 -ml-1.5" />
+                      <div className="w-px h-6 bg-gradient-to-t from-orange-500/50 to-transparent" />
+                    </motion.div>
+
+                    <motion.div 
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 }}
+                      className="flex flex-col items-center gap-3"
+                    >
+                      <div className="relative group">
+                        <div className="absolute -inset-3 bg-orange-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
+                        <div className="relative h-20 w-20 rounded-2xl bg-gradient-to-br from-orange-500/20 to-orange-500/5 border border-orange-500/30 flex items-center justify-center shadow-lg shadow-orange-500/10 group-hover:scale-110 transition-transform">
+                          <Circuitry size={32} weight="duotone" className="text-orange-400" />
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xs font-black uppercase tracking-wider text-white/80">Backend</div>
+                        <div className="text-[9px] text-white/30 mt-0.5">Server Logic</div>
+                      </div>
+                      <div className="flex flex-wrap justify-center gap-1.5 max-w-[160px]">
+                        {(validationReport.tech_stack.backend || []).slice(0, 3).map((tech: string, i: number) => (
+                          <span key={i} className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-orange-500/15 text-orange-400 border border-orange-500/20">
+                            {tech}
+                          </span>
+                        ))}
+                        {(validationReport.tech_stack.backend || []).length > 3 && (
+                          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-orange-500/10 text-orange-400/60">
+                            +{(validationReport.tech_stack.backend || []).length - 3}
+                          </span>
+                        )}
+                      </div>
+                    </motion.div>
+
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.4 }}
+                      className="hidden lg:flex items-center"
+                    >
+                      <div className="flex items-center gap-1">
+                        <div className="h-px w-8 bg-gradient-to-r from-orange-500/50 to-transparent" />
+                        <ArrowRight size={16} className="text-white/20" />
+                        <div className="h-px w-8 bg-gradient-to-l from-cyan-500/50 to-transparent" />
+                      </div>
+                    </motion.div>
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.4 }}
+                      className="lg:hidden flex items-center"
+                    >
+                      <div className="w-px h-6 bg-gradient-to-b from-orange-500/50 to-transparent" />
+                      <ArrowRight size={16} className="text-white/20 rotate-90 -ml-1.5" />
+                      <div className="w-px h-6 bg-gradient-to-t from-cyan-500/50 to-transparent" />
+                    </motion.div>
+
+                    <motion.div 
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.5 }}
+                      className="flex flex-col items-center gap-3"
+                    >
+                      <div className="relative group">
+                        <div className="absolute -inset-3 bg-cyan-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
+                        <div className="relative h-20 w-20 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 border border-cyan-500/30 flex items-center justify-center shadow-lg shadow-cyan-500/10 group-hover:scale-110 transition-transform">
+                          <Database size={32} weight="duotone" className="text-cyan-400" />
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xs font-black uppercase tracking-wider text-white/80">Database</div>
+                        <div className="text-[9px] text-white/30 mt-0.5">Storage & Cache</div>
+                      </div>
+                      <div className="flex flex-wrap justify-center gap-1.5 max-w-[160px]">
+                        {(validationReport.tech_stack.database || []).slice(0, 3).map((tech: string, i: number) => (
+                          <span key={i} className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
+                            {tech}
+                          </span>
+                        ))}
+                        {(validationReport.tech_stack.database || []).length > 3 && (
+                          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-cyan-500/10 text-cyan-400/60">
+                            +{(validationReport.tech_stack.database || []).length - 3}
+                          </span>
+                        )}
+                      </div>
+                    </motion.div>
                   </div>
-                  <div className="text-sm font-semibold text-white">{validationReport.tech_stack.database.join(', ')}</div>
-                </div>
-              )}
-              {validationReport.tech_stack.infrastructure && (
-                <div className="p-5 rounded-xl bg-gradient-to-br from-green-500/10 to-transparent border border-white/10 hover:border-green-500/30 transition-all">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="h-6 w-6 rounded bg-green-500/20 text-green-400 flex items-center justify-center">
-                      <Rocket size={14} />
+
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6 }}
+                    className="mt-6 pt-6 border-t border-white/5"
+                  >
+                    <div className="flex items-center justify-center gap-2 mb-4">
+                      <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                      <div className="flex items-center gap-2 px-4">
+                        <Rocket size={12} className="text-green-400/60" weight="duotone" />
+                        <span className="text-[9px] font-black uppercase tracking-[0.15em] text-white/30">Infrastructure Layer</span>
+                      </div>
+                      <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
                     </div>
-                    <div className="text-[10px] font-black uppercase tracking-wider text-green-400/80">Infrastructure</div>
-                  </div>
-                  <div className="text-sm font-semibold text-white">{validationReport.tech_stack.infrastructure.join(', ')}</div>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {(validationReport.tech_stack.infrastructure || []).map((tech: string, i: number) => (
+                        <motion.span 
+                          key={i}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: 0.7 + i * 0.05 }}
+                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors"
+                        >
+                          {tech}
+                        </motion.span>
+                      ))}
+                    </div>
+                  </motion.div>
                 </div>
-              )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[
+                { id: 'frontend', label: 'Frontend', icon: Layout, color: 'purple', sub: 'Client Side' },
+                { id: 'backend', label: 'Backend', icon: Circuitry, color: 'orange', sub: 'Server Logic' },
+                { id: 'database', label: 'Database', icon: Database, color: 'cyan', sub: 'Storage & Cache' },
+                { id: 'infrastructure', label: 'Infrastructure', icon: Rocket, color: 'green', sub: 'Cloud & DevOps' }
+              ].map((cat) => {
+                const techList = validationReport.tech_stack[cat.id as keyof typeof validationReport.tech_stack] || [];
+                const isEditing = editingTech === cat.id;
+                const isRegenerating = isRegeneratingTech === cat.id;
+
+                return (
+                  <motion.div 
+                    layout
+                    key={cat.id} 
+                    className={cn(
+                      "p-6 rounded-[2rem] bg-[#0A0A0A] border transition-all duration-300 relative overflow-hidden group shadow-[0_15px_35px_rgba(0,0,0,0.6)]",
+                      cat.color === 'purple' ? "hover:border-purple-500/30" :
+                      cat.color === 'orange' ? "hover:border-orange-500/30" :
+                      cat.color === 'cyan' ? "hover:border-cyan-500/30" :
+                      "hover:border-green-500/30",
+                      isEditing ? "border-primary/40 ring-1 ring-primary/20" : "border-white/10"
+                    )}
+                  >
+                    {/* Background Accent Glow */}
+                    <div className={cn(
+                        "absolute -right-20 -top-20 h-48 w-48 blur-[80px] opacity-10 rounded-full transition-opacity group-hover:opacity-20",
+                        cat.color === 'purple' ? "bg-purple-500" :
+                        cat.color === 'orange' ? "bg-orange-500" :
+                        cat.color === 'cyan' ? "bg-cyan-500" :
+                        "bg-green-500"
+                    )} />
+
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-6 relative z-10">
+                      <div className="flex items-center gap-4">
+                        <div className={cn(
+                          "h-12 w-12 rounded-2xl flex items-center justify-center bg-gradient-to-br transition-all duration-300 group-hover:scale-110 shadow-lg",
+                          cat.color === 'purple' ? "from-purple-500/20 to-purple-500/5 text-purple-400 border border-purple-500/20 shadow-purple-500/10" :
+                          cat.color === 'orange' ? "from-orange-500/20 to-orange-500/5 text-orange-400 border border-orange-500/20 shadow-orange-500/10" :
+                          cat.color === 'cyan' ? "from-cyan-500/20 to-cyan-500/5 text-cyan-400 border border-cyan-500/20 shadow-cyan-500/10" :
+                          "from-green-500/20 to-green-500/5 text-green-400 border border-green-500/20 shadow-green-500/10"
+                        )}>
+                          <cat.icon size={22} weight="duotone" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-black uppercase tracking-[0.2em] text-white/90">{cat.label}</h4>
+                          <p className="text-[10px] font-bold text-white/20 tracking-widest">{cat.sub}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        {isEditing ? (
+                            <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-8 w-8 rounded-full bg-white/5 hover:bg-white/10 text-white/40"
+                                onClick={() => {
+                                    setEditingTech(null);
+                                    setTechFeedback(prev => ({ ...prev, [cat.id]: '' }));
+                                }}
+                            >
+                                <X size={14} />
+                            </Button>
+                        ) : (
+                            <TooltipProvider delayDuration={0}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button 
+                                            size="sm" 
+                                            variant="ghost" 
+                                            className="h-9 w-9 rounded-xl bg-white/5 hover:bg-primary/20 hover:text-primary transition-all group/btn"
+                                            onClick={() => setEditingTech(cat.id)}
+                                        >
+                                            <MagicWand size={18} weight="duotone" className="group-hover/btn:scale-110 transition-transform" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="bg-zinc-900 border-white/10 text-[9px] font-black uppercase tracking-widest">
+                                        Refine with AI
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Content Area */}
+                    <AnimatePresence mode="wait">
+                      {isEditing ? (
+                        <motion.div 
+                          key="editing"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          className="space-y-4 relative z-10"
+                        >
+                          <div className="p-4 rounded-2xl bg-black/40 border border-white/5 shadow-inner">
+                            <label className="text-[9px] font-black text-white/30 uppercase tracking-[0.15em] mb-2 block">Direct Edit (Commas)</label>
+                            <Textarea 
+                              value={techList.join(', ')}
+                              onChange={(e) => {
+                                const updatedReport = {
+                                  ...validationReport,
+                                  tech_stack: {
+                                    ...validationReport.tech_stack,
+                                    [cat.id]: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean)
+                                  }
+                                };
+                                setValidationReport(updatedReport);
+                                handleValidationEdit(updatedReport);
+                              }}
+                              className="min-h-[80px] bg-transparent border-none p-0 focus-visible:ring-0 text-white/90 text-sm font-medium leading-relaxed resize-none"
+                              placeholder={`e.g. ${cat.id === 'frontend' ? 'React, Next.js, Tailwind' : 'Node.js, Express, PostgreSQL'}`}
+                            />
+                          </div>
+
+                          <div className="space-y-3 pt-2">
+                             <div className="flex items-center gap-2">
+                                <MagicWand size={14} className="text-primary/60" weight="duotone" />
+                                <span className="text-[10px] font-black text-primary/60 uppercase tracking-widest">AI Refinement Feedback</span>
+                             </div>
+                             <Input 
+                                value={techFeedback[cat.id] || ''}
+                                onChange={(e) => setTechFeedback(prev => ({ ...prev, [cat.id]: e.target.value }))}
+                                placeholder="Add specific requirements for the AI..."
+                                className="h-10 bg-white/5 border-white/5 text-[11px] rounded-xl focus:ring-primary/20 focus:border-primary/30"
+                             />
+                             <Button 
+                                onClick={() => handleRegenerateTech(cat.id)}
+                                disabled={isRegenerating}
+                                className="w-full bg-primary hover:bg-primary/90 text-black h-10 rounded-xl font-black text-[10px] uppercase tracking-[0.1em] shadow-lg shadow-primary/10"
+                             >
+                                {isRegenerating ? <ArrowClockwise className="animate-spin mr-2" size={14} /> : <MagicWand className="mr-2" size={14} weight="fill" />}
+                                {isRegenerating ? 'Generating stack...' : 'Regenerate Stack'}
+                             </Button>
+                          </div>
+                        </motion.div>
+                      ) : (
+                        <motion.div 
+                          key="viewing"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="flex flex-wrap gap-2 relative z-10"
+                          onClick={() => setEditingTech(cat.id)}
+                        >
+                          {techList.length > 0 ? techList.map((tech: string, i: number) => (
+                            <motion.div 
+                              key={i}
+                              initial={{ scale: 0.9, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              transition={{ delay: i * 0.05 }}
+                              className={cn(
+                                "px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all cursor-pointer hover:scale-105 active:scale-95",
+                                cat.color === 'purple' ? "bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500/20" :
+                                cat.color === 'orange' ? "bg-orange-500/10 text-orange-400 border-orange-500/20 hover:bg-orange-500/20" :
+                                cat.color === 'cyan' ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20 hover:bg-cyan-500/20" :
+                                "bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20"
+                              )}
+                            >
+                              {tech}
+                            </motion.div>
+                          )) : (
+                            <div className="w-full py-8 flex flex-col items-center justify-center border border-dashed border-white/5 rounded-2xl opacity-20 group-hover:opacity-40 transition-opacity">
+                                <Plus size={24} />
+                                <span className="text-[10px] font-black uppercase tracking-widest mt-2">Click to define stack</span>
+                            </div>
+                          )}
+                          <div className="w-full mt-4 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-white/20 italic">Click card to edit manually</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                )
+                })}
+              </div>
             </div>
           )}
 
           {/* PRICING TAB */}
           {validationTab === 'pricing' && validationReport.pricing_model && (
-            <div className="max-w-2xl">
-              {typeof validationReport.pricing_model === 'string' ? (
-                <div className="p-5 rounded-xl bg-white/5 border border-white/10 text-sm text-white/60 leading-relaxed whitespace-pre-wrap">
-                  {validationReport.pricing_model}
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-white/30">Model Type</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-[9px] text-primary/60 hover:text-primary"
+                    onClick={() => {
+                      if (!validationReport) return;
+                      const modelType = validationReport.pricing_model?.type || 'Subscription';
+                      const defaultTiers = DEFAULT_PRICING_TIERS[modelType] || [];
+                      const updatedReport = {
+                        ...validationReport,
+                        pricing_model: {
+                          ...validationReport.pricing_model,
+                          type: modelType,
+                          tiers: defaultTiers
+                        }
+                      };
+                      setValidationReport(updatedReport);
+                      handleValidationEdit(updatedReport);
+                      toast.success('AI suggested pricing tiers applied');
+                    }}
+                  >
+                    <MagicWand size={12} className="mr-1" /> AI Suggest Tiers
+                  </Button>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {validationReport.pricing_model.tiers && validationReport.pricing_model.tiers.map((tier: any, idx: number) => (
-                    <div key={idx} className="p-5 rounded-xl bg-gradient-to-br from-green-500/10 to-transparent border border-white/10 hover:border-green-500/30 relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-20 h-20 bg-green-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-                      <div className="text-xs font-black uppercase tracking-wider text-green-400/60 mb-2">{tier.name}</div>
-                      <div className="text-2xl font-bold text-white">{tier.price}</div>
-                      {tier.description && <div className="text-xs text-white/40 mt-2">{tier.description}</div>}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {[
+                    { name: 'One-Time Purchase', icon: CreditCard, desc: 'Users pay once to unlock the app forever. Simple, no recurring revenue.' },
+                    { name: 'Subscription', icon: TrendUp, desc: 'Users pay weekly/monthly/yearly. Generates predictable revenue.' },
+                    { name: 'Freemium', icon: Rocket, desc: 'Core app is free, premium features cost money. Great for growth.' },
+                    { name: 'Pay-Per-Use / Credits', icon: Coins, desc: 'Users buy credits and spend them per action.' },
+                    { name: 'Pay-Per-User', icon: ShieldCheck, desc: 'Per-user per-month pricing. Ideal for B2B/SaaS.' },
+                    { name: 'In-App Purchases', icon: Stack, desc: 'Digital goods & features sold inside the app.' }
+                  ].map((model) => {
+                    const Icon = model.icon;
+                    const isSelected = validationReport.pricing_model?.type === model.name;
+                    const isRecommended = validationReport.pricing_model?.recommended_type === model.name;
+                    return (
+                      <button
+                        key={model.name}
+                        className={cn(
+                          "relative flex flex-col items-start gap-2 p-4 rounded-[1.5rem] border transition-all group overflow-hidden text-left",
+                          isSelected 
+                            ? "bg-primary/10 border-primary/40 text-white shadow-lg shadow-primary/10" 
+                            : isRecommended 
+                              ? "bg-emerald-500/5 border-emerald-500/30 text-white/80 hover:bg-emerald-500/10 hover:border-emerald-500/40" 
+                              : "bg-white/[0.02] border-white/10 text-white/60 hover:bg-white/[0.05] hover:border-white/20"
+                        )}
+                        onClick={() => {
+                          if (!validationReport) return;
+                          
+                          const newModel = model.name;
+                          const currentTiers = [...(validationReport.pricing_model?.tiers || [])];
+                          
+                          const tierMappings: Record<string, string[]> = {
+                            'One-Time Purchase': ['Basic', 'Pro', 'Lifetime'],
+                            'Subscription': ['Starter', 'Growth', 'Business'],
+                            'Freemium': ['Free', 'Plus', 'Pro'],
+                            'Pay-Per-Use / Credits': ['Starter Pack', 'Standard Pack', 'Enterprise Pack'],
+                            'Pay-Per-User': ['Team', 'Business', 'Enterprise'],
+                            'In-App Purchases': ['Remove Ads', 'Theme Pack', 'Pro Bundle']
+                          };
+
+                          const newTiers = currentTiers.map((tier, idx) => {
+                            const newName = tierMappings[newModel]?.[idx] || tier.name;
+                            let newPrice = tier.price;
+                            let newAnnual = tier.annual_price;
+
+                            if (newModel === 'One-Time Purchase') {
+                              newPrice = newPrice.replace(/\s*\/\s*(month|mo|year|yr|user)/gi, '').trim();
+                              newAnnual = undefined;
+                            } 
+                            else if ((newModel === 'Subscription' || newModel === 'Freemium') && newPrice !== '$0' && !newPrice.includes('/')) {
+                              newPrice = `${newPrice} / month`;
+                            }
+                            else if (newModel === 'Pay-Per-User') {
+                              if (!newPrice.includes('/ user')) {
+                                newPrice = newPrice.replace(/\/\s*(month|mo)/gi, '').trim() + ' / user / month';
+                              }
+                              newAnnual = undefined;
+                            }
+
+                            return { ...tier, name: newName, price: newPrice, annual_price: newAnnual };
+                          });
+
+                          const updatedReport = {
+                            ...validationReport,
+                            pricing_model: {
+                              ...validationReport.pricing_model,
+                              type: newModel,
+                              tiers: newTiers
+                            }
+                          };
+                          setValidationReport(updatedReport);
+                          handleValidationEdit(updatedReport);
+                        }}
+                      >
+                        <div className="flex w-full justify-between items-center mb-1">
+                          <div className={cn(
+                            "h-8 w-8 rounded-xl flex items-center justify-center transition-all",
+                            isSelected ? "bg-primary/20" : isRecommended ? "bg-emerald-500/20" : "bg-white/5 group-hover:bg-white/10"
+                          )}>
+                            <Icon size={18} weight={isSelected ? "fill" : "regular"} className={cn(
+                              isSelected ? "text-primary" : isRecommended ? "text-emerald-400" : ""
+                            )} />
+                          </div>
+                          {isRecommended && (
+                            <Badge className="text-[7px] h-4 bg-emerald-500/20 text-emerald-400 border-none uppercase font-black tracking-widest">Recommended</Badge>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-xs font-black uppercase tracking-wider">{model.name}</span>
+                          <p className="text-[10px] text-white/30 font-medium leading-relaxed">{model.desc}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                {validationReport.pricing_model?.reasoning && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/20 flex gap-3 items-start"
+                  >
+                    <div className="h-8 w-8 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
+                      <MagicWand size={16} className="text-emerald-400" weight="duotone" />
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div className="flex-1">
+                      <div className="text-[9px] font-black uppercase tracking-widest text-emerald-400/80 mb-1">
+                        AI Recommendation Reasoning
+                      </div>
+                      <p className="text-[11px] text-emerald-100/70 leading-relaxed">
+                        {validationReport.pricing_model.reasoning}
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {(validationReport.pricing_model.tiers || []).map((tier: any, i: number) => (
+                  <div key={i} className="p-5 rounded-2xl bg-white/[0.02] border border-white/10 group relative flex flex-col hover:border-white/20 transition-all">
+                    <div className="flex justify-between items-center mb-4 gap-2">
+                      <Input
+                        value={tier.name}
+                        onChange={(e) => {
+                          const newTiers = [...(validationReport.pricing_model.tiers || [])];
+                          newTiers[i].name = e.target.value;
+                          const updatedReport = {
+                            ...validationReport,
+                            pricing_model: { ...validationReport.pricing_model, tiers: newTiers }
+                          };
+                          setValidationReport(updatedReport);
+                          handleValidationEdit(updatedReport);
+                        }}
+                        className="h-7 text-xs font-black uppercase tracking-wider bg-transparent border-none p-0 focus-visible:ring-0 text-white/40"
+                      />
+                      <div className="flex flex-col items-end gap-0.5">
+                        <div className="flex items-center gap-1">
+                          <Input
+                            value={tier.price}
+                            onChange={(e) => {
+                              const newTiers = [...(validationReport.pricing_model.tiers || [])];
+                              newTiers[i].price = e.target.value;
+                              const updatedReport = {
+                                ...validationReport,
+                                pricing_model: { ...validationReport.pricing_model, tiers: newTiers }
+                              };
+                              setValidationReport(updatedReport);
+                              handleValidationEdit(updatedReport);
+                            }}
+                            className={cn(
+                              "h-7 text-xl font-bold text-right bg-transparent border-none p-0 focus-visible:ring-0 text-white",
+                              tier.price === '$0' ? 'text-lg' : ''
+                            )}
+                          />
+                        </div>
+                        {/* Subscription & Freemium: Show annual price */}
+                        {['Subscription', 'Freemium'].includes(validationReport.pricing_model.type) && tier.price !== '$0' && (
+                          <Input
+                            value={tier.annual_price || ''}
+                            onChange={(e) => {
+                              const newTiers = [...(validationReport.pricing_model.tiers || [])];
+                              newTiers[i].annual_price = e.target.value;
+                              const updatedReport = {
+                                ...validationReport,
+                                pricing_model: { ...validationReport.pricing_model, tiers: newTiers }
+                              };
+                              setValidationReport(updatedReport);
+                              handleValidationEdit(updatedReport);
+                            }}
+                            className="h-4 w-24 text-[9px] text-right font-black tracking-widest bg-transparent border-none p-0 focus-visible:ring-0 text-emerald-400/60"
+                            placeholder="ANNUAL PRICE"
+                          />
+                        )}
+                        {/* Pay-Per-User: Show per user indicator */}
+                        {validationReport.pricing_model.type === 'Pay-Per-User' && (
+                          <span className="text-[8px] font-bold tracking-widest text-white/30">PER USER / MONTH</span>
+                        )}
+                        {/* Pay-Per-Use / Credits: Show credits indicator */}
+                        {validationReport.pricing_model.type === 'Pay-Per-Use / Credits' && (
+                          <span className="text-[8px] font-bold tracking-widest text-white/30">CREDITS PACK</span>
+                        )}
+                        {/* One-Time Purchase: Show one-time indicator */}
+                        {validationReport.pricing_model.type === 'One-Time Purchase' && (
+                          <span className="text-[8px] font-bold tracking-widest text-white/30">ONE-TIME</span>
+                        )}
+                        {/* In-App Purchases: Show purchase type */}
+                        {validationReport.pricing_model.type === 'In-App Purchases' && (
+                          <span className="text-[8px] font-bold tracking-widest text-white/30">
+                            {(tier.price || '').includes('/ month') ? 'RECURRING' : 'ONE-TIME'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2 flex-1">
+                      {(tier.features || []).map((feat: string, j: number) => (
+                        <div key={j} className="flex items-center gap-2 group/feat">
+                          <CheckCircle size={14} className="text-emerald-500 shrink-0" weight="fill" />
+                          <Input
+                            value={feat}
+                            onChange={(e) => {
+                              const newTiers = [...(validationReport.pricing_model.tiers || [])];
+                              newTiers[i].features[j] = e.target.value;
+                              const updatedReport = {
+                                ...validationReport,
+                                pricing_model: { ...validationReport.pricing_model, tiers: newTiers }
+                              };
+                              setValidationReport(updatedReport);
+                              handleValidationEdit(updatedReport);
+                            }}
+                            className="h-5 text-xs bg-transparent border-none p-0 focus-visible:ring-0 text-white/60"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 opacity-0 group-hover/feat:opacity-100 text-white/20 hover:text-red-400"
+                            onClick={() => {
+                              const newTiers = [...(validationReport.pricing_model.tiers || [])];
+                              newTiers[i].features = newTiers[i].features.filter((_: any, idx: number) => idx !== j);
+                              const updatedReport = {
+                                ...validationReport,
+                                pricing_model: { ...validationReport.pricing_model, tiers: newTiers }
+                              };
+                              setValidationReport(updatedReport);
+                              handleValidationEdit(updatedReport);
+                            }}
+                          >
+                            <X size={10} />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-[10px] w-full border-dashed border border-white/5 mt-2 text-white/30 hover:text-white/60"
+                        onClick={() => {
+                          const newTiers = [...(validationReport.pricing_model.tiers || [])];
+                          newTiers[i].features = [...newTiers[i].features, 'New Perk'];
+                          const updatedReport = {
+                            ...validationReport,
+                            pricing_model: { ...validationReport.pricing_model, tiers: newTiers }
+                          };
+                          setValidationReport(updatedReport);
+                          handleValidationEdit(updatedReport);
+                        }}
+                      >
+                        <Plus size={10} className="mr-1" /> Add Perk
+                      </Button>
+                    </div>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 absolute -right-2 -top-2 bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 rounded-full hover:bg-red-500/20"
+                      onClick={() => {
+                        const newTiers = (validationReport.pricing_model.tiers || []).filter((_: any, idx: number) => idx !== i);
+                        const updatedReport = {
+                          ...validationReport,
+                          pricing_model: { ...validationReport.pricing_model, tiers: newTiers }
+                        };
+                        setValidationReport(updatedReport);
+                        handleValidationEdit(updatedReport);
+                      }}
+                    >
+                      <X size={12} />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto py-8 border-dashed border border-white/10 text-[10px] uppercase font-black tracking-[0.2em] text-white/20 hover:text-white/40 hover:bg-white/[0.02] rounded-2xl"
+                  onClick={() => {
+                    const modelType = validationReport.pricing_model?.type || 'Subscription';
+                    let newTier = { name: 'NEW TIER', price: '$0', features: [] };
+                    
+                    if (modelType === 'One-Time Purchase') {
+                      newTier = { name: 'New Plan', price: '$99', features: ['Feature 1', 'Feature 2'] };
+                    } else if (modelType === 'Subscription') {
+                      newTier = { name: 'New Plan', price: '$29 / month', annual_price: '$279 / year', features: ['Feature 1', 'Feature 2'] };
+                    } else if (modelType === 'Freemium') {
+                      newTier = { name: 'New Plan', price: '$19 / month', annual_price: '$179 / year', features: ['Feature 1', 'Feature 2'] };
+                    } else if (modelType === 'Pay-Per-Use / Credits') {
+                      newTier = { name: 'New Pack', price: '$25 / 5k credits', features: ['5,000 credits', 'No expiry'] };
+                    } else if (modelType === 'Pay-Per-User') {
+                      newTier = { name: 'New Plan', price: '$10 / user / month', features: ['Per user billing', 'All features'] };
+                    } else if (modelType === 'In-App Purchases') {
+                      newTier = { name: 'New Item', price: '$4.99 one-time', features: ['Feature unlock'] };
+                    }
+                    
+                    const newTiers = [...(validationReport.pricing_model.tiers || []), newTier];
+                    const updatedReport = {
+                      ...validationReport,
+                      pricing_model: { ...(validationReport.pricing_model || { type: 'Subscription' }), tiers: newTiers }
+                    };
+                    setValidationReport(updatedReport);
+                    handleValidationEdit(updatedReport);
+                  }}
+                >
+                  <Plus className="mr-2" size={14} weight="bold" /> Add Tier
+                </Button>
+              </div>
             </div>
           )}
 
           {/* IMPROVEMENTS TAB */}
-          {validationTab === 'improvements' && validationReport.improvements && validationReport.improvements.length > 0 && (
+          {validationTab === 'improvements' && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-xs text-white/40">Select improvements to apply and re-validate</p>
-                {selectedImprovementIndices.length > 0 && (
-                  <Button 
-                    size="sm"
-                    onClick={async () => {
-                      if (!ideaId) return;
-                      setRevalidating(true);
-                      try {
-                        const res = await aiService.acceptImprovementsAndRevalidate(ideaId, selectedImprovementIndices);
-                        setValidationReport(res.data);
-                        setSelectedImprovementIndices([]);
-                        toast.success(`Applied ${selectedImprovementIndices.length} improvements`);
-                      } catch (error) {
-                        toast.error("Failed to apply improvements");
-                      } finally {
-                        setRevalidating(false);
-                      }
-                    }}
-                    disabled={revalidating}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-xs"
-                  >
-                    {revalidating ? <ArrowClockwise className="animate-spin mr-2 h-3 w-3" /> : <CheckCircle className="mr-2 h-3 w-3" />}
-                    Apply & Validate
-                  </Button>
-                )}
-              </div>
-              {validationReport.improvements.map((improvement, idx) => {
+              {validationReport.improvements && validationReport.improvements.length > 0 ? (
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-xs text-white/40">Select improvements to apply and re-validate</p>
+                    {selectedImprovementIndices.length > 0 && (
+                      <Button 
+                        size="sm"
+                        onClick={async () => {
+                          if (!ideaId) return;
+                          const count = selectedImprovementIndices.length;
+                          setRevalidating(true);
+                          try {
+                            const res = await aiService.acceptImprovementsAndRevalidate(ideaId, selectedImprovementIndices);
+                            setValidationReport(res.data);
+                            setSelectedImprovementIndices([]);
+                            setImprovementStatus({});
+                            setValidationTab('overview');
+                            toast.success(`Applied ${count} improvements and re-validated`);
+                          } catch (error: any) {
+                            const errorMsg = error.response?.data?.detail || "Failed to apply improvements";
+                            toast.error(errorMsg);
+                          } finally {
+                            setRevalidating(false);
+                          }
+                        }}
+                        disabled={revalidating}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-xs"
+                      >
+                        {revalidating ? <ArrowClockwise className="animate-spin mr-2 h-3 w-3" /> : <CheckCircle className="mr-2 h-3 w-3" />}
+                        Apply & Validate
+                      </Button>
+                    )}
+                  </div>
+                  {validationReport.improvements.map((improvement, idx) => {
                 const status = improvementStatus[idx] || 'pending';
                 const isSelected = selectedImprovementIndices.includes(idx);
                 
@@ -1354,7 +2165,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                       "h-5 w-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5",
                       isSelected ? "bg-yellow-500 border-yellow-500" : "border-white/20"
                     )}>
-                      {isSelected && <Check size={12} className="text-black" weight="bold" />}
+                      {isSelected && <CheckCircle size={14} className="text-black" weight="fill" />}
                     </div>
                     <div className="flex-1">
                       <div className="text-sm text-white/80">{improvement}</div>
@@ -1364,6 +2175,18 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                   </div>
                 );
               })}
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="h-16 w-16 rounded-full bg-emerald-500/20 flex items-center justify-center mb-4">
+                    <CheckCircle size={32} className="text-emerald-400" weight="fill" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white/90 mb-2">All Improvements Applied</h3>
+                  <p className="text-sm text-white/40 max-w-sm">
+                    You've applied all suggested improvements. The 6 core pillars have been re-validated with these enhancements.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1534,7 +2357,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                           )}
                           onClick={(e) => {
                               if ((e.target as HTMLElement).closest('.action-btn')) return;
-                              if (isGenerated) setSelectedDocType(id);
+                              if (isGenerated) handleDownloadDoc(id);
                               else handleGenerateDocFlow(id);
                           }}
                         >
@@ -1576,14 +2399,8 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                               ) : (
                                 <span 
                                     className="text-[10px] sm:text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1 group-hover:translate-x-1 transition-transform"
-                                    onClick={(e) => {
-                                        if (isGenerated.content.startsWith('http')) {
-                                            e.stopPropagation();
-                                            window.open(isGenerated.content, '_blank');
-                                        }
-                                    }}
                                 >
-                                    {isGenerated.content.startsWith('http') ? 'Open in Docs' : 'Open Document'} <ArrowRight size={12} />
+                                    {isGenerated.content.startsWith('http') ? 'Open in Docs' : 'Download'} <ArrowRight size={12} />
                                 </span>
                               )}
                            </CardFooter>
@@ -1592,138 +2409,6 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                   })}
                </div>
             </div>
-          )}
-          
-          {/* Doc Viewer */}
-          {selectedDocType && selectedDoc && (
-             <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-                <Card className="w-full h-full sm:max-w-6xl sm:max-h-[95vh] bg-[#0C0C0C] border-white/10 flex flex-col shadow-2xl overflow-hidden rounded-none sm:rounded-xl">
-                   {/* Header */}
-                   <div className="border-b border-white/10 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between bg-[#0C0C0C] shrink-0">
-                      <div className="flex items-center gap-3">
-                          <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center", DOC_INFO[selectedDocType].color === 'blue' ? "bg-blue-500/20 text-blue-400" : DOC_INFO[selectedDocType].color === 'purple' ? "bg-purple-500/20 text-purple-400" : DOC_INFO[selectedDocType].color === 'green' ? "bg-green-500/20 text-green-400" : DOC_INFO[selectedDocType].color === 'orange' ? "bg-orange-500/20 text-orange-400" : DOC_INFO[selectedDocType].color === 'red' ? "bg-red-500/20 text-red-400" : "bg-cyan-500/20 text-cyan-400")}>
-                            {React.createElement(DOC_INFO[selectedDocType].icon, { size: 20, weight: "duotone" })}
-                          </div>
-                          <div>
-                            <CardTitle className="text-base sm:text-lg font-semibold text-white">{DOC_INFO[selectedDocType].label}</CardTitle>
-                            <p className="text-[10px] text-white/40 hidden sm:block">{DOC_INFO[selectedDocType].summary}</p>
-                          </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {selectedDoc.content.startsWith('http') && (
-                          <Button variant="outline" size="sm" className="text-xs border-white/10" onClick={() => window.open(selectedDoc.content, '_blank')}>
-                            Open Link <ArrowSquareOut size={12} className="ml-1" />
-                          </Button>
-                        )}
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-white/60 hover:text-white" onClick={() => setSelectedDocType(null)}>
-                          <X size={18} />
-                        </Button>
-                      </div>
-                   </div>
-                   
-                   {/* Toolbar */}
-                   <div className="border-b border-white/5 px-4 py-2 flex items-center gap-1 bg-white/[0.02] shrink-0 overflow-x-auto">
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-white/60 hover:text-white hover:bg-white/10">
-                        <TextB size={14} className="mr-1" /> Bold
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-white/60 hover:text-white hover:bg-white/10">
-                        <TextItalic size={14} className="mr-1" /> Italic
-                      </Button>
-                      <div className="w-px h-4 bg-white/10 mx-1" />
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-white/60 hover:text-white hover:bg-white/10">
-                        <List size={14} className="mr-1" /> List
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-white/60 hover:text-white hover:bg-white/10">
-                        <ListNumbers size={14} className="mr-1" /> Numbered
-                      </Button>
-                      <div className="w-px h-4 bg-white/10 mx-1" />
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-white/60 hover:text-white hover:bg-white/10">
-                        <Code size={14} className="mr-1" /> Code
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-white/60 hover:text-white hover:bg-white/10">
-                        <TextColumns size={14} className="mr-1" /> Table
-                      </Button>
-                      <div className="flex-1" />
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-white/40 hover:text-white hover:bg-white/10">
-                        <MagnifyingGlassPlus size={14} className="mr-1" /> Zoom
-                      </Button>
-                   </div>
-
-                   {/* Content Area */}
-                   <div className="flex-1 flex overflow-hidden">
-                      {/* Outline Sidebar */}
-                      <div className="w-48 border-r border-white/5 bg-[#0A0A0A] p-4 overflow-y-auto hidden md:block">
-                         <div className="text-[9px] font-black uppercase tracking-wider text-white/30 mb-3">Outline</div>
-                         <div className="space-y-1">
-                           <div className="text-xs text-white/60 hover:text-white cursor-pointer py-1">Introduction</div>
-                           <div className="text-xs text-white/60 hover:text-white cursor-pointer py-1 pl-3 border-l border-white/10">Overview</div>
-                           <div className="text-xs text-white/60 hover:text-white cursor-pointer py-1 pl-3 border-l border-white/10">Goals</div>
-                           <div className="text-xs text-white hover:text-white cursor-pointer py-1 font-medium">Core Features</div>
-                           <div className="text-xs text-white/60 hover:text-white cursor-pointer py-1 pl-3 border-l border-white/10">Feature 1</div>
-                           <div className="text-xs text-white/60 hover:text-white cursor-pointer py-1 pl-3 border-l border-white/10">Feature 2</div>
-                           <div className="text-xs text-white/60 hover:text-white cursor-pointer py-1">Technical Specs</div>
-                           <div className="text-xs text-white/60 hover:text-white cursor-pointer py-1">Conclusion</div>
-                         </div>
-                      </div>
-                      
-                      {/* Main Content */}
-                      <div className="flex-1 overflow-y-auto bg-[#0C0C0C]">
-                        {selectedDoc.content.startsWith('http') ? (
-                            <div className="flex flex-col items-center justify-center h-full py-20 opacity-50">
-                                <p className="text-white/60 mb-4">This is an external document.</p>
-                                <Button variant="outline" className="border-white/20" onClick={() => window.open(selectedDoc.content, '_blank')}>
-                                    Open in New Tab
-                                </Button>
-                            </div>
-                        ) : (
-                            <div className="p-6 sm:p-10 max-w-4xl mx-auto">
-                              <div className="prose prose-invert prose-sm sm:prose max-w-none 
-                                prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-white/90
-                                prose-p:text-white/60 prose-p:leading-relaxed
-                                prose-strong:text-white/80 prose-strong:font-semibold
-                                prose-code:text-blue-300 prose-code:bg-blue-500/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
-                                prose-pre:bg-[#111] prose-pre:border prose-pre:border-white/10
-                                prose-li:text-white/60 prose-li:marker:text-white/30
-                                prose-blockquote:border-l-2 prose-blockquote:border-blue-500/50 prose-blockquote:bg-white/5 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r
-                                prose-table:border prose-table:border-white/10 prose-table:rounded-lg prose-table:overflow-hidden
-                                prose-th:bg-white/[0.02] prose-th:text-white/70 prose-th:text-xs prose-th:uppercase prose-th:tracking-wider prose-th:font-semibold prose-th:py-2 prose-th:px-3
-                                prose-td:border prose-td:border-white/5 prose-td:py-2 prose-td:px-3 prose-td:text-xs prose-td:text-white/60
-                                prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline">
-                                  <ReactMarkdown>{selectedDoc.content}</ReactMarkdown>
-                              </div>
-                            </div>
-                        )}
-                      </div>
-                   </div>
-
-                   {/* Footer / Chat Input */}
-                   <div className="p-3 sm:p-4 border-t border-white/10 bg-[#0C0C0C] shrink-0">
-                      <div className="flex w-full gap-2 items-center">
-                        <div className="flex-1 relative">
-                          <Input 
-                            value={chatMessage} 
-                            onChange={e => setChatMessage(e.target.value)} 
-                            placeholder="Ask AI to refine or expand this document..."
-                            className="bg-[#111] border-white/10 text-sm pr-10 h-10"
-                            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleChatDoc()}
-                          />
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-white/40 hover:text-white"
-                            onClick={handleChatDoc}
-                            disabled={loading || !chatMessage.trim()}
-                          >
-                            {loading ? <ArrowClockwise className="animate-spin h-4 w-4" /> : <PaperPlaneTilt size={16} />}
-                          </Button>
-                        </div>
-                        <Button onClick={handleChatDoc} disabled={loading || !chatMessage.trim()} className="hidden sm:flex h-10 bg-blue-600 hover:bg-blue-700">
-                           Refine
-                        </Button>
-                      </div>
-                   </div>
-                </Card>
-             </div>
           )}
 
         </div>

@@ -277,53 +277,57 @@ export default function AIGeneratorPage() {
                     <ChartBar className="text-primary" /> Core Features
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="space-y-3">
                   {(validationReport.core_features || []).map((feature: any, i: number) => (
-                    <div key={i} className="flex gap-3 p-3 rounded-lg bg-white/5 border border-white/5 group relative">
-                      <CheckCircle className="text-green-500 mt-1 shrink-0" />
-                      <div className="flex-1">
+                    <div key={i} className="flex gap-3 p-4 rounded-xl bg-white/5 border border-white/5 group relative transition-all hover:bg-white/[0.08]">
+                      <div className="mt-1 bg-primary/20 p-1 rounded-md shrink-0">
+                        <CheckCircle className="text-primary" size={16} weight="fill" />
+                      </div>
+                      <div className="flex-1 space-y-1">
                         <Input
                           value={feature.name}
+                          placeholder="Feature Name"
                           onChange={(e) => {
                             const newFeatures = [...(validationReport.core_features || [])];
                             newFeatures[i].name = e.target.value;
                             updateValidationReport({...validationReport, core_features: newFeatures});
                           }}
-                          className="h-7 text-sm font-medium bg-transparent border-none p-0 focus-visible:ring-0 mb-1"
+                          className="h-7 text-sm font-bold bg-transparent border-none p-0 focus-visible:ring-0 mb-0 shadow-none"
                         />
                         <Textarea
                           value={feature.description}
+                          placeholder="Feature Description"
                           onChange={(e) => {
                             const newFeatures = [...(validationReport.core_features || [])];
                             newFeatures[i].description = e.target.value;
                             updateValidationReport({...validationReport, core_features: newFeatures});
                           }}
-                          className="text-xs text-muted-foreground bg-transparent border-none p-0 focus-visible:ring-0 resize-none min-h-[40px]"
+                          className="text-xs text-muted-foreground bg-transparent border-none p-0 focus-visible:ring-0 resize-none min-h-[40px] shadow-none leading-relaxed"
                         />
                       </div>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity absolute right-2 top-2"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity absolute right-2 top-2 hover:bg-red-500/10 hover:text-red-400"
                         onClick={() => {
                           const newFeatures = (validationReport.core_features || []).filter((_, idx) => idx !== i);
                           updateValidationReport({...validationReport, core_features: newFeatures});
                         }}
                       >
-                        <XCircle size={14} className="text-red-400" />
+                        <X size={16} />
                       </Button>
                     </div>
                   ))}
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="w-full text-[10px] uppercase font-bold tracking-widest text-muted-foreground hover:text-white"
+                    className="w-full h-10 border-dashed border-white/10 text-muted-foreground hover:text-white hover:border-white/30 transition-all"
                     onClick={() => {
-                      const newFeatures = [...(validationReport.core_features || []), { name: 'New Feature', description: 'Description', type: 'Core' }];
+                      const newFeatures = [...(validationReport.core_features || []), { name: 'New Feature', description: 'Brief description of the feature...', type: 'Core' }];
                       updateValidationReport({...validationReport, core_features: newFeatures});
                     }}
                   >
-                    <Plus className="mr-2" size={12} /> Add Feature
+                    <Plus className="mr-2" size={14} /> Add Project Feature
                   </Button>
                 </CardContent>
               </Card>
@@ -433,26 +437,235 @@ export default function AIGeneratorPage() {
               <Card className="border-white/5 bg-white/5">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <CurrencyDollar className="text-primary" /> Pricing Model: {validationReport.pricing_model?.type || 'Unknown'}
+                    <CurrencyDollar className="text-primary" /> Pricing Model
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {(validationReport.pricing_model?.tiers || []).map((tier, i) => (
-                    <div key={i} className="p-3 rounded-lg bg-black/20 border border-white/5">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="font-bold">{tier.name}</span>
-                        <Badge variant="outline">{tier.price}</Badge>
-                      </div>
-                      <ul className="text-xs text-muted-foreground space-y-1">
-                        {(tier.features || []).map((feat, j) => (
-                          <li key={j} className="flex gap-1.5">
-                            <CheckCircle size={12} className="text-green-500 mt-0.5" />
-                            {feat}
-                          </li>
+                  <div className="space-y-4">
+                    <div className="space-y-3">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Model Type</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {[
+                          'One-Time Purchase',
+                          'Subscription',
+                          'Freemium',
+                          'Pay-Per-Use / Credits',
+                          'Pay-Per-User',
+                          'In-App Purchases'
+                        ].map((model) => (
+                          <Button
+                            key={model}
+                            variant={validationReport.pricing_model?.type === model ? 'default' : 'outline'}
+                            size="sm"
+                            className="text-[10px] h-8 relative group"
+                            onClick={() => {
+                              const newModel = model;
+                              const currentTiers = [...(validationReport.pricing_model?.tiers || [])];
+                              
+                              // Logic to "migrate" tier names if user switches types manually
+                              const tierMappings: Record<string, string[]> = {
+                                'One-Time Purchase': ['Basic', 'Pro', 'Lifetime'],
+                                'Subscription': ['Starter', 'Growth', 'Business'],
+                                'Freemium': ['Free', 'Plus', 'Pro'],
+                                'Pay-Per-Use / Credits': ['Starter Pack', 'Standard Pack', 'Enterprise Pack'],
+                                'Pay-Per-User': ['Team', 'Business', 'Enterprise'],
+                                'In-App Purchases': ['Remove Ads', 'Theme Pack', 'Pro Bundle']
+                              };
+
+                              const newTiers = currentTiers.map((tier, idx) => {
+                                const newName = tierMappings[newModel]?.[idx] || tier.name;
+                                let newPrice = tier.price;
+                                let newAnnual = tier.annual_price;
+
+                                // If switching TO one-time, remove /mo indicators
+                                if (newModel === 'One-Time Purchase') {
+                                  newPrice = newPrice.replace(/\s*\/\s*(month|mo|year|yr|user)/gi, '').trim();
+                                  newAnnual = null;
+                                } 
+                                // If switching TO recurring, ensure / month exists if missing and not $0
+                                else if ((newModel === 'Subscription' || newModel === 'Freemium') && newPrice !== '$0' && !newPrice.includes('/')) {
+                                  newPrice = `${newPrice} / month`;
+                                }
+                                // If switching TO Pay-Per-User
+                                else if (newModel === 'Pay-Per-User') {
+                                  if (!newPrice.includes('/ user')) {
+                                    newPrice = newPrice.replace(/\/\s*(month|mo)/gi, '').trim() + ' / user / month';
+                                  }
+                                  newAnnual = null;
+                                }
+
+                                return { ...tier, name: newName, price: newPrice, annual_price: newAnnual };
+                              });
+
+                              updateValidationReport({
+                                ...validationReport,
+                                pricing_model: {
+                                  ...(validationReport.pricing_model || { tiers: [] }),
+                                  type: newModel,
+                                  tiers: newTiers
+                                }
+                              });
+                            }}
+                          >
+                            {model}
+                            {validationReport.pricing_model?.recommended_type === model && (
+                              <span className="ml-1 opacity-60 text-[8px] font-bold">(recommended)</span>
+                            )}
+                          </Button>
                         ))}
-                      </ul>
+                      </div>
+                      {validationReport.pricing_model?.reasoning && (
+                        <p className="text-[10px] text-primary/60 italic mt-2">
+                          AI Suggestion: {validationReport.pricing_model.reasoning}
+                        </p>
+                      )}
                     </div>
-                  ))}
+
+                    <div className="space-y-3">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tiers & Features</p>
+                      {(validationReport.pricing_model?.tiers || []).map((tier, i) => (
+                        <div key={i} className="p-3 rounded-lg bg-black/20 border border-white/5 group relative">
+                          <div className="flex justify-between items-center mb-3">
+                            <Input
+                              value={tier.name}
+                              onChange={(e) => {
+                                const newTiers = [...(validationReport.pricing_model?.tiers || [])];
+                                newTiers[i].name = e.target.value;
+                                updateValidationReport({
+                                  ...validationReport,
+                                  pricing_model: { ...validationReport.pricing_model!, tiers: newTiers }
+                                });
+                              }}
+                              className="h-7 w-24 text-xs font-bold bg-transparent border-none p-0 focus-visible:ring-0"
+                            />
+                            <div className="flex flex-col items-end">
+                              <Input
+                                value={tier.price}
+                                onChange={(e) => {
+                                  const newTiers = [...(validationReport.pricing_model?.tiers || [])];
+                                  newTiers[i].price = e.target.value;
+                                  updateValidationReport({
+                                    ...validationReport,
+                                    pricing_model: { ...validationReport.pricing_model!, tiers: newTiers }
+                                  });
+                                }}
+                                className="h-7 w-24 text-xs text-right font-medium bg-transparent border-none p-0 focus-visible:ring-0 text-emerald-400"
+                                placeholder={
+                                  validationReport.pricing_model?.type === 'Pay-Per-User' ? '$X / user / month' :
+                                  validationReport.pricing_model?.type === 'Pay-Per-Use / Credits' ? '$X / 1k credits' :
+                                  validationReport.pricing_model?.type === 'One-Time Purchase' ? '$X one-time' :
+                                  '$X / month'
+                                }
+                              />
+                              {['Subscription', 'Freemium'].includes(validationReport.pricing_model?.type || '') && tier.price !== '$0' && (
+                                <Input
+                                  value={tier.annual_price || ''}
+                                  onChange={(e) => {
+                                    const newTiers = [...(validationReport.pricing_model?.tiers || [])];
+                                    newTiers[i].annual_price = e.target.value;
+                                    updateValidationReport({
+                                      ...validationReport,
+                                      pricing_model: { ...validationReport.pricing_model!, tiers: newTiers }
+                                    });
+                                  }}
+                                  className="h-5 w-24 text-[10px] text-right font-medium bg-transparent border-none p-0 focus-visible:ring-0 text-primary/60"
+                                  placeholder="Annual: $X / year"
+                                />
+                              )}
+                              {validationReport.pricing_model?.type === 'Pay-Per-User' && (
+                                <span className="text-[8px] text-white/30 font-medium">PER USER / MONTH</span>
+                              )}
+                              {validationReport.pricing_model?.type === 'Pay-Per-Use / Credits' && (
+                                <span className="text-[8px] text-white/30 font-medium">CREDITS PACK</span>
+                              )}
+                              {validationReport.pricing_model?.type === 'One-Time Purchase' && (
+                                <span className="text-[8px] text-white/30 font-medium">ONE-TIME PAYMENT</span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-1.5">
+                            {(tier.features || []).map((feat, j) => (
+                              <div key={j} className="flex items-center gap-2 group/feat">
+                                <CheckCircle size={12} className="text-green-500 shrink-0" />
+                                <Input
+                                  value={feat}
+                                  onChange={(e) => {
+                                    const newTiers = [...(validationReport.pricing_model?.tiers || [])];
+                                    newTiers[i].features[j] = e.target.value;
+                                    updateValidationReport({
+                                      ...validationReport,
+                                      pricing_model: { ...validationReport.pricing_model!, tiers: newTiers }
+                                    });
+                                  }}
+                                  className="h-5 text-[10px] bg-transparent border-none p-0 focus-visible:ring-0 text-white/60"
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-4 w-4 opacity-0 group-hover/feat:opacity-100"
+                                  onClick={() => {
+                                    const newTiers = [...(validationReport.pricing_model?.tiers || [])];
+                                    newTiers[i].features = newTiers[i].features.filter((_, idx) => idx !== j);
+                                    updateValidationReport({
+                                      ...validationReport,
+                                      pricing_model: { ...validationReport.pricing_model!, tiers: newTiers }
+                                    });
+                                  }}
+                                >
+                                  <X size={10} />
+                                </Button>
+                              </div>
+                            ))}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 text-[9px] w-full border-dashed border border-white/5 mt-1"
+                              onClick={() => {
+                                const newTiers = [...(validationReport.pricing_model?.tiers || [])];
+                                newTiers[i].features = [...newTiers[i].features, 'New Feature'];
+                                updateValidationReport({
+                                  ...validationReport,
+                                  pricing_model: { ...validationReport.pricing_model!, tiers: newTiers }
+                                });
+                              }}
+                            >
+                              <Plus size={10} className="mr-1" /> Add Perk
+                            </Button>
+                          </div>
+
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 absolute -right-2 -top-2 bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 rounded-full"
+                            onClick={() => {
+                              const newTiers = (validationReport.pricing_model?.tiers || []).filter((_, idx) => idx !== i);
+                              updateValidationReport({
+                                ...validationReport,
+                                pricing_model: { ...validationReport.pricing_model!, tiers: newTiers }
+                              });
+                            }}
+                          >
+                            <X size={12} />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-[10px] uppercase font-bold tracking-widest text-muted-foreground hover:text-white"
+                        onClick={() => {
+                          const newTiers = [...(validationReport.pricing_model?.tiers || []), { name: 'New Tier', price: '$0', features: [] }];
+                          updateValidationReport({
+                            ...validationReport,
+                            pricing_model: { ...(validationReport.pricing_model || { type: 'Freemium' }), tiers: newTiers }
+                          });
+                        }}
+                      >
+                        <Plus className="mr-2" size={12} /> Add Tier
+                      </Button>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </div>

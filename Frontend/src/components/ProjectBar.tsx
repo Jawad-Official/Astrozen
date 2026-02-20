@@ -121,7 +121,9 @@ export const ProjectBar = {
       return isTeamLeader;
     }, [user, project, teams]);
 
-    const handleDelete = async () => {
+    const handleDelete = async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
       if (!confirm(`Delete project "${project.name}"?`)) return;
       try {
         await onDelete(project.id);
@@ -163,7 +165,7 @@ export const ProjectBar = {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-zinc-900 border-white/10">
-                <DropdownMenuItem className="text-red-400" onClick={handleDelete}>
+                <DropdownMenuItem className="text-red-400" onClick={(e) => handleDelete(e)}>
                   Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>

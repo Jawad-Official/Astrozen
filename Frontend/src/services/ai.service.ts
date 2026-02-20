@@ -49,6 +49,7 @@ export interface ValidationReport {
   tech_stack: {
     frontend: string[];
     backend: string[];
+    database: string[];
     infrastructure: string[];
   };
   pricing_model: PricingModel;

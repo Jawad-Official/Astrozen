@@ -1,35 +1,59 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Body, Body
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    BackgroundTasks,
+    UploadFile,
+    File,
+    Body,
+)
 from sqlalchemy.orm import Session
 from typing import Any, List, Dict, Optional
 import mammoth
 import logging
+import json
+import ast
+import traceback
+from sqlalchemy.orm.attributes import flag_modified
 from app.api import deps
 from app.schemas import ai as schemas
 from app.crud import crud_project_idea, feature as crud_feature, issue as crud_issue
-from app.services.ai_service import ai_service
+from app.services.ai_service import ai_service, DOC_ORDER
 from app.services.storage_service import storage_service
 from app.services.notification_service import notification_service
-from app.models.project_idea import IdeaStatus, AssetType, AssetStatus, ProjectIdea, ProjectAsset
+from app.models.project_idea import (
+    IdeaStatus,
+    AssetType,
+    AssetStatus,
+    ProjectIdea,
+    ProjectAsset,
+)
 from app.models.notification import NotificationType
 from app.models.user import User
 from app.models.team_model import Team
 from app.core.database import SessionLocal
-from app.models.feature import Feature, FeatureStatus, FeatureType, FeatureHealth
-from app.models.issue import IssuePriority
-
+from app.models.feature import (
+    Feature,
+    FeatureStatus,
+    FeatureType,
+    FeatureHealth,
+    Milestone,
+)
 from app.models.issue import Issue, IssuePriority, IssueStatus, IssueType
-from app.models.feature import Feature, FeatureStatus, FeatureType, FeatureHealth, Milestone
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 # ... existing code ...
+
 
 @router.post("/idea/{idea_id}/blueprint/node/{node_id}/issues")
 async def generate_issues_for_node(
     idea_id: str,
     node_id: str,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     AI generates detailed Features, Milestones, and Issues for a specific blueprint node.
@@ -39,61 +63,90 @@ async def generate_issues_for_node(
         raise HTTPException(status_code=404, detail="Idea or linked project not found")
 
     from app.models.project import Project
+
     project = db.query(Project).filter(Project.id == idea.project_id).first()
-    team = db.query(Team).filter(Team.id == project.team_id).first() if project else None
+    team = (
+        db.query(Team).filter(Team.id == project.team_id).first() if project else None
+    )
     team_prefix = team.identifier if team else "AST"
 
     # Get blueprint asset to find node details
-    blueprint_asset = crud_project_idea.project_idea.get_asset(db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_USER_FLOW)
+    blueprint_asset = crud_project_idea.project_idea.get_asset(
+        db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_USER_FLOW
+    )
     if not blueprint_asset:
         raise HTTPException(status_code=400, detail="Blueprint not generated yet")
 
     import json
+
     try:
         blueprint_data = json.loads(blueprint_asset.content)
         nodes = blueprint_data.get("nodes", [])
         node_details = next((n for n in nodes if n["id"] == node_id), None)
         if not node_details:
             # Fallback: maybe id is different or it's a simple label match
-            node_details = {"id": node_id, "label": node_id, "type": "component", "subtasks": []}
+            node_details = {
+                "id": node_id,
+                "label": node_id,
+                "type": "component",
+                "subtasks": [],
+            }
     except:
-        node_details = {"id": node_id, "label": node_id, "type": "component", "subtasks": []}
+        node_details = {
+            "id": node_id,
+            "label": node_id,
+            "type": "component",
+            "subtasks": [],
+        }
 
     # Context for AI
-    existing_features = db.query(Feature).filter(Feature.project_id == idea.project_id).all()
-    features_list = [{"id": str(f.id), "name": f.name, "description": f.problem_statement} for f in existing_features]
-    
+    existing_features = (
+        db.query(Feature).filter(Feature.project_id == idea.project_id).all()
+    )
+    features_list = [
+        {"id": str(f.id), "name": f.name, "description": f.problem_statement}
+        for f in existing_features
+    ]
+
     project_context = {
         "idea": idea.raw_input,
         "description": idea.refined_description,
-        "project_id": str(idea.project_id)
+        "project_id": str(idea.project_id),
     }
 
     # Generate plan
-    plan = await ai_service.generate_issues_for_blueprint_node(node_details, project_context, features_list)
+    plan = await ai_service.generate_issues_for_blueprint_node(
+        node_details, project_context, features_list
+    )
 
     # 1. Create New Features (Handle parents first, then children)
     feature_map = {f.name: f for f in existing_features}
     new_features_data = plan.get("new_features", [])
-    
+
     # Get current max identifier number to increment locally
     current_feature_num = crud_feature.get_max_identifier_num(db, team_prefix)
-    
+
     # Simple two-pass approach for sub-features
     for pass_num in range(2):
         for f_data in new_features_data:
             if f_data["name"] in feature_map:
                 continue
-                
+
             parent_name = f_data.get("parent_feature_name")
-            if pass_num == 0 and parent_name: # Wait for second pass for sub-features
+            if pass_num == 0 and parent_name:  # Wait for second pass for sub-features
                 continue
-                
-            parent_id = feature_map.get(parent_name).id if parent_name and parent_name in feature_map else None
-            
+
+            parent_id = (
+                feature_map.get(parent_name).id
+                if parent_name and parent_name in feature_map
+                else None
+            )
+
             # Map type safely
             raw_type = f_data.get("type", "new_capability").lower()
-            if raw_type == "sub_feature": # Common AI hallucination based on field names
+            if (
+                raw_type == "sub_feature"
+            ):  # Common AI hallucination based on field names
                 f_type = FeatureType.ENHANCEMENT
             else:
                 try:
@@ -128,7 +181,7 @@ async def generate_issues_for_node(
                 owner_id=current_user.id,
                 health=FeatureHealth.ON_TRACK,
                 blueprint_node_id=node_id,
-                identifier=f_identifier
+                identifier=f_identifier,
             )
             db.add(new_f)
             db.flush()
@@ -143,7 +196,7 @@ async def generate_issues_for_node(
                 feature_id=target_f.id,
                 name=m_data["name"],
                 description=m_data.get("description"),
-                completed=False
+                completed=False,
             )
             db.add(new_m)
             db.flush()
@@ -152,16 +205,17 @@ async def generate_issues_for_node(
     # 3. Create Issues & Sub-issues
     created_count = 0
     from app.models.project import Project
+
     project = db.query(Project).filter(Project.id == idea.project_id).first()
     team_id = project.team_id if project else None
-    
+
     # Get current max identifier number to increment locally
     current_issue_num = crud_issue.get_max_identifier_num(db, team_prefix)
 
     for i_data in plan.get("issues", []):
         target_f = feature_map.get(i_data["feature_name"])
         target_m = milestone_map.get(i_data["milestone_name"])
-        
+
         # Map issue_type safely
         try:
             i_type = IssueType(i_data.get("type", "task").lower())
@@ -177,7 +231,7 @@ async def generate_issues_for_node(
         # Generate unique identifier locally
         current_issue_num += 1
         p_identifier = f"{team_prefix}-{current_issue_num}"
-        
+
         # Create Parent Issue
         parent_issue = Issue(
             title=i_data["title"],
@@ -189,11 +243,11 @@ async def generate_issues_for_node(
             milestone_id=target_m.id if target_m else None,
             team_id=team_id,
             identifier=p_identifier,
-            blueprint_node_id=node_id
+            blueprint_node_id=node_id,
         )
         db.add(parent_issue)
-        db.flush() # Flush to get parent_issue.id for sub-issues
-        
+        db.flush()  # Flush to get parent_issue.id for sub-issues
+
         created_count += 1
 
         # Create Sub-issues
@@ -217,8 +271,8 @@ async def generate_issues_for_node(
                 feature_id=parent_issue.feature_id,
                 milestone_id=parent_issue.milestone_id,
                 team_id=team_id,
-                identifier=f"{parent_issue.identifier}-S{sub_idx+1}",
-                blueprint_node_id=node_id
+                identifier=f"{parent_issue.identifier}-S{sub_idx + 1}",
+                blueprint_node_id=node_id,
             )
             db.add(sub_issue)
 
@@ -232,10 +286,12 @@ async def generate_issues_for_node(
         title="Issues Generated",
         content=f"Generated {created_count} items for component '{node_id}'.",
         target_id=str(idea.id),
-        target_type="ai_idea"
+        target_type="ai_idea",
     )
 
-    return {"message": f"Generated {created_count} items (including sub-issues) across {len(milestone_map)} milestones and {len(new_features_data)} features."}
+    return {
+        "message": f"Generated {created_count} items (including sub-issues) across {len(milestone_map)} milestones and {len(new_features_data)} features."
+    }
 
 
 async def create_features_background(idea_id: str, user_id: str):
@@ -246,24 +302,33 @@ async def create_features_background(idea_id: str, user_id: str):
     try:
         idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
         if not idea or not idea.validation_report:
-            logging.error(f"Background feature creation aborted: Idea {idea_id} not found or invalid.")
+            logging.error(
+                f"Background feature creation aborted: Idea {idea_id} not found or invalid."
+            )
             return
 
         if not idea.project_id:
-            logging.error(f"Background feature creation aborted: Idea {idea_id} has no project_id.")
+            logging.error(
+                f"Background feature creation aborted: Idea {idea_id} has no project_id."
+            )
             return
 
         # Get team prefix for identifiers
         from app.models.project import Project
+
         project = db.query(Project).filter(Project.id == idea.project_id).first()
-        team = db.query(Team).filter(Team.id == project.team_id).first() if project else None
+        team = (
+            db.query(Team).filter(Team.id == project.team_id).first()
+            if project
+            else None
+        )
         team_prefix = team.identifier if team else "AST"
 
         # Prepare context for AI
         context = {
             "idea": idea.raw_input,
             "core_features": idea.validation_report.core_features,
-            "refined_description": idea.refined_description
+            "refined_description": idea.refined_description,
         }
 
         # Call AI to expand features
@@ -276,17 +341,17 @@ async def create_features_background(idea_id: str, user_id: str):
         for f_data in expanded_features:
             # Map string values to Enums (handling case sensitivity)
             try:
-                status = FeatureStatus(f_data.get('status', 'discovery').lower())
+                status = FeatureStatus(f_data.get("status", "discovery").lower())
             except ValueError:
                 status = FeatureStatus.DISCOVERY
 
             try:
-                priority = IssuePriority(f_data.get('priority', 'medium').lower())
+                priority = IssuePriority(f_data.get("priority", "medium").lower())
             except ValueError:
                 priority = IssuePriority.MEDIUM
 
             try:
-                f_type = FeatureType(f_data.get('type', 'new_capability').lower())
+                f_type = FeatureType(f_data.get("type", "new_capability").lower())
             except ValueError:
                 f_type = FeatureType.NEW_CAPABILITY
 
@@ -297,36 +362,42 @@ async def create_features_background(idea_id: str, user_id: str):
             # Create Parent Feature
             parent_feature = Feature(
                 project_id=idea.project_id,
-                name=f_data.get('name', 'Unnamed Feature'),
-                problem_statement=f_data.get('description'),
-                target_user=f_data.get('target_user'),
-                expected_outcome=f_data.get('expected_outcome'),
-                success_metric=f_data.get('success_metric'),
+                name=f_data.get("name", "Unnamed Feature"),
+                problem_statement=f_data.get("description"),
+                target_user=f_data.get("target_user"),
+                expected_outcome=f_data.get("expected_outcome"),
+                success_metric=f_data.get("success_metric"),
                 status=status,
                 priority=priority,
                 type=f_type,
                 owner_id=user_id,
                 health=FeatureHealth.ON_TRACK,
-                identifier=p_identifier
+                identifier=p_identifier,
             )
             db.add(parent_feature)
-            db.flush() # Flush to get ID for sub-features
+            db.flush()  # Flush to get ID for sub-features
 
             # Create Sub-features
-            sub_features = f_data.get('sub_features', [])
+            sub_features = f_data.get("sub_features", [])
             for sub_data in sub_features:
                 try:
-                    sub_status = FeatureStatus(sub_data.get('status', 'discovery').lower())
+                    sub_status = FeatureStatus(
+                        sub_data.get("status", "discovery").lower()
+                    )
                 except ValueError:
                     sub_status = FeatureStatus.DISCOVERY
 
                 try:
-                    sub_priority = IssuePriority(sub_data.get('priority', 'medium').lower())
+                    sub_priority = IssuePriority(
+                        sub_data.get("priority", "medium").lower()
+                    )
                 except ValueError:
                     sub_priority = IssuePriority.MEDIUM
 
                 try:
-                    sub_type = FeatureType(sub_data.get('type', 'new_capability').lower())
+                    sub_type = FeatureType(
+                        sub_data.get("type", "new_capability").lower()
+                    )
                 except ValueError:
                     sub_type = FeatureType.NEW_CAPABILITY
 
@@ -337,17 +408,17 @@ async def create_features_background(idea_id: str, user_id: str):
                 sub_feature = Feature(
                     project_id=idea.project_id,
                     parent_id=parent_feature.id,
-                    name=sub_data.get('name', 'Unnamed Sub-feature'),
-                    problem_statement=sub_data.get('description'),
-                    target_user=sub_data.get('target_user'),
-                    expected_outcome=sub_data.get('expected_outcome'),
-                    success_metric=sub_data.get('success_metric'),
+                    name=sub_data.get("name", "Unnamed Sub-feature"),
+                    problem_statement=sub_data.get("description"),
+                    target_user=sub_data.get("target_user"),
+                    expected_outcome=sub_data.get("expected_outcome"),
+                    success_metric=sub_data.get("success_metric"),
                     status=sub_status,
                     priority=sub_priority,
                     type=sub_type,
                     owner_id=user_id,
                     health=FeatureHealth.ON_TRACK,
-                    identifier=s_identifier
+                    identifier=s_identifier,
                 )
                 db.add(sub_feature)
 
@@ -366,7 +437,7 @@ async def approve_validation_report(
     idea_id: str,
     background_tasks: BackgroundTasks,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Phase 2 Approval: Accepts the validation report and triggers automatic feature creation.
@@ -375,13 +446,16 @@ async def approve_validation_report(
     idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
     if not idea:
         raise HTTPException(status_code=404, detail="Idea not found")
-    
+
     if not idea.validation_report:
-        raise HTTPException(status_code=400, detail="Validation report not found. Complete validation first.")
+        raise HTTPException(
+            status_code=400,
+            detail="Validation report not found. Complete validation first.",
+        )
 
     # Trigger background task
     background_tasks.add_task(create_features_background, idea_id, str(current_user.id))
-    
+
     return {"message": "Phase 2 approved. Feature creation started in background."}
 
 
@@ -389,12 +463,15 @@ async def approve_validation_report(
 async def get_project_ideas(
     project_id: str,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get all ideas for a project, ordered by most recent."""
-    ideas = db.query(ProjectIdea).filter(
-        ProjectIdea.project_id == project_id
-    ).order_by(ProjectIdea.created_at.desc()).all()
+    ideas = (
+        db.query(ProjectIdea)
+        .filter(ProjectIdea.project_id == project_id)
+        .order_by(ProjectIdea.created_at.desc())
+        .all()
+    )
 
     return {
         "ideas": [
@@ -416,12 +493,15 @@ async def get_project_ideas(
 async def get_project_ideas(
     project_id: str,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get all ideas for a specific project, ordered by created_at descending."""
-    ideas = db.query(ProjectIdea).filter(
-        ProjectIdea.project_id == project_id
-    ).order_by(ProjectIdea.created_at.desc()).all()
+    ideas = (
+        db.query(ProjectIdea)
+        .filter(ProjectIdea.project_id == project_id)
+        .order_by(ProjectIdea.created_at.desc())
+        .all()
+    )
 
     return {
         "ideas": [
@@ -442,7 +522,7 @@ async def get_project_ideas(
 async def get_idea_progress(
     idea_id: str,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get progress dashboard for an idea."""
     idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
@@ -450,21 +530,28 @@ async def get_idea_progress(
         raise HTTPException(status_code=404, detail="Idea not found")
 
     # Count completed docs
-    completed_docs = db.query(ProjectAsset).filter(
-        ProjectAsset.project_idea_id == idea_id,
-        ProjectAsset.status == AssetStatus.COMPLETED,
-        ProjectAsset.asset_type.in_(DOC_ORDER)
-    ).count()
+    completed_docs = (
+        db.query(ProjectAsset)
+        .filter(
+            ProjectAsset.project_idea_id == idea_id,
+            ProjectAsset.status == AssetStatus.COMPLETED,
+            ProjectAsset.asset_type.in_(DOC_ORDER),
+        )
+        .count()
+    )
 
     context = {
         "validation_report": idea.validation_report is not None,
-        "blueprint": db.query(ProjectAsset).filter(
+        "blueprint": db.query(ProjectAsset)
+        .filter(
             ProjectAsset.project_idea_id == idea_id,
-            ProjectAsset.asset_type == AssetType.DIAGRAM_USER_FLOW
-        ).first() is not None,
+            ProjectAsset.asset_type == AssetType.DIAGRAM_USER_FLOW,
+        )
+        .first()
+        is not None,
         "needs_clarification": idea.status == IdeaStatus.CLARIFICATION_NEEDED,
         "docs_completed": completed_docs,
-        "next_steps": _get_next_steps(idea, completed_docs, db)
+        "next_steps": _get_next_steps(idea, completed_docs, db),
     }
 
     return await ai_service.get_progress_dashboard(idea_id, context)
@@ -492,14 +579,14 @@ def _get_next_steps(idea: ProjectIdea, completed_docs: int, db: Session) -> List
     return steps
 
 
-@router.post("/idea/{idea_id}/doc/upload")
+@router.post("/idea/{idea_id}/doc/upload", response_model=schemas.DocResponse)
 async def upload_document(
     idea_id: str,
     doc_type: AssetType,
     file: UploadFile = File(...),
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
-) -> Any:
+    current_user: User = Depends(deps.get_current_active_user),
+):
     """
     Manual Upload - Uploads a .md or .docx file and saves it as an asset.
     """
@@ -516,15 +603,21 @@ async def upload_document(
         result = mammoth.convert_to_markdown(file.file)
         content = result.value
     else:
-        raise HTTPException(status_code=400, detail="Only .md and .docx files supported")
+        raise HTTPException(
+            status_code=400, detail="Only .md and .docx files supported"
+        )
 
     # Upload to R2
     r2_key = f"projects/{idea_id}/docs/{doc_type.value}_manual_{filename}.md"
     await storage_service.upload_content(r2_key, content)
 
     asset = crud_project_idea.project_idea.create_or_update_asset(
-        db=db, idea_id=idea_id, asset_type=doc_type,
-        content=content, status=AssetStatus.COMPLETED, r2_path=r2_key
+        db=db,
+        idea_id=idea_id,
+        asset_type=doc_type,
+        content=content,
+        status=AssetStatus.COMPLETED,
+        r2_path=r2_key,
     )
 
     return asset
@@ -534,7 +627,7 @@ async def upload_document(
 async def sync_blueprint_from_docs(
     idea_id: str,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Syncs validation and blueprint from existing manual docs.
@@ -544,21 +637,35 @@ async def sync_blueprint_from_docs(
         raise HTTPException(status_code=404, detail="Idea not found")
 
     # Fetch all completed assets (docs) for this idea
-    assets = db.query(ProjectAsset).filter(
-        ProjectAsset.project_idea_id == idea_id,
-        ProjectAsset.status == AssetStatus.COMPLETED
-    ).all()
+    assets = (
+        db.query(ProjectAsset)
+        .filter(
+            ProjectAsset.project_idea_id == idea_id,
+            ProjectAsset.status == AssetStatus.COMPLETED,
+        )
+        .all()
+    )
 
     if not assets:
-        raise HTTPException(status_code=400, detail="No completed documents found to sync from")
+        raise HTTPException(
+            status_code=400, detail="No completed documents found to sync from"
+        )
 
     # Combine content from all docs
-    docs_context = "\n\n".join([f"--- {a.asset_type.value} ---\n{a.content}" for a in assets])
+    docs_context = "\n\n".join(
+        [f"--- {a.asset_type.value} ---\n{a.content}" for a in assets]
+    )
 
     # 1. Generate validation report from docs
     report_data = await ai_service.validate_idea(idea.raw_input, [], docs_context)
 
-    required_fields = ["market_feasibility", "improvements", "core_features", "tech_stack", "pricing_model"]
+    required_fields = [
+        "market_feasibility",
+        "improvements",
+        "core_features",
+        "tech_stack",
+        "pricing_model",
+    ]
 
     if idea.validation_report:
         for key in required_fields:
@@ -576,27 +683,30 @@ async def sync_blueprint_from_docs(
     blueprint_context = {
         "idea": idea.raw_input,
         "features": report.core_features,
-        "tech_stack": report.tech_stack
+        "tech_stack": report.tech_stack,
     }
     blueprint_data = await ai_service.generate_blueprint(blueprint_context)
 
     # 3. Save blueprint assets
     crud_project_idea.project_idea.create_or_update_asset(
-        db=db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_USER_FLOW,
-        content=blueprint_data.get("user_flow_mermaid", ""), status=AssetStatus.COMPLETED
+        db=db,
+        idea_id=idea_id,
+        asset_type=AssetType.DIAGRAM_USER_FLOW,
+        content=blueprint_data.get("user_flow_mermaid", ""),
+        status=AssetStatus.COMPLETED,
     )
     crud_project_idea.project_idea.create_or_update_asset(
-        db=db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_KANBAN,
-        content=str(blueprint_data.get("kanban_features", [])), status=AssetStatus.COMPLETED
+        db=db,
+        idea_id=idea_id,
+        asset_type=AssetType.DIAGRAM_KANBAN,
+        content=str(blueprint_data.get("kanban_features", [])),
+        status=AssetStatus.COMPLETED,
     )
 
     idea.status = IdeaStatus.BLUEPRINT_GENERATED
     db.commit()
 
-    return {
-        "validation_report": report,
-        "blueprint": blueprint_data
-    }
+    return {"validation_report": report, "blueprint": blueprint_data}
 
 
 @router.post("/idea/submit", response_model=schemas.IdeaResponse)
@@ -604,7 +714,7 @@ async def submit_idea(
     idea_in: schemas.IdeaSubmit,
     project_id: Optional[str] = None,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Phase 1: Input Phase - Submits an idea.
@@ -615,9 +725,12 @@ async def submit_idea(
     try:
         questions = []
         try:
-            questions = await ai_service.generate_clarification_questions(idea_in.raw_input, max_questions=7)
+            questions = await ai_service.generate_clarification_questions(
+                idea_in.raw_input, max_questions=7
+            )
         except Exception as e:
             import logging
+
             logging.error(f"AI Clarification failed: {str(e)}")
             questions = []
 
@@ -627,22 +740,39 @@ async def submit_idea(
             from app.models.team_model import Team
 
             # Try to find any team user leads or belongs to
-            default_team = db.query(Team).join(Team.members).filter(User.id == current_user.id).first()
+            default_team = (
+                db.query(Team)
+                .join(Team.members)
+                .filter(User.id == current_user.id)
+                .first()
+            )
 
             # Fallback: Any team in user's organization
             if not default_team and current_user.organization_id:
-                default_team = db.query(Team).filter(Team.organization_id == current_user.organization_id).first()
+                default_team = (
+                    db.query(Team)
+                    .filter(Team.organization_id == current_user.organization_id)
+                    .first()
+                )
 
             if not default_team:
-                raise HTTPException(status_code=400, detail="User must belong to a team or organization to create a project")
+                raise HTTPException(
+                    status_code=400,
+                    detail="User must belong to a team or organization to create a project",
+                )
 
             new_proj = Project(
-                name=idea_in.name or (idea_in.raw_input[:47] + "..." if len(idea_in.raw_input) > 50 else idea_in.raw_input),
+                name=idea_in.name
+                or (
+                    idea_in.raw_input[:47] + "..."
+                    if len(idea_in.raw_input) > 50
+                    else idea_in.raw_input
+                ),
                 icon="🚀",
                 color="blue",
                 status=ProjectStatus.PLANNED,
                 team_id=default_team.id,
-                lead_id=current_user.id
+                lead_id=current_user.id,
             )
             db.add(new_proj)
             db.flush()
@@ -654,7 +784,9 @@ async def submit_idea(
         db_idea.project_id = project_id
 
         if questions:
-            db_idea.clarification_questions = [{"question": q, "answer": None, "suggestion": None} for q in questions]
+            db_idea.clarification_questions = [
+                {"question": q, "answer": None, "suggestion": None} for q in questions
+            ]
             db_idea.status = IdeaStatus.CLARIFICATION_NEEDED
         else:
             db_idea.status = IdeaStatus.READY_FOR_VALIDATION
@@ -669,6 +801,7 @@ async def submit_idea(
         return res_data_dict
     except Exception as e:
         import traceback
+
         logging.error(f"Submit idea error: {str(e)}")
         logging.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
@@ -679,7 +812,7 @@ async def suggest_answer(
     idea_id: str,
     question_index: int,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Phase 1: Skip & Suggest - AI suggests an answer for a specific clarification question.
@@ -698,12 +831,13 @@ async def suggest_answer(
         idea.raw_input,
         question_obj["question"],
         previous_qa,
-        {"project_name": idea.name}
+        {"project_name": idea.name},
     )
 
     # Update suggestion in DB
     idea.clarification_questions[question_index]["suggestion"] = suggestion
     from sqlalchemy.orm.attributes import flag_modified
+
     flag_modified(idea, "clarification_questions")
     db.commit()
 
@@ -715,7 +849,7 @@ async def answer_questions(
     idea_id: str,
     answers: List[schemas.ClarificationAnswer],
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Phase 1: Answer Clarifications - Updates the idea with answers.
@@ -733,23 +867,28 @@ async def answer_questions(
             idea.clarification_questions[i]["answer"] = answer_dict[q["question"]]
 
     from sqlalchemy.orm.attributes import flag_modified
+
     flag_modified(idea, "clarification_questions")
 
     # Format answers into the refined description
     formatted_qa = "\n".join([f"Q: {a.question}\nA: {a.answer}" for a in answers])
-    idea.refined_description = (idea.refined_description or "") + "\n\nClarifications:\n" + formatted_qa
+    idea.refined_description = (
+        (idea.refined_description or "") + "\n\nClarifications:\n" + formatted_qa
+    )
     idea.status = IdeaStatus.READY_FOR_VALIDATION
     db.commit()
     db.refresh(idea)
     return idea
 
 
-@router.post("/idea/{idea_id}/validate", response_model=schemas.ValidationReportResponse)
+@router.post(
+    "/idea/{idea_id}/validate", response_model=schemas.ValidationReportResponse
+)
 async def validate_idea(
     idea_id: str,
     feedback: Optional[str] = None,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Phase 2: Validation & Analysis - Validates idea against 6 core pillars.
@@ -784,14 +923,20 @@ async def validate_idea(
     report_data = await ai_service.validate_idea(full_text, clarifications, feedback)
 
     if not report_data:
-        raise HTTPException(status_code=500, detail="AI Validation failed to generate report data.")
+        raise HTTPException(
+            status_code=500, detail="AI Validation failed to generate report data."
+        )
 
     # Ensure all required fields are present
-    required_fields = ["market_feasibility", "improvements", "core_features", "tech_stack", "pricing_model"]
-    
+    required_fields = [
+        "market_feasibility",
+        "improvements",
+        "core_features",
+        "tech_stack",
+        "pricing_model",
+    ]
+
     # Log the received report_data keys
-    import logging
-    logger = logging.getLogger(__name__)
     logger.info(f"Report data keys: {list(report_data.keys())}")
 
     missing_fields = [field for field in required_fields if field not in report_data]
@@ -799,13 +944,22 @@ async def validate_idea(
         logger.error(f"Missing fields in validation report: {missing_fields}")
         # Set default values for missing fields
         if "market_feasibility" not in report_data:
-            report_data["market_feasibility"] = {"score": 50, "analysis": "Unable to analyze", "pillars": []}
+            report_data["market_feasibility"] = {
+                "score": 50,
+                "analysis": "Unable to analyze",
+                "pillars": [],
+            }
         if "improvements" not in report_data:
             report_data["improvements"] = []
         if "core_features" not in report_data:
             report_data["core_features"] = []
         if "tech_stack" not in report_data:
-            report_data["tech_stack"] = {"frontend": [], "backend": [], "infrastructure": []}
+            report_data["tech_stack"] = {
+                "frontend": [],
+                "backend": [],
+                "database": [],
+                "infrastructure": [],
+            }
         if "pricing_model" not in report_data:
             report_data["pricing_model"] = {"type": "Unknown", "tiers": []}
 
@@ -833,7 +987,7 @@ async def validate_idea(
         title="Validation Report Ready",
         content=f"Market analysis for '{idea.refined_description or idea.raw_input[:30]}' is complete.",
         target_id=str(idea.id),
-        target_type="ai_idea"
+        target_type="ai_idea",
     )
 
     # Return serialized version to avoid Pydantic serialization issues
@@ -851,7 +1005,7 @@ async def update_validation_report(
     idea_id: str,
     report_in: schemas.ValidationReportResponse,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Phase 2: Manual Edit Update - Saves manual changes to the validation report.
@@ -898,19 +1052,31 @@ async def regenerate_validation_field(
     field_name: str,
     feedback: str,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Phase 2: Regenerate a specific validation field based on user feedback.
+    Supports nested fields like 'tech_stack.database'.
     """
     idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
     if not idea or not idea.validation_report:
         raise HTTPException(status_code=404, detail="Report not found")
 
-    # Get current value of the field
-    current_value = getattr(idea.validation_report, field_name, None)
-    if current_value is None:
-        raise HTTPException(status_code=400, detail=f"Field {field_name} not found")
+    # Handle nested field names like 'tech_stack.database'
+    is_nested_field = "." in field_name
+    if is_nested_field:
+        parent_field, sub_field = field_name.split(".", 1)
+        parent_value = getattr(idea.validation_report, parent_field, None)
+        if parent_value is None or not isinstance(parent_value, dict):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Parent field {parent_field} not found or not a dict",
+            )
+        current_value = parent_value.get(sub_field)
+    else:
+        current_value = getattr(idea.validation_report, field_name, None)
+        if current_value is None:
+            raise HTTPException(status_code=400, detail=f"Field {field_name} not found")
 
     # Build context for regeneration
     context = {
@@ -922,7 +1088,7 @@ async def regenerate_validation_field(
             "core_features": idea.validation_report.core_features,
             "tech_stack": idea.validation_report.tech_stack,
             "pricing_model": idea.validation_report.pricing_model,
-        }
+        },
     }
 
     # Regenerate the field
@@ -930,114 +1096,183 @@ async def regenerate_validation_field(
         field_name, current_value, feedback, context
     )
 
-    # Update the field
-    setattr(idea.validation_report, field_name, new_value)
+    # Update the field (handle nested fields)
+    if is_nested_field:
+        parent_value = getattr(idea.validation_report, parent_field)
+        parent_value[sub_field] = new_value
+        setattr(idea.validation_report, parent_field, parent_value)
+        flag_modified(idea.validation_report, parent_field)
+    else:
+        setattr(idea.validation_report, field_name, new_value)
     db.commit()
     db.refresh(idea.validation_report)
 
-    # Return serialized version to avoid Pydantic serialization issues
     return {
         "market_feasibility": idea.validation_report.market_feasibility,
         "core_features": idea.validation_report.core_features,
         "tech_stack": idea.validation_report.tech_stack,
         "pricing_model": idea.validation_report.pricing_model,
         "improvements": idea.validation_report.improvements,
+        "value": new_value,
     }
 
 
 @router.post("/idea/{idea_id}/validate/accept-improvements")
 async def accept_improvements_and_revalidate(
     idea_id: str,
-    accepted_improvements: List[int] = Body(..., description="List of improvement indices to accept (0-based)"),
+    accepted_improvements: List[int] = Body(
+        ..., description="List of improvement indices to accept (0-based)"
+    ),
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Phase 2: Accept selected improvements and re-validate the idea.
-    The AI will incorporate the accepted improvements into the validation and re-run the 6-pillar analysis.
+    - Accepted improvements are applied (removed from list)
+    - Remaining improvements are kept in the list
+    - AI re-validates 6 core pillars considering accepted improvements
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea or not idea.validation_report:
-        raise HTTPException(status_code=404, detail="Report not found")
+    try:
+        idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
+        if not idea or not idea.validation_report:
+            raise HTTPException(status_code=404, detail="Report not found")
 
-    # Get the improvements
-    all_improvements = idea.validation_report.improvements or []
-    if not all_improvements:
-        raise HTTPException(status_code=400, detail="No improvements available")
+        all_improvements = idea.validation_report.improvements or []
+        if not all_improvements:
+            raise HTTPException(status_code=400, detail="No improvements available")
 
-    # Filter accepted improvements
-    selected_improvements = [all_improvements[i] for i in accepted_improvements if 0 <= i < len(all_improvements)]
-
-    if not selected_improvements:
-        raise HTTPException(status_code=400, detail="No valid improvements selected")
-
-    # Build feedback text incorporating accepted improvements
-    improvements_text = "\n".join([f"- {imp}" for imp in selected_improvements])
-    feedback = f"The user has accepted these improvements and wants them incorporated into the validation:\n{improvements_text}\n\nPlease re-validate the idea against the 6 core pillars, considering these improvements have been accepted."
-
-    # Build clarifications from questions if available
-    clarifications = []
-    if idea.clarification_questions:
-        clarifications = [
-            {"question": q["question"], "answer": q.get("answer", "")}
-            for q in idea.clarification_questions
-            if q.get("answer")
+        selected_improvements = [
+            all_improvements[i]
+            for i in accepted_improvements
+            if 0 <= i < len(all_improvements)
         ]
 
-    # Re-run validation with the feedback
-    full_text = f"{idea.raw_input}\n{idea.refined_description or ''}"
-    full_text += f"\n\nUSER ACCEPTED IMPROVEMENTS:\n{improvements_text}"
+        if not selected_improvements:
+            raise HTTPException(
+                status_code=400, detail="No valid improvements selected"
+            )
 
-    report_data = await ai_service.validate_idea(full_text, clarifications, feedback)
+        remaining_improvements = [
+            imp
+            for i, imp in enumerate(all_improvements)
+            if i not in accepted_improvements
+        ]
 
-    # Ensure all required fields are present
-    required_fields = ["market_feasibility", "improvements", "core_features", "tech_stack", "pricing_model"]
-    missing_fields = [field for field in required_fields if field not in report_data]
-    if missing_fields:
-        logger.error(f"Missing fields in validation report: {missing_fields}")
-        if "market_feasibility" not in report_data:
-            report_data["market_feasibility"] = {"score": 50, "analysis": "Unable to analyze", "pillars": []}
-        if "improvements" not in report_data:
-            report_data["improvements"] = []
-        if "core_features" not in report_data:
-            report_data["core_features"] = []
-        if "tech_stack" not in report_data:
-            report_data["tech_stack"] = {"frontend": [], "backend": [], "infrastructure": []}
-        if "pricing_model" not in report_data:
-            report_data["pricing_model"] = {"type": "Unknown", "tiers": []}
+        accepted_text = "\n".join([f"- {imp}" for imp in selected_improvements])
 
-    # Update the validation report
-    for key, value in report_data.items():
-        setattr(idea.validation_report, key, value)
-    db.commit()
-    db.refresh(idea.validation_report)
+        if remaining_improvements:
+            feedback = f"The user has applied these improvements:\n{accepted_text}\n\nRe-validate the 6 core pillars considering these are now implemented. Return the remaining pending improvements unchanged."
+        else:
+            feedback = f"The user has applied ALL suggested improvements:\n{accepted_text}\n\nRe-validate and recalculate the 6 core pillars (Market Demand, Technical Feasibility, Business Model, Competition, User Experience, Scalability) considering ALL these improvements are now implemented. The improvements list should be empty []."
 
-    # Notify user
-    notification_service.notify_user(
-        db,
-        recipient_id=current_user.id,
-        type=NotificationType.AI_VALIDATION_READY,
-        title="Validation Updated",
-        content=f"Validation re-run with {len(selected_improvements)} accepted improvements.",
-        target_id=str(idea.id),
-        target_type="ai_idea"
-    )
+        clarifications = []
+        if idea.clarification_questions:
+            clarifications = [
+                {"question": q["question"], "answer": q.get("answer", "")}
+                for q in idea.clarification_questions
+                if q.get("answer")
+            ]
 
-    # Return the updated report
-    return {
-        "market_feasibility": idea.validation_report.market_feasibility,
-        "core_features": idea.validation_report.core_features,
-        "tech_stack": idea.validation_report.tech_stack,
-        "pricing_model": idea.validation_report.pricing_model,
-        "improvements": idea.validation_report.improvements,
-    }
+        full_text = f"{idea.raw_input}\n{idea.refined_description or ''}"
+        full_text += f"\n\nAPPLIED IMPROVEMENTS:\n{accepted_text}"
+
+        logger.info(
+            f"Re-validating idea {idea_id}: {len(selected_improvements)} accepted, {len(remaining_improvements)} remaining"
+        )
+        report_data = await ai_service.validate_idea(
+            full_text,
+            clarifications,
+            feedback,
+            remaining_improvements=remaining_improvements,
+        )
+
+        if not report_data:
+            logger.error("AI service returned empty report data")
+            raise HTTPException(
+                status_code=500, detail="AI Validation failed to generate report data."
+            )
+
+        logger.info(f"Received report data with keys: {list(report_data.keys())}")
+
+        required_fields = [
+            "market_feasibility",
+            "improvements",
+            "core_features",
+            "tech_stack",
+            "pricing_model",
+        ]
+        missing_fields = [
+            field for field in required_fields if field not in report_data
+        ]
+        if missing_fields:
+            logger.warning(f"Missing fields in validation report: {missing_fields}")
+            if "market_feasibility" not in report_data:
+                report_data["market_feasibility"] = {
+                    "score": 50,
+                    "analysis": "Unable to analyze",
+                    "pillars": [],
+                }
+            if "improvements" not in report_data:
+                report_data["improvements"] = remaining_improvements
+            if "core_features" not in report_data:
+                report_data["core_features"] = []
+            if "tech_stack" not in report_data:
+                report_data["tech_stack"] = {
+                    "frontend": [],
+                    "backend": [],
+                    "database": [],
+                    "infrastructure": [],
+                }
+            if "pricing_model" not in report_data:
+                report_data["pricing_model"] = {"type": "Unknown", "tiers": []}
+
+        report_data["improvements"] = remaining_improvements
+
+        for key in required_fields:
+            if key in report_data:
+                setattr(idea.validation_report, key, report_data[key])
+                flag_modified(idea.validation_report, key)
+
+        db.commit()
+        db.refresh(idea.validation_report)
+        logger.info(f"Successfully updated validation report for idea {idea_id}")
+
+        # Notify user
+        try:
+            notification_service.notify_user(
+                db,
+                recipient_id=current_user.id,
+                type=NotificationType.AI_VALIDATION_READY,
+                title="Validation Updated",
+                content=f"Validation re-run with {len(selected_improvements)} accepted improvements.",
+                target_id=str(idea.id),
+                target_type="ai_idea",
+            )
+        except Exception as notify_err:
+            logger.error(f"Failed to send notification: {str(notify_err)}")
+            # Don't fail the whole request if notification fails
+
+        # Return the updated report as a plain dict
+        return {
+            "market_feasibility": idea.validation_report.market_feasibility,
+            "core_features": idea.validation_report.core_features,
+            "tech_stack": idea.validation_report.tech_stack,
+            "pricing_model": idea.validation_report.pricing_model,
+            "improvements": idea.validation_report.improvements,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in accept_improvements_and_revalidate: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 
 @router.post("/idea/{idea_id}/blueprint", response_model=schemas.BlueprintResponse)
 async def generate_blueprint(
     idea_id: str,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Phase 3: Visual Blueprint - Generates User Flow and Kanban.
@@ -1049,15 +1284,18 @@ async def generate_blueprint(
     context = {
         "idea": idea.raw_input,
         "features": idea.validation_report.core_features,
-        "tech_stack": idea.validation_report.tech_stack
+        "tech_stack": idea.validation_report.tech_stack,
     }
 
     blueprint_data = await ai_service.generate_blueprint(context)
 
     # Save as assets
     crud_project_idea.project_idea.create_or_update_asset(
-        db=db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_USER_FLOW,
-        content=blueprint_data.get("user_flow_mermaid", ""), status=AssetStatus.COMPLETED
+        db=db,
+        idea_id=idea_id,
+        asset_type=AssetType.DIAGRAM_USER_FLOW,
+        content=blueprint_data.get("user_flow_mermaid", ""),
+        status=AssetStatus.COMPLETED,
     )
 
     # Save kanban features
@@ -1068,17 +1306,23 @@ async def generate_blueprint(
     edges_data = blueprint_data.get("edges", [])
 
     crud_project_idea.project_idea.create_or_update_asset(
-        db=db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_KANBAN,
-        content=kanban_content, status=AssetStatus.COMPLETED
+        db=db,
+        idea_id=idea_id,
+        asset_type=AssetType.DIAGRAM_KANBAN,
+        content=kanban_content,
+        status=AssetStatus.COMPLETED,
     )
 
     # Save flow nodes for visualization
     if nodes_data:
         import json
+
         crud_project_idea.project_idea.create_or_update_asset(
-            db=db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_USER_FLOW,
+            db=db,
+            idea_id=idea_id,
+            asset_type=AssetType.DIAGRAM_USER_FLOW,
             content=json.dumps({"nodes": nodes_data, "edges": edges_data}),
-            status=AssetStatus.COMPLETED
+            status=AssetStatus.COMPLETED,
         )
     idea.status = IdeaStatus.BLUEPRINT_GENERATED
     db.commit()
@@ -1091,14 +1335,14 @@ async def generate_blueprint(
         title="Blueprint Generated",
         content=f"Visual blueprint and roadmap for '{idea.refined_description or idea.raw_input[:30]}' are ready.",
         target_id=str(idea.id),
-        target_type="ai_idea"
+        target_type="ai_idea",
     )
 
     return {
         "user_flow_mermaid": blueprint_data.get("user_flow_mermaid", ""),
         "kanban_features": blueprint_data.get("kanban_features", []),
         "nodes": nodes_data,
-        "edges": edges_data
+        "edges": edges_data,
     }
 
 
@@ -1107,7 +1351,7 @@ async def save_blueprint(
     idea_id: str,
     blueprint_in: Dict[str, Any],
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Manually save updated blueprint data (node positions, etc.).
@@ -1117,15 +1361,21 @@ async def save_blueprint(
         raise HTTPException(status_code=404, detail="Idea not found")
 
     import json
-    content = json.dumps({
-        "nodes": blueprint_in.get("nodes", []),
-        "edges": blueprint_in.get("edges", []),
-        "user_flow_mermaid": blueprint_in.get("user_flow_mermaid", "")
-    })
+
+    content = json.dumps(
+        {
+            "nodes": blueprint_in.get("nodes", []),
+            "edges": blueprint_in.get("edges", []),
+            "user_flow_mermaid": blueprint_in.get("user_flow_mermaid", ""),
+        }
+    )
 
     crud_project_idea.project_idea.create_or_update_asset(
-        db=db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_USER_FLOW,
-        content=content, status=AssetStatus.COMPLETED
+        db=db,
+        idea_id=idea_id,
+        asset_type=AssetType.DIAGRAM_USER_FLOW,
+        content=content,
+        status=AssetStatus.COMPLETED,
     )
 
     return {"message": "Blueprint saved successfully"}
@@ -1136,7 +1386,7 @@ async def get_doc_questions(
     idea_id: str,
     doc_type: AssetType,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Phase 4: Get questions for a specific document type.
@@ -1157,7 +1407,9 @@ async def get_doc_questions(
             "tech_stack": idea.validation_report.tech_stack,
             "pricing_model": idea.validation_report.pricing_model,
             "improvements": idea.validation_report.improvements,
-        } if idea.validation_report else None,
+        }
+        if idea.validation_report
+        else None,
     }
 
     # Get previous docs
@@ -1167,20 +1419,29 @@ async def get_doc_questions(
     if doc_index > 0:
         for i in range(doc_index):
             prev_type = DOC_ORDER[i]
-            prev_asset = crud_project_idea.project_idea.get_asset(db, idea_id=idea_id, asset_type=prev_type)
+            prev_asset = crud_project_idea.project_idea.get_asset(
+                db, idea_id=idea_id, asset_type=prev_type
+            )
             if prev_asset and prev_asset.content:
                 previous_docs[prev_type] = prev_asset.content
 
     # Also include blueprint context
     if doc_index > 0:
-        blueprint_asset = crud_project_idea.project_idea.get_asset(db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_USER_FLOW)
-        kanban_asset = crud_project_idea.project_idea.get_asset(db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_KANBAN)
+        blueprint_asset = crud_project_idea.project_idea.get_asset(
+            db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_USER_FLOW
+        )
+        kanban_asset = crud_project_idea.project_idea.get_asset(
+            db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_KANBAN
+        )
         if blueprint_asset:
             project_context["blueprint"] = {"user_flow": blueprint_asset.content}
         if kanban_asset:
             try:
                 import ast
-                project_context["blueprint"]["kanban"] = ast.literal_eval(kanban_asset.content or "[]")
+
+                project_context["blueprint"]["kanban"] = ast.literal_eval(
+                    kanban_asset.content or "[]"
+                )
             except:
                 project_context["blueprint"]["kanban"] = []
 
@@ -1198,7 +1459,7 @@ async def generate_document(
     doc_type: AssetType,
     answers: Optional[List[Dict[str, str]]] = None,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Phase 4: Generate Doc - Generates a document with optional user answers.
@@ -1213,11 +1474,12 @@ async def generate_document(
     doc_index = ai_service.get_doc_index(doc_type.value)
     if doc_index > 0:
         prev_type = DOC_ORDER[doc_index - 1]
-        prev_asset = crud_project_idea.project_idea.get_asset(db, idea_id=idea_id, asset_type=prev_type)
+        prev_asset = crud_project_idea.project_idea.get_asset(
+            db, idea_id=idea_id, asset_type=prev_type
+        )
         if not prev_asset or prev_asset.status != AssetStatus.COMPLETED:
             raise HTTPException(
-                status_code=400,
-                detail=f"Please complete {prev_type} document first"
+                status_code=400, detail=f"Please complete {prev_type} document first"
             )
 
     # Construct context from all previous steps
@@ -1230,32 +1492,45 @@ async def generate_document(
             "tech_stack": idea.validation_report.tech_stack,
             "pricing_model": idea.validation_report.pricing_model,
             "improvements": idea.validation_report.improvements,
-        } if idea.validation_report else None,
+        }
+        if idea.validation_report
+        else None,
     }
 
     # Get previous docs
     previous_docs = {}
     for i in range(doc_index):
         prev_type = DOC_ORDER[i]
-        prev_asset = crud_project_idea.project_idea.get_asset(db, idea_id=idea_id, asset_type=prev_type)
+        prev_asset = crud_project_idea.project_idea.get_asset(
+            db, idea_id=idea_id, asset_type=prev_type
+        )
         if prev_asset and prev_asset.content:
             previous_docs[prev_type] = prev_asset.content
 
     # Also include blueprint context
-    blueprint_asset = crud_project_idea.project_idea.get_asset(db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_USER_FLOW)
-    kanban_asset = crud_project_idea.project_idea.get_asset(db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_KANBAN)
+    blueprint_asset = crud_project_idea.project_idea.get_asset(
+        db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_USER_FLOW
+    )
+    kanban_asset = crud_project_idea.project_idea.get_asset(
+        db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_KANBAN
+    )
     if blueprint_asset:
         context["blueprint"] = {"user_flow": blueprint_asset.content}
         if kanban_asset:
             try:
                 import ast
-                context["blueprint"]["kanban"] = ast.literal_eval(kanban_asset.content or "[]")
+
+                context["blueprint"]["kanban"] = ast.literal_eval(
+                    kanban_asset.content or "[]"
+                )
             except:
                 context["blueprint"]["kanban"] = []
 
     # Get chat history from existing asset
     chat_history = []
-    existing_asset = crud_project_idea.project_idea.get_asset(db, idea_id=idea_id, asset_type=doc_type.value)
+    existing_asset = crud_project_idea.project_idea.get_asset(
+        db, idea_id=idea_id, asset_type=doc_type.value
+    )
     if existing_asset and existing_asset.chat_history:
         chat_history = existing_asset.chat_history
 
@@ -1280,8 +1555,12 @@ async def generate_document(
     await storage_service.upload_content(r2_key, content)
 
     asset = crud_project_idea.project_idea.create_or_update_asset(
-        db=db, idea_id=idea_id, asset_type=doc_type,
-        content=content, status=AssetStatus.COMPLETED, r2_path=r2_key
+        db=db,
+        idea_id=idea_id,
+        asset_type=doc_type,
+        content=content,
+        status=AssetStatus.COMPLETED,
+        r2_path=r2_key,
     )
 
     # Update chat history
@@ -1297,7 +1576,7 @@ async def generate_document(
         title=f"{doc_type.value.replace('_', ' ')} Generated",
         content=f"The {doc_type.value} for your project has been generated successfully.",
         target_id=str(idea.id),
-        target_type="ai_idea"
+        target_type="ai_idea",
     )
 
     return asset
@@ -1309,13 +1588,15 @@ async def chat_document(
     doc_type: AssetType,
     chat_req: schemas.DocChatRequest,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Phase 4: Chat about Doc - Regenerates/Edits doc based on user feedback.
     Each doc has its own chat session.
     """
-    asset = crud_project_idea.project_idea.get_asset(db=db, idea_id=idea_id, asset_type=doc_type)
+    asset = crud_project_idea.project_idea.get_asset(
+        db=db, idea_id=idea_id, asset_type=doc_type
+    )
     if not asset:
         raise HTTPException(status_code=404, detail="Doc not found")
 
@@ -1334,7 +1615,9 @@ async def chat_document(
             "tech_stack": idea.validation_report.tech_stack,
             "pricing_model": idea.validation_report.pricing_model,
             "improvements": idea.validation_report.improvements,
-        } if idea.validation_report else None,
+        }
+        if idea.validation_report
+        else None,
     }
 
     updated_content = await ai_service.chat_about_doc(
@@ -1359,13 +1642,15 @@ async def regenerate_doc_section(
     section_content: str,
     user_message: str,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Phase 4: Regenerate a specific section of a document.
     User can select text and ask AI to regenerate a better version.
     """
-    asset = crud_project_idea.project_idea.get_asset(db=db, idea_id=idea_id, asset_type=doc_type)
+    asset = crud_project_idea.project_idea.get_asset(
+        db=db, idea_id=idea_id, asset_type=doc_type
+    )
     if not asset:
         raise HTTPException(status_code=404, detail="Doc not found")
 
@@ -1380,7 +1665,9 @@ async def regenerate_doc_section(
             "tech_stack": idea.validation_report.tech_stack,
             "pricing_model": idea.validation_report.pricing_model,
             "improvements": idea.validation_report.improvements,
-        } if idea.validation_report else None,
+        }
+        if idea.validation_report
+        else None,
     }
 
     updated_content = await ai_service.regenerate_doc_section(
@@ -1402,41 +1689,36 @@ async def get_blueprint_node_details(
     idea_id: str,
     node_id: str,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get detailed issues and features linked to a specific node."""
     issues = db.query(Issue).filter(Issue.blueprint_node_id == node_id).all()
     features = db.query(Feature).filter(Feature.blueprint_node_id == node_id).all()
-    
+
     # Calculate completion
     total_issues = len(issues)
     done_issues = len([i for i in issues if i.status == IssueStatus.DONE])
     completion = round((done_issues / total_issues * 100)) if total_issues > 0 else 0
-    
+
     return {
         "node_id": node_id,
         "completion": completion,
-        "stats": {
-            "total_issues": total_issues,
-            "done_issues": done_issues
-        },
+        "stats": {"total_issues": total_issues, "done_issues": done_issues},
         "issues": [
             {
                 "id": str(i.id),
                 "identifier": i.identifier,
                 "title": i.title,
                 "status": i.status,
-                "priority": i.priority
-            } for i in issues
+                "priority": i.priority,
+            }
+            for i in issues
         ],
         "features": [
-            {
-                "id": str(f.id),
-                "name": f.name,
-                "status": f.status
-            } for f in features
-        ]
+            {"id": str(f.id), "name": f.name, "status": f.status} for f in features
+        ],
     }
+
 
 @router.post("/idea/{idea_id}/blueprint/node/{node_id}/link-issue")
 async def link_issue_to_node(
@@ -1444,16 +1726,17 @@ async def link_issue_to_node(
     node_id: str,
     issue_id: str,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Manually link an issue to a blueprint node."""
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue:
         raise HTTPException(status_code=404, detail="Issue not found")
-    
+
     issue.blueprint_node_id = node_id
     db.commit()
     return {"message": "Issue linked successfully"}
+
 
 @router.post("/idea/{idea_id}/blueprint/node/{node_id}/unlink-issue")
 async def unlink_issue_from_node(
@@ -1461,22 +1744,27 @@ async def unlink_issue_from_node(
     node_id: str,
     issue_id: str,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Unlink an issue from a blueprint node."""
-    issue = db.query(Issue).filter(Issue.id == issue_id, Issue.blueprint_node_id == node_id).first()
+    issue = (
+        db.query(Issue)
+        .filter(Issue.id == issue_id, Issue.blueprint_node_id == node_id)
+        .first()
+    )
     if not issue:
         raise HTTPException(status_code=404, detail="Issue link not found")
-    
+
     issue.blueprint_node_id = None
     db.commit()
     return {"message": "Issue unlinked successfully"}
+
 
 @router.get("/idea/{idea_id}", response_model=Any)
 async def get_idea_details(
     idea_id: str,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get full idea details including assets and dynamic blueprint completion."""
     idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
@@ -1484,9 +1772,9 @@ async def get_idea_details(
         raise HTTPException(status_code=404, detail="Idea not found")
 
     # Load assets
-    assets = db.query(ProjectAsset).filter(
-        ProjectAsset.project_idea_id == idea_id
-    ).all()
+    assets = (
+        db.query(ProjectAsset).filter(ProjectAsset.project_idea_id == idea_id).all()
+    )
 
     # Serialize validation report from SQLAlchemy model
     validation_report_data = None
@@ -1501,37 +1789,44 @@ async def get_idea_details(
 
     # Process Blueprint Asset to add dynamic completion
     processed_assets = []
-    blueprint_data = {} # Initialize as dict
-    
+    blueprint_data = {}  # Initialize as dict
+
     for a in assets:
         asset_dict = {
             "id": str(a.id),
             "asset_type": a.asset_type.value,
             "content": a.content,
             "status": a.status.value,
-            "chat_history": a.chat_history
+            "chat_history": a.chat_history,
         }
-        
+
         if a.asset_type == AssetType.DIAGRAM_USER_FLOW and a.content:
             import json
+
             try:
                 # Try to parse as JSON (new format with nodes/edges)
                 flow_data = json.loads(a.content)
                 if isinstance(flow_data, dict) and "nodes" in flow_data:
-                    blueprint_data.update(flow_data) # Merge nodes/edges
-                    
+                    blueprint_data.update(flow_data)  # Merge nodes/edges
+
                     # Update each node with actual completion from linked issues
                     for node in blueprint_data.get("nodes", []):
                         node_id = node.get("id")
-                        issues = db.query(Issue).filter(Issue.blueprint_node_id == node_id).all()
+                        issues = (
+                            db.query(Issue)
+                            .filter(Issue.blueprint_node_id == node_id)
+                            .all()
+                        )
                         if issues:
                             total = len(issues)
-                            done = len([i for i in issues if i.status == IssueStatus.DONE])
+                            done = len(
+                                [i for i in issues if i.status == IssueStatus.DONE]
+                            )
                             node["completion"] = round((done / total) * 100)
                             node["issue_count"] = total
                         else:
                             node["completion"] = 0
-                    
+
                     # Update asset content with dynamic completion for frontend
                     asset_dict["content"] = json.dumps(blueprint_data)
                 else:
@@ -1544,16 +1839,18 @@ async def get_idea_details(
         elif a.asset_type == AssetType.DIAGRAM_KANBAN and a.content:
             try:
                 import json
+
                 kanban_data = json.loads(a.content)
                 blueprint_data["kanban_features"] = kanban_data
             except:
                 try:
                     import ast
+
                     kanban_data = ast.literal_eval(a.content)
                     blueprint_data["kanban_features"] = kanban_data
                 except:
                     blueprint_data["kanban_features"] = []
-        
+
         processed_assets.append(asset_dict)
 
     # Build response
@@ -1565,7 +1862,7 @@ async def get_idea_details(
         "clarification_questions": idea.clarification_questions,
         "validation_report": validation_report_data,
         "assets": processed_assets,
-        "blueprint": blueprint_data if blueprint_data else None # Return None if empty
+        "blueprint": blueprint_data if blueprint_data else None,  # Return None if empty
     }
 
     return response
@@ -1576,7 +1873,7 @@ async def convert_to_project(
     idea_id: str,
     team_id: str,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Phase 3: Finalize - Converts the validated idea and blueprint into a real Project.
@@ -1599,7 +1896,7 @@ async def convert_to_project(
         lead_id=current_user.id,
         status=ProjectStatus.PLANNED,
         icon="🚀",
-        color="#3b82f6"
+        color="#3b82f6",
     )
     db.add(new_project)
     db.flush()
@@ -1611,36 +1908,41 @@ async def convert_to_project(
         current_feature_num += 1
         feature = Feature(
             project_id=new_project.id,
-            name=f_data['name'],
-            problem_statement=f_data.get('description'),
+            name=f_data["name"],
+            problem_statement=f_data.get("description"),
             status=FeatureStatus.VALIDATED,
             owner_id=current_user.id,
-            identifier=f"{team_prefix}-F{current_feature_num}"
+            identifier=f"{team_prefix}-F{current_feature_num}",
         )
         db.add(feature)
-        features_map[f_data['name']] = feature
+        features_map[f_data["name"]] = feature
 
     db.flush()
 
     # Create Issues from Kanban
-    kanban_asset = crud_project_idea.project_idea.get_asset(db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_KANBAN)
+    kanban_asset = crud_project_idea.project_idea.get_asset(
+        db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_KANBAN
+    )
     if kanban_asset and kanban_asset.content:
         import ast
+
         try:
             kanban_data = ast.literal_eval(kanban_asset.content)
             current_issue_num = crud_issue.get_max_identifier_num(db, team_prefix)
             for i, issue_data in enumerate(kanban_data):
                 feature_list = list(features_map.values())
-                feature_id = feature_list[i % len(feature_list)].id if feature_list else None
+                feature_id = (
+                    feature_list[i % len(feature_list)].id if feature_list else None
+                )
 
                 current_issue_num += 1
                 issue = Issue(
-                    title=issue_data['title'],
+                    title=issue_data["title"],
                     status=IssueStatus.TODO,
                     issue_type=IssueType.TASK,
                     team_id=team_id,
                     feature_id=feature_id,
-                    identifier=f"{team_prefix}-{current_issue_num}"
+                    identifier=f"{team_prefix}-{current_issue_num}",
                 )
                 db.add(issue)
         except:

@@ -25,11 +25,14 @@ export interface TechStack {
 export interface PricingTier {
   name: string;
   price: string;
+  annual_price?: string;
   features: string[];
 }
 
 export interface PricingModel {
   type: string;
+  recommended_type?: string;
+  reasoning?: string;
   tiers: PricingTier[];
 }
 

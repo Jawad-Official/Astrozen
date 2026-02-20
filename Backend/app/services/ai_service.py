@@ -15,20 +15,57 @@ CORE_PILLARS = [
     "Business Model",
     "Competition",
     "User Experience",
-    "Scalability"
+    "Scalability",
 ]
 
 # Document types and their generation order
-DOC_ORDER = ["PRD", "APP_FLOW", "TECH_STACK", "FRONTEND_GUIDELINES", "BACKEND_SCHEMA", "IMPLEMENTATION_PLAN"]
+DOC_ORDER = [
+    "PRD",
+    "APP_FLOW",
+    "TECH_STACK",
+    "FRONTEND_GUIDELINES",
+    "BACKEND_SCHEMA",
+    "IMPLEMENTATION_PLAN",
+]
 
 # Doc sections for regeneration
 DOC_SECTIONS = {
-    "PRD": ["Problem Statement", "Solution Overview", "Target Audience", "User Stories", "Success Metrics"],
-    "APP_FLOW": ["Navigation Flow", "State Transitions", "Screen Definitions", "Data Flow"],
+    "PRD": [
+        "Problem Statement",
+        "Solution Overview",
+        "Target Audience",
+        "User Stories",
+        "Success Metrics",
+        "Pricing Strategy",
+    ],
+    "APP_FLOW": [
+        "Navigation Flow",
+        "State Transitions",
+        "Screen Definitions",
+        "Data Flow",
+    ],
     "TECH_STACK": ["Frontend", "Backend", "Database", "Infrastructure", "API Design"],
-    "FRONTEND_GUIDELINES": ["Component Architecture", "State Management", "Styling Patterns", "UI/UX Standards", "Accessibility"],
-    "BACKEND_SCHEMA": ["Database Models", "API Endpoints", "Authentication", "Data Relationships", "Error Handling"],
-    "IMPLEMENTATION_PLAN": ["Phase 1: MVP", "Phase 2: Core Features", "Phase 3: Advanced Features", "Milestones", "Timeline"]
+    "FRONTEND_GUIDELINES": [
+        "Component Architecture",
+        "State Management",
+        "Styling Patterns",
+        "UI/UX Standards",
+        "Accessibility",
+    ],
+    "BACKEND_SCHEMA": [
+        "Database Models",
+        "API Endpoints",
+        "Authentication",
+        "Data Relationships",
+        "Error Handling",
+    ],
+    "IMPLEMENTATION_PLAN": [
+        "Phase 1: MVP",
+        "Phase 2: Core Features",
+        "Phase 3: Advanced Features",
+        "Milestones",
+        "Timeline",
+    ],
 }
 
 
@@ -38,10 +75,12 @@ class AIService:
         if api_key:
             # Clean key of common whitespace/quote issues from .env
             api_key = api_key.strip().strip('"').strip("'")
-            
+
         if not api_key or api_key == "missing_key":
-            logger.error("CRITICAL: OPENROUTER_API_KEY is not set or invalid in settings! AI features will fail.")
-            
+            logger.error(
+                "CRITICAL: OPENROUTER_API_KEY is not set or invalid in settings! AI features will fail."
+            )
+
         self.client = OpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=api_key or "missing_key",
@@ -58,7 +97,7 @@ class AIService:
         escape = False
         in_string = False
         for i, char in enumerate(json_str):
-            if char == '\\':
+            if char == "\\":
                 escape = not escape
             elif char == '"' and not escape:
                 quote_count += 1
@@ -73,16 +112,16 @@ class AIService:
         # 2. Remove trailing commas (before closing braces/brackets or end of content)
         # This handles: { "a": 1, } and [ "a", ]
         # Remove trailing comma before } or ]
-        json_str = re.sub(r',(\s*[}\]])', r'\1', json_str)
+        json_str = re.sub(r",(\s*[}\]])", r"\1", json_str)
 
         # 3. Balance braces/brackets
         stack = []
         for char in json_str:
-            if char == '{':
-                stack.append('}')
-            elif char == '[':
-                stack.append(']')
-            elif char == '}' or char == ']':
+            if char == "{":
+                stack.append("}")
+            elif char == "[":
+                stack.append("]")
+            elif char == "}" or char == "]":
                 if stack and stack[-1] == char:
                     stack.pop()
 
@@ -97,16 +136,19 @@ class AIService:
         if not content:
             logger.error("AI returned an empty response content.")
             return None
-            
+
         clean_content = content.strip()
         # Handle markdown blocks if present
         if clean_content.startswith("```json"):
             clean_content = clean_content[7:]
         if clean_content.endswith("```"):
             clean_content = clean_content[:-3]
-        
+
         clean_content = clean_content.strip()
-        
+
+        # Log the raw content for debugging
+        logger.info(f"Raw AI response (first 500 chars): {clean_content[:500]}")
+
         try:
             return json.loads(clean_content)
         except json.JSONDecodeError:
@@ -120,10 +162,30 @@ class AIService:
                 # Log more context about where it failed
                 snippet_start = max(0, e.pos - 50)
                 snippet_end = min(len(clean_content), e.pos + 50)
-                logger.error(f"Error snippet (at pos {e.pos}): ...{clean_content[snippet_start:snippet_end]}...")
+                logger.error(
+                    f"Error snippet (at pos {e.pos}): ...{clean_content[snippet_start:snippet_end]}..."
+                )
+                # Last resort: try to extract JSON object using regex
+                try:
+                    import re
+
+                    # Try to find a complete JSON object
+                    json_match = re.search(r"\{[\s\S]*\}", clean_content)
+                    if json_match:
+                        extracted = json_match.group(0)
+                        repaired = self._repair_json(extracted)
+                        result = json.loads(repaired)
+                        logger.info(
+                            "Successfully extracted and parsed JSON using regex fallback"
+                        )
+                        return result
+                except Exception as fallback_error:
+                    logger.error(f"Regex fallback also failed: {str(fallback_error)}")
                 raise e
 
-    async def generate_clarification_questions(self, idea: str, max_questions: int = 7) -> List[str]:
+    async def generate_clarification_questions(
+        self, idea: str, max_questions: int = 7
+    ) -> List[str]:
         """
         Generate up to N clarification questions if the idea is unclear.
         These questions cover BOTH the validation phase AND the blueprint phase.
@@ -151,7 +213,7 @@ class AIService:
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                max_tokens=2000
+                max_tokens=2000,
             )
             content = response.choices[0].message.content
             try:
@@ -164,25 +226,28 @@ class AIService:
         except Exception as e:
             error_msg = str(e)
             logger.error(f"AI Clarification failed: {error_msg}")
-            
+
             if "401" in error_msg or "User not found" in error_msg:
                 raise HTTPException(
-                    status_code=400, 
-                    detail="AI API Configuration Error: The OpenRouter API key provided in the backend is invalid. Please check OPENROUTER_API_KEY in the .env file."
+                    status_code=400,
+                    detail="AI API Configuration Error: The OpenRouter API key provided in the backend is invalid. Please check OPENROUTER_API_KEY in the .env file.",
                 )
-            
+
             # For clarification, we can fallback to no questions if it's not an auth error
             # but still log the error.
             return []
+
     async def suggest_answer(
         self,
         idea: str,
         question: str,
         previous_qa: List[Dict[str, str]] = [],
-        context: Dict[str, Any] = None
+        context: Dict[str, Any] = None,
     ) -> str:
         """AI suggests an answer for a clarification question."""
-        qa_text = "\n".join([f"Q: {qa['question']}\nA: {qa['answer']}" for qa in previous_qa])
+        qa_text = "\n".join(
+            [f"Q: {qa['question']}\nA: {qa['answer']}" for qa in previous_qa]
+        )
         context_text = json.dumps(context) if context else "{}"
         prompt = f"""
         Project Idea: "{idea}"
@@ -200,7 +265,7 @@ class AIService:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=3000
+                max_tokens=3000,
             )
             return response.choices[0].message.content.strip()
         except Exception as e:
@@ -212,7 +277,8 @@ class AIService:
         idea: str,
         clarifications: List[Dict[str, str]],
         feedback: Optional[str] = None,
-        edited_data: Optional[Dict[str, Any]] = None
+        edited_data: Optional[Dict[str, Any]] = None,
+        remaining_improvements: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Validate idea against 6 core pillars.
@@ -222,11 +288,48 @@ class AIService:
             clarifications: List of answered clarification questions
             feedback: Optional user feedback for regeneration
             edited_data: Optional manually edited validation data
+            remaining_improvements: Improvements that were not accepted (keep these)
         """
-        clarification_text = "\n".join([f"Q: {c['question']}\nA: {c['answer']}" for c in clarifications])
+        clarification_text = "\n".join(
+            [f"Q: {c['question']}\nA: {c['answer']}" for c in clarifications]
+        )
         pillars_text = "\n".join([f"- {pillar}" for pillar in CORE_PILLARS])
-        feedback_text = f"\n\nUser Feedback: {feedback}" if feedback else ""
-        edited_text = f"\n\nUser Edited Data: {json.dumps(edited_data, indent=2)}" if edited_data else ""
+
+        is_revalidation = feedback and (
+            "applied these improvements" in feedback.lower()
+            or "accepted these improvements" in feedback.lower()
+        )
+
+        if is_revalidation:
+            feedback_text = f"""
+
+        ### CRITICAL: RE-VALIDATION AFTER APPLYING IMPROVEMENTS
+        {feedback}
+        
+        INSTRUCTIONS:
+        1. The improvements listed above have been APPLIED to the project idea
+        2. You MUST re-analyze and RECALCULATE the 6 core pillars in market_feasibility
+        3. Update the score and each pillar's status based on the improvements now being implemented
+        4. The idea is now STRONGER - reflect this in your analysis
+        """
+        else:
+            feedback_text = f"\n\nUser Feedback: {feedback}" if feedback else ""
+
+        edited_text = (
+            f"\n\nUser Edited Data: {json.dumps(edited_data, indent=2)}"
+            if edited_data
+            else ""
+        )
+
+        if remaining_improvements is not None:
+            remaining_json = json.dumps(remaining_improvements)
+            improvements_instruction = f"""2. "improvements": {remaining_json}
+        CRITICAL: Use EXACTLY this array. Do NOT add, remove, or modify any improvement. Return it verbatim."""
+        elif is_revalidation:
+            improvements_instruction = """2. "improvements": ["New Suggestion 1 (max 15 words)", "New Suggestion 2", "New Suggestion 3"] 
+        IMPORTANT: Generate 2-4 NEW, DIFFERENT improvements that build upon the already-applied improvements. Do NOT repeat or slightly rephrase the accepted improvements. Focus on next-level enhancements."""
+        else:
+            improvements_instruction = '2. "improvements": ["Suggestion 1 (max 15 words)", "Suggestion 2", "Suggestion 3"] (Generate 3-5 specific, actionable improvements).'
 
         prompt = f"""
         You are a Startup Validator and CTO. Analyze this project idea:
@@ -251,47 +354,211 @@ class AIService:
             ]
         }}
 
-        2. "improvements": ["Suggestion 1 (max 15 words)", "Suggestion 2", "Suggestion 3"] (Generate 3-5 specific, actionable improvements).
+        {improvements_instruction}
 
         3. "core_features": [
             {{"name": "Feature name", "description": "max 20 words", "type": "Core/Important/Nice-to-have"}}
         ] (Identify 5-8 core features).
 
         4. "tech_stack": {{
-            "frontend": ["Tech 1", "Tech 2"],
-            "backend": ["Tech 1", "Tech 2"],
-            "infrastructure": ["Tech 1", "Tech 2"]
-        }} (3-5 technologies per category).
+            "frontend": ["Framework", "State Management", "Styling", "Build Tool"],
+            "backend": ["Language/Framework", "API Layer", "Authentication", "Job Queue"],
+            "database": ["Primary DB", "Cache/Session", "ORM", "Search/Analytics"],
+            "infrastructure": ["Cloud Provider", "Container/Orchestration", "CI/CD", "Monitoring"]
+        }}
+
+        ### TECH STACK SELECTION RULES (CRITICAL):
+
+        **FRONTEND** - Select 4-5 technologies based on project type:
+        - **Web Apps**: Next.js (React), TypeScript, Tailwind CSS, Zustand/Redux, Vite
+        - **Mobile Apps**: React Native, Expo, NativeWind, Redux Toolkit
+        - **Desktop Apps**: Electron, Tauri, or native (Swift/Kotlin)
+        - **E-commerce**: Next.js Commerce, Shopify Hydrogen, Medusa.js
+        - **Real-time Apps**: Next.js + Socket.io client, Supabase Realtime
+        - **AI/ML Interfaces**: Next.js, Vercel AI SDK, Langchain.js
+
+        **BACKEND** - Select 4-5 technologies based on complexity:
+        - **Python Stack**: FastAPI, Pydantic, SQLAlchemy, Celery, Redis Queue
+        - **Node.js Stack**: NestJS/Express, Prisma, Bull/BullMQ, Passport.js
+        - **Go Stack**: Gin/Fiber, GORM, go-redis, asynq
+        - **Real-time**: FastAPI + WebSockets, Socket.io, Supabase
+        - **AI/ML**: FastAPI, LangChain, OpenAI SDK, PyTorch/TensorFlow
+        - **Microservices**: NestJS, gRPC, Kong, RabbitMQ
+
+        **DATABASE** - Select 4 technologies based on data needs:
+        - **Relational (default)**: PostgreSQL, Supabase, Prisma/Drizzle
+        - **High-throughput**: PostgreSQL + Redis + Elasticsearch
+        - **Document-based**: MongoDB, Mongoose, Redis
+        - **Real-time**: Supabase (PostgreSQL + Realtime), Firebase/Firestore
+        - **Graph relationships**: Neo4j, ArangoDB
+        - **Time-series**: TimescaleDB, InfluxDB
+        - **Always include**: Cache layer (Redis/Upstash), ORM (Prisma/Drizzle/SQLAlchemy)
+
+        **INFRASTRUCTURE** - Select 4-5 technologies:
+        - **Cloud**: AWS (EC2, Lambda, RDS, S3) OR Vercel + Supabase OR GCP OR Azure
+        - **Containers**: Docker, Docker Compose, Kubernetes (for scale)
+        - **CI/CD**: GitHub Actions, GitLab CI, Vercel/Netlify auto-deploy
+        - **Monitoring**: Sentry, Datadog, Grafana + Prometheus
+        - **CDN/Edge**: Cloudflare, Vercel Edge, AWS CloudFront
+        - **Secrets**: HashiCorp Vault, AWS Secrets Manager, Doppler
+
+        ### PROJECT TYPE STACK MAPPING:
+        - **SaaS Web App**: Next.js + FastAPI + PostgreSQL + Redis + AWS/Vercel
+        - **E-commerce**: Next.js + NestJS + PostgreSQL + Elasticsearch + AWS
+        - **AI Tool**: Next.js + FastAPI + LangChain + PostgreSQL + Redis + Vercel
+        - **Mobile App**: React Native + NestJS + PostgreSQL + Redis + AWS
+        - **Marketplace**: Next.js + NestJS + PostgreSQL + Elasticsearch + Stripe
+        - **Real-time Chat/Collab**: Next.js + FastAPI + WebSockets + Redis + Supabase
+        - **Data Analytics**: Next.js + FastAPI + TimescaleDB + Redis + GCP
+        - **Fintech**: Next.js + NestJS + PostgreSQL + Redis + AWS (compliance)
+
+        ### TECH STACK REQUIREMENTS:
+        - Frontend: MUST include framework, styling solution, state management
+        - Backend: MUST include framework, ORM, auth solution, job queue if async tasks
+        - Database: MUST include primary DB, cache (Redis), ORM
+        - Infrastructure: MUST include cloud provider, CI/CD, monitoring
+        - All selections MUST be justified by project requirements
+        - Choose technologies that work well TOGETHER (ecosystem compatibility)
 
         5. "pricing_model": {{
-            "type": "e.g. Freemium",
+            "type": "Selected Model (Choose ONE: One-Time Purchase, Subscription, Freemium, Pay-Per-Use / Credits, Pay-Per-User, In-App Purchases)",
+            "recommended_type": "Same as 'type'",
+            "reasoning": "Project-specific justification (max 40 words)",
             "tiers": [
-                {{"name": "Tier name", "price": "Price/mo", "features": ["Feature 1", "Feature 2"]}}
+                {{
+                    "name": "Strictly use Tier Names from the Rules below", 
+                    "price": "Strictly use Price Format from the Rules below", 
+                    "annual_price": "Strictly use Annual Format from the Rules below",
+                    "features": ["3-5 SPECIFIC features for THIS project"]
+                }}
             ]
-        }} (Suggest 2-3 tiers).
+        }}
 
-        CRITICAL: 
-        - Return ONLY the JSON object.
-        - Ensure ALL 5 keys are present.
-        - Keep text extremely concise to avoid truncation.
+        ### STRICT PRICING RULES (NO EXCEPTIONS)
+        | Model Type | Tier Names | Price Format | Annual Format | Logic |
+        | :--- | :--- | :--- | :--- | :--- |
+        | One-Time Purchase | Basic, Pro, Lifetime | $X (e.g. $49) | null | NO recurring. NO /mo. NO /yr. |
+        | Subscription | Starter, Growth, Business | $X / month | $Y / year | Mandatory monthly + annual. |
+        | Freemium | Free, Plus, Pro | $0 (Free), $X / month | $Y / year | Free entry + paid upsell. |
+        | Pay-Per-Use / Credits | Starter Pack, Standard Pack, Enterprise Pack | $X / [Unit] (e.g. $10 / 1k credits) | null | Credit-based consumption. Use for AI tools, API services. |
+        | Pay-Per-User | Team, Business, Enterprise | $X / user / month | $Y / user / year | Per-seat billing. Use for SaaS with team collaboration. |
+        | In-App Purchases | Remove Ads, Theme Pack, Pro Bundle | $X one-time OR $X / month | $Y / year (if recurring) | Specific feature unlocks. |
+
+        ### MODEL SELECTION LOGIC:
+        - **Pay-Per-Use / Credits**: Best for AI tools, API services, platforms where usage varies (generative AI, data processing, email services).
+        - **Pay-Per-User**: Best for SaaS with team collaboration, project management, CRM, tools where each user gets full access.
+        - **Subscription**: Best for content platforms, professional tools, services with consistent usage patterns.
+        - **Freemium**: Best for consumer apps seeking viral growth, productivity tools, social platforms.
+        - **One-Time Purchase**: Best for desktop software, templates, courses, tools with minimal ongoing costs.
+        - **In-App Purchases**: Best for mobile apps, games, content apps with premium features.
+
+        ### CRITICAL SANITY CHECK:
+        - If model is 'One-Time Purchase', any mention of '/month' or 'annual_price' is a FAILURE.
+        - If model is 'Pay-Per-User', price MUST contain '/ user / month' format.
+        - If model is 'Pay-Per-Use / Credits', price MUST contain credit unit (e.g. '/ 1k credits').
+        - If model is 'Subscription', using 'Free/Plus/Pro' is a FAILURE.
+        - If reasoning or features are generic/repeated across models, it is a FAILURE.
+        - Every tier MUST have unique, project-specific value.
+
+        CRITICAL: Return ONLY JSON. Be highly specific to the project idea.
+        
+        IMPORTANT JSON FORMAT:
+        - Start your response with {{"market_feasibility":
+        - End your response with }}
+        - Do NOT include any text before or after the JSON
+        - Do NOT use markdown code blocks
+        - Ensure all strings are properly quoted
+        - Ensure all arrays and objects are properly closed
         """
         try:
+            logger.info(f"Calling AI model: {self.model}")
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                max_tokens=4096
+                max_tokens=8192,
             )
-            content = response.choices[0].message.content
-            logger.info(f"AI validation response length: {len(content) if content else 0} characters")
+            logger.info(f"Full response: {response}")
+            logger.info(
+                f"Response choices count: {len(response.choices) if response.choices else 0}"
+            )
+
+            if not response.choices:
+                logger.error("AI returned no choices - empty response")
+                raise ValueError("AI returned no choices")
+
+            choice = response.choices[0]
+            logger.info(f"Finish reason: {choice.finish_reason}")
+            content = choice.message.content
+            logger.info(
+                f"AI validation response length: {len(content) if content else 0} characters"
+            )
+            if not content:
+                logger.error(
+                    f"Empty content from AI. Finish reason: {choice.finish_reason}, Message: {choice.message}"
+                )
             parsed_data = self._parse_json(content)
 
             if not parsed_data:
                 raise ValueError("AI returned an empty or unparseable response.")
 
+            # --- POST-PROCESSING & CLEANUP ---
+            if "pricing_model" in parsed_data:
+                pm = parsed_data["pricing_model"]
+                p_type = pm.get("type", "")
+
+                # 1. Strict One-Time Purchase Cleanup
+                if p_type == "One-Time Purchase":
+                    for tier in pm.get("tiers", []):
+                        # Strip recurring indicators from price
+                        if "price" in tier and isinstance(tier["price"], str):
+                            tier["price"] = re.sub(
+                                r"(\s*/\s*(month|mo|year|yr|user))",
+                                "",
+                                tier["price"],
+                                flags=re.IGNORECASE,
+                            ).strip()
+                        # Force annual_price to None
+                        tier["annual_price"] = None
+
+                # 2. Subscription/Freemium Formatting
+                elif p_type in ["Subscription", "Freemium"]:
+                    for tier in pm.get("tiers", []):
+                        # Ensure price has / month if it's not $0
+                        if (
+                            "price" in tier
+                            and isinstance(tier["price"], str)
+                            and tier["price"] != "$0"
+                            and "/" not in tier["price"]
+                        ):
+                            tier["price"] = f"{tier['price']} / month"
+
+                # 3. Pay-Per-User Formatting
+                elif p_type == "Pay-Per-User":
+                    for tier in pm.get("tiers", []):
+                        # Ensure price has / user / month format
+                        if "price" in tier and isinstance(tier["price"], str):
+                            if (
+                                "/ user" not in tier["price"].lower()
+                                and "/user" not in tier["price"].lower()
+                            ):
+                                tier["price"] = (
+                                    tier["price"].replace("/ month", "").strip()
+                                    + " / user / month"
+                                )
+                        tier["annual_price"] = None
+
+                # 4. Pay-Per-Use / Credits Formatting
+                elif p_type == "Pay-Per-Use / Credits":
+                    for tier in pm.get("tiers", []):
+                        tier["annual_price"] = None
+            # ---------------------------------
+
             # Log the parsed data to debug missing fields
             logger.info(f"Validation report keys: {list(parsed_data.keys())}")
-            logger.info(f"market_feasibility present: {'market_feasibility' in parsed_data}")
+            logger.info(
+                f"market_feasibility present: {'market_feasibility' in parsed_data}"
+            )
             logger.info(f"improvements present: {'improvements' in parsed_data}")
             logger.info(f"core_features present: {'core_features' in parsed_data}")
             logger.info(f"tech_stack present: {'tech_stack' in parsed_data}")
@@ -302,41 +569,109 @@ class AIService:
             error_msg = str(e)
             if "401" in error_msg or "User not found" in error_msg:
                 raise HTTPException(
-                    status_code=400, 
-                    detail="AI API Configuration Error: The OpenRouter API key provided in the backend is invalid. Please check OPENROUTER_API_KEY in the .env file."
+                    status_code=400,
+                    detail="AI API Configuration Error: The OpenRouter API key provided in the backend is invalid. Please check OPENROUTER_API_KEY in the .env file.",
                 )
-            
-            raise HTTPException(status_code=500, detail=f"AI Validation Failed: {error_msg}")
+
+            raise HTTPException(
+                status_code=500, detail=f"AI Validation Failed: {error_msg}"
+            )
 
     async def regenerate_validation_field(
         self,
         field_name: str,
         current_value: Any,
         feedback: str,
-        context: Dict[str, Any]
+        context: Dict[str, Any],
     ) -> Any:
         """Regenerate a specific field in the validation report based on user feedback."""
+
+        is_tech_stack_subfield = field_name.startswith("tech_stack.")
+        if is_tech_stack_subfield:
+            subfield = field_name.split(".", 1)[1]
+
+            tech_guidance = {
+                "frontend": """
+        FRONTEND RECOMMENDATIONS (select 4-5 that match project needs):
+        - Framework: Next.js (React SSR), React + Vite, Vue/Nuxt, Svelte/SvelteKit
+        - Styling: Tailwind CSS, CSS Modules, Styled Components
+        - State: Zustand, Redux Toolkit, Jotai, React Query/TanStack Query
+        - Forms: React Hook Form, Formik
+        - Testing: Jest, Vitest, Playwright, Testing Library
+        - UI Components: shadcn/ui, Radix UI, Headless UI, Chakra UI""",
+                "backend": """
+        BACKEND RECOMMENDATIONS (select 4-5 that match project needs):
+        - Python: FastAPI, Django, Flask | SQLAlchemy, Pydantic, Celery
+        - Node.js: NestJS, Express, Fastify | Prisma, TypeORM, Bull/BullMQ
+        - Go: Gin, Fiber, Echo | GORM, sqlx
+        - Auth: JWT, OAuth2, Auth0, Supabase Auth, Clerk
+        - API: REST, GraphQL (Apollo, Hasura), tRPC
+        - Real-time: WebSockets, Socket.io, Server-Sent Events""",
+                "database": """
+        DATABASE RECOMMENDATIONS (select 4 that match project needs):
+        - Primary DB: PostgreSQL, MySQL, MongoDB, Supabase
+        - Cache/Session: Redis, Upstash, Memcached
+        - ORM/Query: Prisma, Drizzle, SQLAlchemy, TypeORM
+        - Search: Elasticsearch, Meilisearch, Algolia, Typesense
+        - Analytics: TimescaleDB, ClickHouse
+        - Real-time: Supabase Realtime, Firebase, Pusher""",
+                "infrastructure": """
+        INFRASTRUCTURE RECOMMENDATIONS (select 4-5 that match project needs):
+        - Cloud: AWS (EC2/Lambda/RDS/S3), GCP, Azure, Vercel, Railway
+        - Containers: Docker, Docker Compose, Kubernetes, ECS
+        - CI/CD: GitHub Actions, GitLab CI, CircleCI, Vercel
+        - Monitoring: Sentry, Datadog, Grafana, Prometheus, LogRocket
+        - CDN: Cloudflare, AWS CloudFront, Vercel Edge
+        - Email: Resend, SendGrid, AWS SES, Postmark""",
+            }
+
+            field_instruction = f"""
+        You are a senior solutions architect. Generate a JSON array of 4-5 SPECIFIC technologies for {subfield}.
+        
+        {tech_guidance.get(subfield, "")}
+        
+        CRITICAL RULES:
+        1. Return ONLY a JSON array: ["Tech1", "Tech2", "Tech3", "Tech4"]
+        2. Each technology must be SPECIFIC (e.g., "FastAPI" not "Python Framework")
+        3. Consider the project type and user feedback
+        4. Technologies must work TOGETHER (same ecosystem when possible)
+        5. Include the most important category items (framework, ORM, auth, etc.)
+        
+        Do NOT wrap in an object. Return just: ["Tech1", "Tech2", ...]
+        """
+        else:
+            field_instruction = "Return the updated value in the same JSON structure as the current value."
+
         prompt = f"""
         The user wants to regenerate this field: {field_name}
 
         Current value:
-        {json.dumps(current_value, indent=2)}
+        {json.dumps(current_value, indent=2) if current_value else "None (empty field)"}
 
         User feedback: "{feedback}"
 
         Project context:
         {json.dumps(context, indent=2)}
 
-        Return the updated value in the same JSON structure as the current value.
+        {field_instruction}
         """
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                max_tokens=3000
+                max_tokens=3000,
             )
-            return self._parse_json(response.choices[0].message.content)
+            result = self._parse_json(response.choices[0].message.content)
+
+            if is_tech_stack_subfield and isinstance(result, dict):
+                if "value" in result:
+                    return result["value"]
+                first_key = next(iter(result.keys()), None)
+                if first_key:
+                    return result[first_key]
+
+            return result
         except Exception as e:
             logger.error(f"Field regeneration failed: {str(e)}")
             return current_value
@@ -399,26 +734,28 @@ class AIService:
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                max_tokens=8192
+                max_tokens=8192,
             )
             return self._parse_json(response.choices[0].message.content)
         except Exception as e:
             error_msg = str(e)
             logger.error(f"Blueprint generation failed: {error_msg}")
-            
+
             if "401" in error_msg or "User not found" in error_msg:
                 raise HTTPException(
-                    status_code=400, 
-                    detail="AI API Configuration Error: The OpenRouter API key provided in the backend is invalid. Please check OPENROUTER_API_KEY in the .env file."
+                    status_code=400,
+                    detail="AI API Configuration Error: The OpenRouter API key provided in the backend is invalid. Please check OPENROUTER_API_KEY in the .env file.",
                 )
-            
-            raise HTTPException(status_code=500, detail=f"AI Blueprint Generation Failed: {error_msg}")
+
+            raise HTTPException(
+                status_code=500, detail=f"AI Blueprint Generation Failed: {error_msg}"
+            )
 
     async def generate_issues_for_blueprint_node(
         self,
         node_details: Dict[str, Any],
         project_context: Dict[str, Any],
-        existing_features: List[Dict[str, Any]]
+        existing_features: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
         """
         AI generates detailed features, milestones, and issues for a specific blueprint node.
@@ -449,7 +786,7 @@ class AIService:
            Issue Type: [bug, task, refactor, chore, technical_debt, investigation]
            Feature Type: [new_capability, enhancement, experiment, infrastructure]
            Status: [discovery, validated, in_build, in_review, shipped, adopted, killed]
-        5. LINKING: Ensure all created issues and features are conceptually linked to this node ID: "{node_details.get('id')}".
+        5. LINKING: Ensure all created issues and features are conceptually linked to this node ID: "{node_details.get("id")}".
 
         Return a JSON object:
         {{
@@ -487,35 +824,39 @@ class AIService:
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                max_tokens=8192
+                max_tokens=8192,
             )
             return self._parse_json(response.choices[0].message.content)
         except Exception as e:
             error_msg = str(e)
             logger.error(f"Issue generation for node failed: {error_msg}")
-            
+
             if "401" in error_msg or "User not found" in error_msg:
                 raise HTTPException(
-                    status_code=400, 
-                    detail="AI API Configuration Error: The OpenRouter API key provided in the backend is invalid or has expired. Please update OPENROUTER_API_KEY in the .env file."
+                    status_code=400,
+                    detail="AI API Configuration Error: The OpenRouter API key provided in the backend is invalid or has expired. Please update OPENROUTER_API_KEY in the .env file.",
                 )
-            
-            raise HTTPException(status_code=500, detail=f"AI Issue Generation Failed: {error_msg}")
+
+            raise HTTPException(
+                status_code=500, detail=f"AI Issue Generation Failed: {error_msg}"
+            )
 
     async def auto_link_issue_to_node(
-        self,
-        issue_title: str,
-        issue_description: str,
-        nodes: List[Dict[str, Any]]
+        self, issue_title: str, issue_description: str, nodes: List[Dict[str, Any]]
     ) -> Optional[str]:
         """
         Analyze an issue and find the most relevant blueprint node.
         """
         if not nodes:
             return None
-            
-        nodes_context = "\n".join([f"- ID: {n['id']}, Label: {n['label']}, Type: {n['type']}, Subtasks: {', '.join(n.get('subtasks', []))}" for n in nodes])
-        
+
+        nodes_context = "\n".join(
+            [
+                f"- ID: {n['id']}, Label: {n['label']}, Type: {n['type']}, Subtasks: {', '.join(n.get('subtasks', []))}"
+                for n in nodes
+            ]
+        )
+
         prompt = f"""
         You are a Technical Project Manager. 
         A new issue has been created:
@@ -534,7 +875,7 @@ class AIService:
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                max_tokens=500
+                max_tokens=500,
             )
             data = self._parse_json(response.choices[0].message.content)
             return data.get("node_id")
@@ -542,7 +883,9 @@ class AIService:
             logger.error(f"Auto-link issue failed: {str(e)}")
             return None
 
-    async def expand_features_for_creation(self, idea_context: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def expand_features_for_creation(
+        self, idea_context: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
         """
         Expand core features into detailed features and sub-features for DB creation.
         Returns a list of feature objects with properties: name, description, type, status, priority, sub_features.
@@ -605,7 +948,7 @@ class AIService:
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                max_tokens=4000
+                max_tokens=4000,
             )
             data = self._parse_json(response.choices[0].message.content)
             return data.get("features", [])
@@ -618,7 +961,7 @@ class AIService:
         doc_type: str,
         project_context: Dict[str, Any],
         previous_docs: Dict[str, str] = None,
-        max_questions: int = 10
+        max_questions: int = 10,
     ) -> Dict[str, Any]:
         """
         Generate clarification questions for a specific document type.
@@ -637,7 +980,7 @@ class AIService:
             "TECH_STACK": "Focus on: specific technologies, libraries, frameworks, deployment options",
             "FRONTEND_GUIDELINES": "Focus on: design system components, styling approach, state management, accessibility",
             "BACKEND_SCHEMA": "Focus on: data models, API endpoints, authentication, data relationships",
-            "IMPLEMENTATION_PLAN": "Focus on: development phases, milestones, resource needs, risk management"
+            "IMPLEMENTATION_PLAN": "Focus on: development phases, milestones, resource needs, risk management",
         }
 
         guidance = doc_guidance.get(doc_type, "Generate a comprehensive document")
@@ -680,7 +1023,7 @@ class AIService:
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                max_tokens=3000
+                max_tokens=3000,
             )
             result = self._parse_json(response.choices[0].message.content)
 
@@ -688,7 +1031,7 @@ class AIService:
             if result.get("questions"):
                 for i, q in enumerate(result["questions"]):
                     if "id" not in q:
-                        q["id"] = f"q{i+1}"
+                        q["id"] = f"q{i + 1}"
 
             return result
         except Exception as e:
@@ -701,20 +1044,23 @@ class AIService:
         context: Dict[str, Any],
         chat_history: List[Dict[str, str]] = None,
         previous_docs: Dict[str, str] = None,
-        user_answers: List[Dict[str, str]] = None
+        user_answers: List[Dict[str, str]] = None,
     ) -> str:
         """Generate a comprehensive document based on project context and chat history."""
         chat_text = ""
         if chat_history:
-            chat_text = "\n\nChat History:\n" + "\n".join([
-                f"{msg['role']}: {msg['content']}" for msg in chat_history
-            ])
+            chat_text = "\n\nChat History:\n" + "\n".join(
+                [f"{msg['role']}: {msg['content']}" for msg in chat_history]
+            )
 
         answers_text = ""
         if user_answers:
-            answers_text = "\n\nUser Answers to Questions:\n" + "\n".join([
-                f"Q: {ans['question']}\nA: {ans.get('answer', ans.get('suggestion', ''))}" for ans in user_answers
-            ])
+            answers_text = "\n\nUser Answers to Questions:\n" + "\n".join(
+                [
+                    f"Q: {ans['question']}\nA: {ans.get('answer', ans.get('suggestion', ''))}"
+                    for ans in user_answers
+                ]
+            )
 
         prev_docs_text = ""
         if previous_docs:
@@ -743,6 +1089,7 @@ class AIService:
             - Core Features
             - Non-Functional Requirements
             - Success Metrics
+            - Pricing Strategy (Provide a detailed, realistic recommendation with annual payment options for recurring models: One-Time Purchase, Subscription, Freemium, Pay-Per-Use/Credits, or IAP)
             - Risks and Mitigations
             """,
             "APP_FLOW": """
@@ -794,7 +1141,7 @@ class AIService:
             - Risk Management
             - Testing Strategy
             - Deployment Plan
-            """
+            """,
         }
 
         doc_specific = doc_prompts.get(doc_type, "Generate a comprehensive document.")
@@ -827,7 +1174,7 @@ class AIService:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=8000
+                max_tokens=8000,
             )
             return response.choices[0].message.content
         except Exception as e:
@@ -840,7 +1187,7 @@ class AIService:
         current_content: str,
         section_content: str,
         user_message: str,
-        project_context: Dict[str, Any]
+        project_context: Dict[str, Any],
     ) -> str:
         """Regenerate a specific section of a document based on user feedback."""
         prompt = f"""
@@ -864,7 +1211,7 @@ class AIService:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=8000
+                max_tokens=8000,
             )
             return response.choices[0].message.content
         except Exception as e:
@@ -877,14 +1224,17 @@ class AIService:
         current_content: str,
         user_message: str,
         context: Dict[str, Any],
-        chat_history: List[Dict[str, str]] = None
+        chat_history: List[Dict[str, str]] = None,
     ) -> str:
         """Chat about a document and regenerate/refine based on feedback."""
         history_text = ""
         if chat_history:
-            history_text = "\n\nChat History:\n" + "\n".join([
-                f"{msg['role']}: {msg['content']}" for msg in chat_history[-10:]  # Last 10 messages
-            ])
+            history_text = "\n\nChat History:\n" + "\n".join(
+                [
+                    f"{msg['role']}: {msg['content']}"
+                    for msg in chat_history[-10:]  # Last 10 messages
+                ]
+            )
 
         prompt = f"""
         You are editing a {doc_type} document.
@@ -905,31 +1255,42 @@ class AIService:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=8000
+                max_tokens=8000,
             )
             return response.choices[0].message.content
         except Exception as e:
             logger.error(f"Doc chat failed: {str(e)}")
             return current_content
 
-    async def get_progress_dashboard(self, idea_id: str, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def get_progress_dashboard(
+        self, idea_id: str, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Generate progress dashboard data for the project."""
         docs_completed = context.get("docs_completed", 0)
         return {
             "idea_id": idea_id,
             "phases": {
                 "input": {"completed": True, "progress": 100},
-                "clarification": {"completed": not context.get("needs_clarification"), "progress": 100 if not context.get("needs_clarification") else 0},
-                "validation": {"completed": bool(context.get("validation_report")), "progress": 100 if context.get("validation_report") else 0},
-                "blueprint": {"completed": bool(context.get("blueprint")), "progress": 100 if context.get("blueprint") else 0},
+                "clarification": {
+                    "completed": not context.get("needs_clarification"),
+                    "progress": 100 if not context.get("needs_clarification") else 0,
+                },
+                "validation": {
+                    "completed": bool(context.get("validation_report")),
+                    "progress": 100 if context.get("validation_report") else 0,
+                },
+                "blueprint": {
+                    "completed": bool(context.get("blueprint")),
+                    "progress": 100 if context.get("blueprint") else 0,
+                },
                 "documentation": {
                     "completed": docs_completed,
                     "total": 6,
-                    "progress": round((docs_completed / 6) * 100)
-                }
+                    "progress": round((docs_completed / 6) * 100),
+                },
             },
             "overall_progress": 0,  # Will be calculated
-            "next_steps": context.get("next_steps", [])
+            "next_steps": context.get("next_steps", []),
         }
 
     def get_doc_order(self) -> List[str]:

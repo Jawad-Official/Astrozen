@@ -320,6 +320,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to delete project', error);
+      throw error;
     }
   },
 
