@@ -1398,21 +1398,19 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                   <CheckSquare size={18} className="text-blue-400" weight="duotone" />
                   <h3 className="text-base font-bold text-white/90">Project Core Features</h3>
                 </div>
-                {!isAccepted && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-[10px] uppercase font-bold tracking-widest border-white/10 hover:bg-white/5 text-primary"
-                    onClick={() => {
-                      const newFeatures = [...(validationReport.core_features || []), { name: 'New Feature', description: 'Description', type: 'Core' }];
-                      const updatedReport = {...validationReport, core_features: newFeatures};
-                      setValidationReport(updatedReport);
-                      handleValidationEdit(updatedReport);
-                    }}
-                  >
-                    <Plus className="mr-1" size={14} weight="bold" /> Add Feature
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-[10px] uppercase font-bold tracking-widest border-white/10 hover:bg-white/5 text-primary"
+                  onClick={() => {
+                    const newFeatures = [...(validationReport.core_features || []), { name: 'New Feature', description: 'Description', type: 'Core' }];
+                    const updatedReport = {...validationReport, core_features: newFeatures};
+                    setValidationReport(updatedReport);
+                    handleValidationEdit(updatedReport);
+                  }}
+                >
+                  <Plus className="mr-1" size={14} weight="bold" /> Add Feature
+                </Button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {(validationReport.core_features || []).map((feature, idx) => (
@@ -1423,7 +1421,6 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                     <div className="flex-1 min-w-0 space-y-1">
                       <Input
                         value={feature.name}
-                        readOnly={isAccepted}
                         onChange={(e) => {
                           const newFeatures = [...(validationReport.core_features || [])];
                           newFeatures[idx].name = e.target.value;
@@ -1431,15 +1428,11 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                           setValidationReport(updatedReport);
                           handleValidationEdit(updatedReport);
                         }}
-                        className={cn(
-                          "h-7 text-sm font-bold bg-transparent border-none p-0 focus-visible:ring-0 text-white/90",
-                          isAccepted && "cursor-default"
-                        )}
+                        className="h-7 text-sm font-bold bg-transparent border-none p-0 focus-visible:ring-0 text-white/90"
                         placeholder="Feature Name"
                       />
                       <Textarea
                         value={feature.description}
-                        readOnly={isAccepted}
                         onChange={(e) => {
                           const newFeatures = [...(validationReport.core_features || [])];
                           newFeatures[idx].description = e.target.value;
@@ -1447,28 +1440,23 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                           setValidationReport(updatedReport);
                           handleValidationEdit(updatedReport);
                         }}
-                        className={cn(
-                          "text-[11px] text-white/40 bg-transparent border-none p-0 focus-visible:ring-0 resize-none min-h-[40px] leading-relaxed",
-                          isAccepted && "cursor-default"
-                        )}
+                        className="text-[11px] text-white/40 bg-transparent border-none p-0 focus-visible:ring-0 resize-none min-h-[40px] leading-relaxed"
                         placeholder="Describe the feature purpose..."
                       />
                     </div>
-                    {!isAccepted && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-full"
-                        onClick={() => {
-                          const newFeatures = (validationReport.core_features || []).filter((_, i) => i !== idx);
-                          const updatedReport = {...validationReport, core_features: newFeatures};
-                          setValidationReport(updatedReport);
-                          handleValidationEdit(updatedReport);
-                        }}
-                      >
-                        <XCircle size={16} />
-                      </Button>
-                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-full"
+                      onClick={() => {
+                        const newFeatures = (validationReport.core_features || []).filter((_, i) => i !== idx);
+                        const updatedReport = {...validationReport, core_features: newFeatures};
+                        setValidationReport(updatedReport);
+                        handleValidationEdit(updatedReport);
+                      }}
+                    >
+                      <XCircle size={16} />
+                    </Button>
                   </div>
                 ))}
                 

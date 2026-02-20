@@ -1802,9 +1802,9 @@ async def download_doc_as_docx(
 
     # Convert HTML to Docx in memory
     docx_io = html2docx(full_html, title=doc_type.value)
+    docx_io.seek(0)
 
     filename = f"{doc_type.value.replace('_', ' ')}.docx"
-
     return StreamingResponse(
         docx_io,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
