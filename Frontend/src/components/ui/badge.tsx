@@ -1,33 +1,54 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center rounded-full font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 select-none",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
-        secondary: "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        destructive: "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
-        outline: "text-foreground",
+        default:
+          "bg-primary text-primary-foreground shadow-sm",
+        secondary:
+          "bg-secondary text-secondary-foreground",
+        destructive:
+          "bg-destructive text-destructive-foreground",
+        outline:
+          "border border-input bg-transparent text-foreground",
+        success:
+          "bg-success/10 text-success border border-success/20",
+        warning:
+          "bg-warning/10 text-warning border border-warning/20",
+        info:
+          "bg-info/10 text-info border border-info/20",
+        ghost:
+          "bg-white/5 text-white/60 border border-white/10",
+        surface:
+          "bg-white/[0.03] text-white/50 border border-white/5",
+      },
+      size: {
+        default: "px-2.5 py-0.5 text-xs",
+        sm: "px-2 py-0.5 text-[10px]",
+        lg: "px-3 py-1 text-sm",
       },
     },
     defaultVariants: {
       variant: "default",
+      size: "default",
     },
-  },
+  }
 );
 
-export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {}
+export interface BadgeProps
+  extends React.HTMLAttributes<HTMLDivElement>,
+    VariantProps<typeof badgeVariants> {}
 
 const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
-  ({ className, variant, ...props }, ref) => {
+  ({ className, variant, size, ...props }, ref) => {
     return (
       <div
         ref={ref}
-        className={cn(badgeVariants({ variant }), className)}
+        className={cn(badgeVariants({ variant, size }), className)}
         {...props}
       />
     );
@@ -35,4 +56,16 @@ const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
 );
 Badge.displayName = "Badge";
 
-export { Badge, badgeVariants };
+function BadgeDot({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      className={cn(
+        "h-1.5 w-1.5 rounded-full bg-current mr-1.5",
+        className
+      )}
+      {...props}
+    />
+  );
+}
+
+export { Badge, BadgeDot, badgeVariants };

@@ -93,21 +93,28 @@ export function IssueRow({
   return (
     <div 
       className={cn(
-        'group relative grid grid-cols-[32px_75px_1fr_80px_32px] md:grid-cols-[32px_80px_1fr_100px_32px_85px_32px_32px] items-center gap-2 md:gap-2 px-4 py-2 cursor-pointer transition-all duration-300 border-b border-white/[0.02] last:border-none bg-white/[0.03] hover:bg-white/5 first:rounded-t-xl last:rounded-b-xl hover:z-10 hover:scale-[1.01] select-none tracking-tight'
+        'group relative grid grid-cols-[32px_75px_1fr_80px_32px] md:grid-cols-[32px_80px_1fr_100px_32px_85px_32px_32px] items-center gap-2 md:gap-2 px-4 py-2.5 cursor-pointer transition-all duration-200 border-b border-white/[0.02] last:border-none bg-white/[0.02] hover:bg-white/[0.04] first:rounded-t-xl last:rounded-b-xl hover:z-10 select-none tracking-tight',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset'
       )} 
       onClick={onClick}
+      tabIndex={0}
+      role="button"
+      onKeyDown={(e) => e.key === 'Enter' && onClick?.()}
     >
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none transition-opacity duration-500 rounded-xl" />
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-r from-primary/[0.03] to-transparent pointer-events-none transition-opacity duration-300 rounded-xl" />
       
       <DropdownMenu>
         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-          <button className="relative z-20 hover:bg-white/5 p-1 rounded transition-colors flex justify-center">
+          <button 
+            className="relative z-20 hover:bg-white/5 p-1 rounded-md transition-all duration-150 flex justify-center focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={`Priority: ${issue.priority}`}
+          >
             <IssuePriorityIcon priority={issue.priority} />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="bg-zinc-900 border-white/10 backdrop-blur-md">
+        <DropdownMenuContent align="start" className="bg-zinc-900/95 border-white/10 backdrop-blur-xl">
           {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
-            <DropdownMenuItem key={key} onClick={() => handleUpdate({ priority: key as any }, 'Priority')} className="focus:bg-white/5">
+            <DropdownMenuItem key={key} onClick={() => handleUpdate({ priority: key as any }, 'Priority')} className="focus:bg-white/5 cursor-pointer">
               <div className="flex items-center gap-2">
                 <IssuePriorityIcon priority={key} />
                 <span className={cn("text-[10px] font-bold uppercase", config.color)}>{config.label}</span>
@@ -146,13 +153,13 @@ export function IssueRow({
       <div className="flex justify-center md:justify-center">
         <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-            <button className="relative z-20">
+            <button className="relative z-20 focus-visible:ring-2 focus-visible:ring-ring rounded-md" aria-label={`Status: ${issue.status}`}>
               <IssueStatusBadge status={issue.status} />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="bg-zinc-900 border-white/10 backdrop-blur-md">
+          <DropdownMenuContent align="end" className="bg-zinc-900/95 border-white/10 backdrop-blur-xl">
             {Object.entries(STATUS_CONFIG).map(([key, config]) => (
-              <DropdownMenuItem key={key} onClick={() => handleUpdate({ status: key as any }, 'Status')} className="focus:bg-white/5">
+              <DropdownMenuItem key={key} onClick={() => handleUpdate({ status: key as any }, 'Status')} className="focus:bg-white/5 cursor-pointer">
                 <span className="text-[10px] font-bold uppercase text-white/60">{config.label}</span>
               </DropdownMenuItem>
             ))}
@@ -175,16 +182,21 @@ export function IssueRow({
       <div className="flex justify-end">
         <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10">
+            <Button 
+              variant="ghost" 
+              size="icon-sm" 
+              className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Issue actions"
+            >
               <DotsThree className="h-4 w-4 text-white/50 hover:text-white" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48 bg-zinc-900 border-white/10 backdrop-blur-md">
+          <DropdownMenuContent align="end" className="w-48 bg-zinc-900/95 border-white/10 backdrop-blur-xl">
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger className="focus:bg-white/5">Change status</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="bg-zinc-900 border-white/10">
+              <DropdownMenuSubTrigger className="focus:bg-white/5 cursor-pointer">Change status</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="bg-zinc-900/95 border-white/10">
                 {Object.entries(STATUS_CONFIG).map(([key, config]) => (
-                  <DropdownMenuItem key={key} onClick={() => handleUpdate({ status: key as any }, 'Status')} className="focus:bg-white/5">
+                  <DropdownMenuItem key={key} onClick={() => handleUpdate({ status: key as any }, 'Status')} className="focus:bg-white/5 cursor-pointer">
                     <IssueStatusIcon status={key as IssueStatus} className="mr-2" />
                     {config.label}
                   </DropdownMenuItem>
@@ -192,10 +204,10 @@ export function IssueRow({
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger className="focus:bg-white/5">Change priority</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="bg-zinc-900 border-white/10">
+              <DropdownMenuSubTrigger className="focus:bg-white/5 cursor-pointer">Change priority</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="bg-zinc-900/95 border-white/10">
                 {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
-                  <DropdownMenuItem key={key} onClick={() => handleUpdate({ priority: key as any }, 'Priority')} className="focus:bg-white/5">
+                  <DropdownMenuItem key={key} onClick={() => handleUpdate({ priority: key as any }, 'Priority')} className="focus:bg-white/5 cursor-pointer">
                     <IssuePriorityIcon priority={key as any} className="mr-2" />
                     <span className={config.color}>{config.label}</span>
                   </DropdownMenuItem>
@@ -203,14 +215,14 @@ export function IssueRow({
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSeparator className="bg-white/5" />
-            <DropdownMenuItem onClick={() => onCreateSubIssue?.(issue.id)} className="focus:bg-white/5">
+            <DropdownMenuItem onClick={() => onCreateSubIssue?.(issue.id)} className="focus:bg-white/5 cursor-pointer">
               <div className="flex items-center gap-2">
                  <Plus className="h-4 w-4 text-white/50" />
                  <span>Create sub-issue</span>
               </div>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-white/5" />
-            <DropdownMenuItem className="text-red-400 focus:bg-red-500/10 focus:text-red-400" onClick={handleDelete}>
+            <DropdownMenuItem className="text-red-400 focus:bg-red-500/10 focus:text-red-400 cursor-pointer" onClick={handleDelete}>
               <Trash className="mr-2 h-4 w-4" />
               Delete issue
             </DropdownMenuItem>

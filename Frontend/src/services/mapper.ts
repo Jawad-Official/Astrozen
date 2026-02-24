@@ -12,12 +12,10 @@ export const mapIssue = (data: any): Issue => ({
   teamId: data.team_id, // Map team_id
   featureId: data.feature_id,
   milestoneId: data.milestone_id,
-  cycleId: data.cycle_id,
   assignee: data.assignee_id,
   parentId: data.parent_id,
   assigneeName: data.assignee ? `${data.assignee.first_name} ${data.assignee.last_name}` : undefined,
   triageStatus: data.triage_status as TriageStatus,
-  estimate: data.estimate,
   dueDate: data.due_date ? new Date(data.due_date) : undefined,
   createdAt: new Date(data.created_at),
   updatedAt: new Date(data.updated_at),

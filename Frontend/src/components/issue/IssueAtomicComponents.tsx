@@ -69,6 +69,7 @@ export const IssuePriorityIcon = ({ priority, className }: { priority: string; c
       className={cn("h-4 w-4", colorClass, className)}
       fill="currentColor"
       xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
     >
       <rect x="1" y="11" width="2" height="4" rx="1" className={cn(level >= 1 ? "opacity-100" : "opacity-20")} />
       <rect x="5" y="8" width="2" height="7" rx="1" className={cn(level >= 2 ? "opacity-100" : "opacity-20")} />
@@ -80,11 +81,14 @@ export const IssuePriorityIcon = ({ priority, className }: { priority: string; c
 
 export const IssueStatusBadge = ({ status, className, children }: { status: IssueStatus; className?: string; children?: React.ReactNode }) => {
   return (
-    <Badge variant="outline" className={cn(
-      "h-5 px-1.5 text-[9px] font-bold uppercase tracking-wider transition-colors hover:bg-white/5 whitespace-nowrap",
-      getStatusColorClass(status),
-      className
-    )}>
+    <Badge 
+      variant="outline" 
+      className={cn(
+        "h-5 px-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors hover:bg-white/5 whitespace-nowrap border",
+        getStatusColorClass(status),
+        className
+      )}
+    >
       {children || STATUS_CONFIG[status].label}
     </Badge>
   );
@@ -92,7 +96,7 @@ export const IssueStatusBadge = ({ status, className, children }: { status: Issu
 
 export const IssueIdentifier = ({ identifier, className }: { identifier: string; className?: string }) => {
   return (
-    <span className={cn("text-[10px] text-white/90 font-mono transition-colors truncate", className)}>
+    <span className={cn("text-[11px] text-white/70 font-mono transition-colors truncate tracking-tight", className)}>
       {identifier}
     </span>
   );

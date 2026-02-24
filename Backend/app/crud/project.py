@@ -2,151 +2,116 @@ from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import or_, and_
 from app.crud.base import CRUDBase
-from app.models.project import Project, Visibility, ProjectUpdate, ProjectResource, ProjectUpdateComment, ProjectUpdateReaction, ProjectUpdateCommentReaction
+from app.models.project import (
+    Project,
+    Visibility,
+    ProjectUpdate,
+    Resource,
+    Reaction,
+    ProjectUpdateComment,
+)
+from app.models.enums import ResourceTargetType, ReactionTargetType
 from app.schemas.project import (
-    ProjectCreate, 
-    ProjectUpdate as ProjectUpdateSchema, 
-    ProjectUpdateCreate, 
+    ProjectCreate,
+    ProjectUpdate as ProjectUpdateSchema,
+    ProjectUpdateCreate,
     ProjectUpdateLog,
     ProjectResourceCreate,
     ProjectResource as ProjectResourceSchema,
     ProjectUpdateCommentCreate,
     ProjectUpdateComment as ProjectUpdateCommentSchema,
-    ProjectUpdateReactionCreate,
-    ProjectUpdateReaction as ProjectUpdateReactionSchema,
-    ProjectUpdateCommentReactionCreate,
-    ProjectUpdateCommentReaction as ProjectUpdateCommentReactionSchema
 )
 from uuid import UUID
 
 
 class CRUDProject(CRUDBase[Project, ProjectCreate, ProjectUpdateSchema]):
-    """CRUD operations for Project model"""
-    
-    def get(self, db: Session, id: any) -> Optional[Project]:
-        return db.query(self.model).options(
-            joinedload(Project.lead),
-            selectinload(Project.updates).options(
-                joinedload(ProjectUpdate.author),
-                selectinload(ProjectUpdate.comments).options(
-                    joinedload(ProjectUpdateComment.author),
-                    selectinload(ProjectUpdateComment.reactions).joinedload(ProjectUpdateCommentReaction.user)
-                ),
-                selectinload(ProjectUpdate.reactions).joinedload(ProjectUpdateReaction.user)
-            ),
-            selectinload(Project.teams),
-            selectinload(Project.members)
-        ).filter(self.model.id == id).first()
+    def get_multi(
+        self, db: Session, *, skip: int = 0, limit: int = 100
+    ) -> List[Project]:
+        return db.query(self.model).offset(skip).limit(limit).all()
 
-    def create_with_relations(
+    def get_by_team(
+        self, db: Session, *, team_id: UUID, skip: int = 0, limit: int = 100
+    ) -> List[Project]:
+        return (
+            db.query(self.model)
+            .filter(self.model.team_id == team_id)
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
+    def get_multi_by_organization(
         self,
         db: Session,
         *,
-        obj_in: ProjectCreate,
-        member_ids: Optional[List[UUID]] = None,
-        team_ids: Optional[List[UUID]] = None
-    ) -> Project:
-        """Create project with members and teams"""
-        obj_in_data = obj_in.model_dump(exclude={'member_ids', 'team_ids'})
-        db_obj = Project(**obj_in_data)
-        
-        # Add members
-        if member_ids:
-            from app.models.user import User
-            members = db.query(User).filter(User.id.in_(member_ids)).all()
-            db_obj.members = members
-        
-        # Add teams
-        if team_ids:
-            from app.models.team_model import Team
-            teams = db.query(Team).filter(Team.id.in_(team_ids)).all()
-            db_obj.teams = teams
-        
-        db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
-        return db_obj
-    
-    def update_with_relations(
-        self,
-        db: Session,
-        *,
-        db_obj: Project,
-        obj_in: ProjectUpdateSchema
-    ) -> Project:
-        """Update project including members and teams"""
-        update_data = obj_in.model_dump(exclude_unset=True)
-        
-        # Handle members separately
-        if "member_ids" in update_data:
-            from app.models.user import User
-            members = db.query(User).filter(User.id.in_(update_data["member_ids"])).all()
-            db_obj.members = members
-            del update_data["member_ids"]
-        
-        # Handle teams separately
-        if "team_ids" in update_data:
-            from app.models.team_model import Team
-            teams = db.query(Team).filter(Team.id.in_(update_data["team_ids"])).all()
-            db_obj.teams = teams
-            del update_data["team_ids"]
-        
-        # Update other fields
-        for field, value in update_data.items():
-            setattr(db_obj, field, value)
-        
-        db.add(db_obj)
-        db.commit() # ENSURE COMMIT
-        db.refresh(db_obj)
-        return db_obj
+        organization_id: UUID,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> List[Project]:
+        from app.models.team_model import Team
 
-    def get_filtered(
+        return (
+            db.query(self.model)
+            .join(Team)
+            .filter(Team.organization_id == organization_id)
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
+    def get_multi_by_user(
         self,
         db: Session,
         *,
         user_id: UUID,
-        user_team_ids: List[UUID],
-        team_id: Optional[UUID] = None,
         skip: int = 0,
         limit: int = 100,
-        is_admin: bool = False,
-        organization_id: Optional[UUID] = None
     ) -> List[Project]:
-        """Get filtered projects based on visibility and user access"""
-        from app.models.team_model import Team # ENSURE IMPORTED AT START OF METHOD
-        query = db.query(Project).options(
-            selectinload(Project.team),
-            joinedload(Project.lead),
-            selectinload(Project.teams),
-            selectinload(Project.members)
+        from app.models.user import User
+
+        return (
+            db.query(self.model)
+            .join(User.organization_id == organization_id)
+            .offset(skip)
+            .limit(limit)
+            .all()
         )
-        
-        if is_admin and organization_id:
-            # Admin can see all projects in org
-            query = query.join(Project.team).filter(Team.organization_id == organization_id)
-        else:
-            # Everyone in the organization can see all projects
-            query = query.join(Project.team).filter(Team.organization_id == organization_id)
-        
-        if team_id:
-            query = query.filter(Project.team_id == team_id)
-            
-        return query.offset(skip).limit(limit).all()
 
-project = CRUDProject(Project)
-
-
-class CRUDProjectUpdate(CRUDBase[ProjectUpdate, ProjectUpdateCreate, ProjectUpdateLog]):
-    """CRUD operations for ProjectUpdate model"""
-    
-    def create_with_author(
+    def get_by_user(
         self,
         db: Session,
         *,
-        obj_in: ProjectUpdateCreate,
-        author_id: UUID
+        user_id: UUID,
+        team_id: Optional[UUID] = None,
+    ) -> List[Project]:
+        from app.models.team_model import Team
+        from app.models.user import User
+
+        query = (
+            db.query(self.model)
+            .outerjoin(self.model.team)
+            .outerjoin(Team.members)
+            .filter(
+                or_(
+                    self.model.lead_id == user_id,
+                    User.id == user_id,
+                )
+            )
+        )
+
+        if team_id:
+            query = query.filter(self.model.team_id == team_id)
+
+        return query.all()
+
+
+class CRUDProjectUpdate(
+    CRUDBase[ProjectUpdate, ProjectUpdateCreate, ProjectUpdateSchema]
+):
+    def create_with_author(
+        self, db: Session, *, obj_in: ProjectUpdateCreate, author_id: UUID
     ) -> ProjectUpdate:
-        """Create project update with author"""
         obj_in_data = obj_in.model_dump()
         db_obj = ProjectUpdate(**obj_in_data, author_id=author_id)
         db.add(db_obj)
@@ -155,36 +120,29 @@ class CRUDProjectUpdate(CRUDBase[ProjectUpdate, ProjectUpdateCreate, ProjectUpda
         return db_obj
 
 
-class CRUDProjectResource(CRUDBase[ProjectResource, ProjectResourceCreate, ProjectResourceSchema]):
-    """CRUD operations for ProjectResource model"""
-    
+class CRUDResource(CRUDBase[Resource, ProjectResourceCreate, ProjectResourceSchema]):
     def create(
         self,
         db: Session,
         *,
         obj_in: ProjectResourceCreate,
-        project_id: UUID
-    ) -> ProjectResource:
-        """Create project resource"""
+        target_id: UUID,
+        target_type: ResourceTargetType,
+    ) -> Resource:
         obj_in_data = obj_in.model_dump()
-        db_obj = ProjectResource(**obj_in_data, project_id=project_id)
+        db_obj = Resource(**obj_in_data, target_id=target_id, target_type=target_type)
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
         return db_obj
 
 
-class CRUDProjectUpdateComment(CRUDBase[ProjectUpdateComment, ProjectUpdateCommentCreate, any]):
-    """CRUD operations for ProjectUpdateComment model"""
-    
+class CRUDProjectUpdateComment(
+    CRUDBase[ProjectUpdateComment, ProjectUpdateCommentCreate, any]
+):
     def create_with_author(
-        self,
-        db: Session,
-        *,
-        obj_in: ProjectUpdateCommentCreate,
-        author_id: UUID
+        self, db: Session, *, obj_in: ProjectUpdateCommentCreate, author_id: UUID
     ) -> ProjectUpdateComment:
-        """Create comment with author"""
         obj_in_data = obj_in.model_dump()
         db_obj = ProjectUpdateComment(**obj_in_data, author_id=author_id)
         db.add(db_obj)
@@ -193,34 +151,61 @@ class CRUDProjectUpdateComment(CRUDBase[ProjectUpdateComment, ProjectUpdateComme
         return db_obj
 
 
-class CRUDProjectUpdateReaction(CRUDBase[ProjectUpdateReaction, ProjectUpdateReactionCreate, any]):
-    """CRUD operations for ProjectUpdateReaction model"""
-    
-    def toggle(
-        self,
-        db: Session,
-        *,
-        obj_in: ProjectUpdateReactionCreate,
-        user_id: UUID
-    ) -> ProjectUpdateReaction:
-        """Toggle reaction - allows multiple different emojis per user"""
-        # Find if this specific emoji reaction already exists
-        existing = db.query(ProjectUpdateReaction).filter(
-            ProjectUpdateReaction.update_id == obj_in.update_id,
-            ProjectUpdateReaction.user_id == user_id,
-            ProjectUpdateReaction.emoji == obj_in.emoji
-        ).first()
-        
+class CRUDReaction(CRUDBase[Reaction, any, any]):
+    def toggle_update_reaction(
+        self, db: Session, *, update_id: UUID, user_id: UUID, emoji: str
+    ) -> Optional[Reaction]:
+        existing = (
+            db.query(Reaction)
+            .filter(
+                Reaction.target_id == update_id,
+                Reaction.target_type == ReactionTargetType.PROJECT_UPDATE,
+                Reaction.user_id == user_id,
+                Reaction.emoji == emoji,
+            )
+            .first()
+        )
+
         if existing:
-            # If it's the same emoji, remove it (toggle off)
             db.delete(existing)
             db.commit()
             return None
-            
-        db_obj = ProjectUpdateReaction(
-            update_id=obj_in.update_id,
+
+        db_obj = Reaction(
+            target_id=update_id,
+            target_type=ReactionTargetType.PROJECT_UPDATE,
             user_id=user_id,
-            emoji=obj_in.emoji
+            emoji=emoji,
+        )
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+
+    def toggle_comment_reaction(
+        self, db: Session, *, comment_id: UUID, user_id: UUID, emoji: str
+    ) -> Optional[Reaction]:
+        existing = (
+            db.query(Reaction)
+            .filter(
+                Reaction.target_id == comment_id,
+                Reaction.target_type == ReactionTargetType.PROJECT_UPDATE_COMMENT,
+                Reaction.user_id == user_id,
+                Reaction.emoji == emoji,
+            )
+            .first()
+        )
+
+        if existing:
+            db.delete(existing)
+            db.commit()
+            return None
+
+        db_obj = Reaction(
+            target_id=comment_id,
+            target_type=ReactionTargetType.PROJECT_UPDATE_COMMENT,
+            user_id=user_id,
+            emoji=emoji,
         )
         db.add(db_obj)
         db.commit()
@@ -228,41 +213,8 @@ class CRUDProjectUpdateReaction(CRUDBase[ProjectUpdateReaction, ProjectUpdateRea
         return db_obj
 
 
-class CRUDProjectUpdateCommentReaction(CRUDBase[ProjectUpdateCommentReaction, ProjectUpdateCommentReactionCreate, any]):
-    """CRUD operations for ProjectUpdateCommentReaction model"""
-    
-    def toggle(
-        self,
-        db: Session,
-        *,
-        obj_in: ProjectUpdateCommentReactionCreate,
-        user_id: UUID
-    ) -> ProjectUpdateCommentReaction:
-        """Toggle reaction on a comment"""
-        existing = db.query(ProjectUpdateCommentReaction).filter(
-            ProjectUpdateCommentReaction.comment_id == obj_in.comment_id,
-            ProjectUpdateCommentReaction.user_id == user_id,
-            ProjectUpdateCommentReaction.emoji == obj_in.emoji
-        ).first()
-        
-        if existing:
-            db.delete(existing)
-            db.commit()
-            return None
-            
-        db_obj = ProjectUpdateCommentReaction(
-            comment_id=obj_in.comment_id,
-            user_id=user_id,
-            emoji=obj_in.emoji
-        )
-        db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
-        return db_obj
-
-
+project = CRUDProject(Project)
 project_update = CRUDProjectUpdate(ProjectUpdate)
-project_resource = CRUDProjectResource(ProjectResource)
+resource = CRUDResource(Resource)
 project_update_comment = CRUDProjectUpdateComment(ProjectUpdateComment)
-project_update_reaction = CRUDProjectUpdateReaction(ProjectUpdateReaction)
-project_update_comment_reaction = CRUDProjectUpdateCommentReaction(ProjectUpdateCommentReaction)
+reaction = CRUDReaction(Reaction)

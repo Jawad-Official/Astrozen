@@ -34,7 +34,6 @@ export function MainLayout() {
     projects, 
     features,
     teams, 
-    cycles, 
     addIssue,
     deleteIssue,
     addTeam,

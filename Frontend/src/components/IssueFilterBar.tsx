@@ -42,7 +42,6 @@ export function IssueFilterBar() {
     loadFilter,
     deleteFilter,
     projects,
-    cycles,
   } = useIssueStore();
   
   const [filterName, setFilterName] = useState('');
@@ -53,8 +52,6 @@ export function IssueFilterBar() {
     activeFilters.priorities.length > 0 ||
     activeFilters.types.length > 0 ||
     activeFilters.projects.length > 0 ||
-    activeFilters.cycles.length > 0 ||
-    activeFilters.hasNoCycle ||
     activeFilters.hasNoAssignee;
   
   const activeFilterCount = [
@@ -62,8 +59,6 @@ export function IssueFilterBar() {
     activeFilters.priorities.length,
     activeFilters.types.length,
     activeFilters.projects.length,
-    activeFilters.cycles.length,
-    activeFilters.hasNoCycle ? 1 : 0,
     activeFilters.hasNoAssignee ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
   
@@ -105,14 +100,6 @@ export function IssueFilterBar() {
       ? current.filter(p => p !== projectId)
       : [...current, projectId];
     setActiveFilters({ projects: updated });
-  };
-
-  const toggleCycle = (cycleId: string) => {
-    const current = activeFilters.cycles;
-    const updated = current.includes(cycleId)
-      ? current.filter(c => c !== cycleId)
-      : [...current, cycleId];
-    setActiveFilters({ cycles: updated });
   };
   
   return (
@@ -231,39 +218,6 @@ export function IssueFilterBar() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-7 gap-1.5">
-            <Target className="h-3.5 w-3.5" />
-            Cycle
-            {activeFilters.cycles.length > 0 && (
-              <Badge variant="secondary" className="h-4 px-1 text-[10px]">
-                {activeFilters.cycles.length}
-              </Badge>
-            )}
-            <CaretDown className="h-3 w-3" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          <DropdownMenuCheckboxItem
-            checked={activeFilters.hasNoCycle}
-            onCheckedChange={(checked) => setActiveFilters({ hasNoCycle: checked })}
-          >
-            No cycle
-          </DropdownMenuCheckboxItem>
-          <DropdownMenuSeparator />
-          {cycles.map((cycle) => (
-            <DropdownMenuCheckboxItem
-              key={cycle.id}
-              checked={activeFilters.cycles.includes(cycle.id)}
-              onCheckedChange={() => toggleCycle(cycle.id)}
-            >
-              {cycle.name}
-            </DropdownMenuCheckboxItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      
       <Button 
         variant={activeFilters.hasNoAssignee ? 'secondary' : 'ghost'} 
         size="sm" 

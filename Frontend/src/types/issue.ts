@@ -111,14 +111,6 @@ export interface CustomView {
   createdAt: Date;
 }
 
-export interface Cycle {
-  id: string;
-  name: string;
-  startDate: Date;
-  endDate: Date;
-  status: 'upcoming' | 'active' | 'completed';
-}
-
 export interface Comment {
   id: string;
   issueId: string;
@@ -131,7 +123,7 @@ export interface Comment {
 export interface Activity {
   id: string;
   issueId: string;
-  type: 'created' | 'status_changed' | 'priority_changed' | 'type_changed' | 'assigned' | 'comment' | 'cycle_changed';
+  type: 'created' | 'status_changed' | 'priority_changed' | 'type_changed' | 'assigned' | 'comment';
   actor: string;
   actorName?: string;
   oldValue?: string;
@@ -151,9 +143,7 @@ export interface FilterState {
   types: IssueType[];
   projects: string[];
   labels: string[];
-  cycles: string[];
   assignees: string[];
-  hasNoCycle: boolean;
   hasNoAssignee: boolean;
 }
 
@@ -168,7 +158,6 @@ export interface Issue {
   teamId: string; // Added teamId
   featureId: string;
   milestoneId?: string;
-  cycleId?: string;
   assignee?: string;
   assigneeName?: string;
   parentId?: string;
@@ -176,7 +165,6 @@ export interface Issue {
   subIssues?: Issue[];
   resources?: IssueResource[];
   triageStatus?: TriageStatus;
-  estimate?: number;
   dueDate?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -207,11 +195,3 @@ export const TYPE_CONFIG: Record<IssueType, { label: string; icon: string }> = {
   investigation: { label: 'Investigation', icon: 'magnifying-glass' },
 };
 
-export const ESTIMATE_OPTIONS = [
-  { value: 0, label: 'No estimate' },
-  { value: 1, label: '1 point' },
-  { value: 2, label: '2 points' },
-  { value: 3, label: '3 points' },
-  { value: 5, label: '5 points' },
-  { value: 8, label: '8 points' },
-];

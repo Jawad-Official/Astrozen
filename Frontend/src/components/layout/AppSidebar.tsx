@@ -101,10 +101,10 @@ function NavItem({ icon, label, to, onClick, shortcut, badge, indent, end }: Nav
   const active = getIsActive();
 
   const className = cn(
-    'flex w-full items-center gap-2.5 px-2 py-1.5 text-sm rounded-md transition-all duration-150',
-    'hover:bg-white/5',
-    active ? 'bg-white/10 text-foreground' : 'text-muted-foreground',
-    indent && 'pl-7'
+    'flex w-full items-center gap-2.5 px-2.5 py-2 text-sm rounded-lg transition-all duration-150',
+    'hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
+    active ? 'bg-white/10 text-foreground' : 'text-white/50',
+    indent && 'pl-8'
   );
 
   if (to) {
@@ -254,8 +254,8 @@ export function AppSidebar({
 
         {/* Organization Workspace section */}
         <Collapsible open={workspaceOpen} onOpenChange={setWorkspaceOpen} className="mt-4">
-          <CollapsibleTrigger className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground/70 hover:text-muted-foreground w-full group">
-            <CaretDown className={cn('h-3 w-3 transition-transform text-muted-foreground/50 group-hover:text-muted-foreground', !workspaceOpen && '-rotate-90')} />
+          <CollapsibleTrigger className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-white/40 hover:text-white/60 w-full group transition-colors">
+            <CaretDown className={cn('h-3 w-3 transition-transform text-white/30 group-hover:text-white/50', !workspaceOpen && '-rotate-90')} />
             <span>{organization?.name || "Workspace"}</span>
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-1 space-y-0.5">
@@ -285,8 +285,8 @@ export function AppSidebar({
         {/* Favorites section */}
         {favoriteProjects.length > 0 && (
           <Collapsible open={favoritesOpen} onOpenChange={setFavoritesOpen} className="mt-4">
-            <CollapsibleTrigger className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground/70 hover:text-muted-foreground w-full group">
-              <CaretDown className={cn('h-3 w-3 transition-transform text-muted-foreground/50 group-hover:text-muted-foreground', !favoritesOpen && '-rotate-90')} />
+            <CollapsibleTrigger className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-white/40 hover:text-white/60 w-full group transition-colors">
+              <CaretDown className={cn('h-3 w-3 transition-transform text-white/30 group-hover:text-white/50', !favoritesOpen && '-rotate-90')} />
               <span>Favorites</span>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-1 space-y-0.5">
@@ -305,8 +305,8 @@ export function AppSidebar({
 
         {/* Teams section */}
         <Collapsible open={teamsOpen} onOpenChange={setTeamsOpen} className="mt-4">
-          <CollapsibleTrigger className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground/70 hover:text-muted-foreground w-full group">
-            <CaretDown className={cn('h-3 w-3 transition-transform text-muted-foreground/50 group-hover:text-muted-foreground', !teamsOpen && '-rotate-90')} />
+          <CollapsibleTrigger className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-white/40 hover:text-white/60 w-full group transition-colors">
+            <CaretDown className={cn('h-3 w-3 transition-transform text-white/30 group-hover:text-white/50', !teamsOpen && '-rotate-90')} />
             <span>Teams</span>
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-1 space-y-1">
@@ -318,26 +318,27 @@ export function AppSidebar({
                 >
                   <CollapsibleTrigger asChild>
                     <div 
-                      className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground w-full rounded-md hover:bg-white/5 group cursor-pointer"
+                      className="flex items-center gap-2.5 px-2.5 py-2 text-sm text-white/50 hover:text-white w-full rounded-lg hover:bg-white/5 group cursor-pointer transition-colors"
                     >
-                    <div className="flex h-5 w-5 items-center justify-center rounded bg-zinc-800 text-zinc-400 text-[10px] font-bold group-hover:bg-zinc-700">
+                    <div className="flex h-5 w-5 items-center justify-center rounded bg-zinc-800 text-zinc-500 text-[10px] font-bold group-hover:bg-zinc-700 group-hover:text-zinc-400 transition-colors">
                       {team.identifier.charAt(0)}
                     </div>
                     <span className="flex-1 text-left truncate">{team.name}</span>
                     <div className="flex items-center gap-1.5">
                       {canManageTeam(user, team) && (
-                        <div
+                        <button
                           role="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleNavClick(`/teams/${team.id}/settings`);
                           }}
-                          className="p-0.5 hover:bg-white/10 rounded-sm opacity-0 group-hover:opacity-100 transition-all text-muted-foreground/50 hover:text-foreground cursor-pointer"
+                          className="p-1 hover:bg-white/10 rounded-md opacity-0 group-hover:opacity-100 transition-all text-white/30 hover:text-white cursor-pointer focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
+                          aria-label="Team settings"
                         >
                           <Sliders className="h-3 w-3" />
-                        </div>
+                        </button>
                       )}
-                      <CaretRight weight="bold" className={cn('h-3 w-3 transition-transform text-muted-foreground/50', openTeams[team.id] && 'rotate-90')} />
+                      <CaretRight weight="bold" className={cn('h-3 w-3 transition-transform text-white/30', openTeams[team.id] && 'rotate-90')} />
                     </div>
                   </div>
                 </CollapsibleTrigger>

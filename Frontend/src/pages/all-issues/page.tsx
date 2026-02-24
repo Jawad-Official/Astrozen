@@ -5,7 +5,8 @@ import { hasTeamAccess } from '@/lib/permissions';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { IssueBar } from '@/components/IssueBar';
 import { AllIssuesHeader } from '@/components/AllIssuesHeader';
-import { Lock } from '@phosphor-icons/react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Lock, CircleDashed } from '@phosphor-icons/react';
 
 interface MainLayoutContext {
   onCreateIssue: () => void;
@@ -57,16 +58,11 @@ const AllIssuesPage = () => {
           onCreateIssue={onCreateIssue}
           onOpenCommandPalette={onOpenCommandPalette}
         />
-        <div className="flex-1 flex flex-col items-center justify-center bg-[#090909] text-center p-8">
-          <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mb-6 shadow-2xl">
-            <Lock weight="bold" className="h-8 w-8 text-white/20" />
-          </div>
-          <h3 className="text-xl font-semibold text-white/90 mb-2">Restricted Access</h3>
-          <p className="text-sm text-white/40 max-w-[320px]">
-            You don't have permission to view data for the <span className="text-white/60 font-medium">{selectedTeam?.name || 'requested'}</span> team.
-            Only admins and team leaders can access this information.
-          </p>
-        </div>
+        <EmptyState
+          icon={<Lock weight="duotone" className="h-8 w-8 text-white/20" />}
+          title="Restricted Access"
+          description={`You don't have permission to view data for the ${selectedTeam?.name || 'requested'} team. Only admins and team leaders can access this information.`}
+        />
       </>
     );
   }

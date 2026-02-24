@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Issue, Label, Project, Comment, Activity, SavedFilter, FilterState, TriageStatus, Cycle, CustomView } from '@/types/issue';
+import { Issue, Label, Project, Comment, Activity, SavedFilter, FilterState, TriageStatus, CustomView } from '@/types/issue';
 import { Feature, FeatureMilestone } from '@/types/feature';
 import { Team } from '@/types/auth';
 import { issueService } from '@/services/issues';
@@ -16,7 +16,6 @@ interface IssueStore {
   projects: Project[];
   features: Feature[];
   teams: Team[];
-  cycles: Cycle[];
   labels: Label[];
   comments: Comment[];
   activities: Activity[];
@@ -28,7 +27,6 @@ interface IssueStore {
   error: string | null;
   
   selectedProjectId: string | null;
-  selectedCycleId: string | null;
   selectedIssueId: string | null;
   viewMode: 'list' | 'board';
   currentView: ViewType;
@@ -111,8 +109,6 @@ interface IssueStore {
   getIssueById: (id: string) => Issue | undefined;
   getIssueComments: (issueId: string) => Comment[];
   getIssueActivities: (issueId: string) => Activity[];
-  getActiveCycle: () => Cycle | undefined;
-  getCycleIssues: (cycleId: string) => Issue[];
 }
 
 const defaultFilters: FilterState = {
@@ -121,9 +117,7 @@ const defaultFilters: FilterState = {
   types: [],
   projects: [],
   labels: [],
-  cycles: [],
   assignees: [],
-  hasNoCycle: false,
   hasNoAssignee: false,
 };
 
@@ -132,7 +126,6 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
   projects: [],
   features: [],
   teams: [],
-  cycles: [],
   labels: [
     { id: '1', name: 'Bug', color: 'red' },
     { id: '2', name: 'Feature', color: 'blue' },
@@ -695,12 +688,6 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
       const featureIds = projectFeatures.map(f => f.id);
       filtered = filtered.filter(i => featureIds.includes(i.featureId));
     }
-    if (activeFilters.cycles.length > 0) {
-      filtered = filtered.filter(i => i.cycleId && activeFilters.cycles.includes(i.cycleId));
-    }
-    if (activeFilters.hasNoCycle) {
-      filtered = filtered.filter(i => !i.cycleId);
-    }
     if (activeFilters.hasNoAssignee) {
       filtered = filtered.filter(i => !i.assignee);
     }
@@ -724,11 +711,4 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
     return get().activities.filter((a) => a.issueId === issueId);
   },
 
-  getActiveCycle: () => {
-    return get().cycles.find((c) => c.status === 'active');
-  },
-
-  getCycleIssues: (cycleId) => {
-    return get().issues.filter((issue) => issue.cycleId === cycleId);
-  },
 }));

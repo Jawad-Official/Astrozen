@@ -1,7 +1,14 @@
 from pydantic import BaseModel, UUID4
 from typing import Optional, List
 from datetime import datetime, date
-from app.models.project import ProjectStatus, ProjectHealth, ProjectPriority, Visibility
+from app.models.project import (
+    ProjectStatus,
+    ProjectHealth,
+    ProjectPriority,
+    Visibility,
+    ResourceType,
+    ResourceTargetType,
+)
 from app.schemas.user import UserBase, UserInDB
 from app.schemas.team import Team as TeamSchema
 
@@ -15,11 +22,11 @@ class ProjectBase(BaseModel):
     health: ProjectHealth = ProjectHealth.NO_UPDATES
     priority: ProjectPriority = ProjectPriority.NONE
     is_favorite: bool = False
-    
+
     # New fields
     team_id: Optional[UUID4] = None
     visibility: Visibility = Visibility.TEAM
-    
+
     start_date: Optional[date] = None
     target_date: Optional[date] = None
 
@@ -48,9 +55,6 @@ class ProjectUpdate(BaseModel):
     team_ids: Optional[List[UUID4]] = None
 
 
-
-
-
 # Milestone schemas
 class MilestoneBase(BaseModel):
     name: str
@@ -74,7 +78,7 @@ class Milestone(MilestoneBase):
     id: UUID4
     project_id: UUID4
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
         use_enum_values = True
@@ -165,7 +169,7 @@ class ProjectUpdateLog(ProjectUpdateBase):
 class ProjectResourceBase(BaseModel):
     name: str
     url: str
-    type: str # ResourceType enum as string
+    type: str
 
 
 class ProjectResourceCreate(ProjectResourceBase):
@@ -174,7 +178,8 @@ class ProjectResourceCreate(ProjectResourceBase):
 
 class ProjectResource(ProjectResourceBase):
     id: UUID4
-    project_id: UUID4
+    target_type: ResourceTargetType
+    target_id: UUID4
     created_at: datetime
 
     class Config:
@@ -192,7 +197,7 @@ class Project(ProjectBase):
     resources: List[ProjectResource] = []
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
         use_enum_values = True

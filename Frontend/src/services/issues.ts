@@ -6,7 +6,6 @@ export interface IssueFilterParams {
   status?: IssueStatus[];
   priority?: IssuePriority[];
   project_id?: string;
-  cycle_id?: string;
   assignee_id?: string;
   search?: string;
   skip?: number;
@@ -47,10 +46,8 @@ export const issueService = {
       team_id: data.teamId, // Added team_id
       feature_id: data.featureId,
       milestone_id: data.milestoneId, // Added milestone_id
-      cycle_id: data.cycleId,
-      assignee_id: data.assignee, 
+      assignee_id: data.assignee,
       parent_id: data.parentId,
-      estimate: data.estimate,
       due_date: data.dueDate,
       label_ids: data.labels?.map(l => l.id) || []
     };
@@ -63,7 +60,6 @@ export const issueService = {
     if (data.issueType) payload.issue_type = data.issueType;
     if (data.featureId) payload.feature_id = data.featureId;
     if (data.milestoneId !== undefined) payload.milestone_id = data.milestoneId; // Added milestone_id
-    if (data.cycleId) payload.cycle_id = data.cycleId;
     if (data.assignee) payload.assignee_id = data.assignee;
     if (data.dueDate) payload.due_date = data.dueDate;
     if (data.labels) payload.label_ids = data.labels.map(l => l.id);
@@ -73,7 +69,6 @@ export const issueService = {
     delete payload.featureId;
     delete payload.milestoneId; // Remove milestoneId
     delete payload.projectId;
-    delete payload.cycleId;
     delete payload.assignee;
     delete payload.dueDate;
     delete payload.labels;

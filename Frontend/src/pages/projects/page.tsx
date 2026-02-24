@@ -4,11 +4,14 @@ import { useAuth } from '@/context/AuthContext';
 import { hasTeamAccess } from '@/lib/permissions';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { SkeletonList } from '@/components/ui/skeleton';
+import { EmptyState, LoadingState } from '@/components/ui/empty-state';
 import { 
   Plus, 
   Columns, 
   Eye,
   Lock,
+  FolderSimple,
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { Project, ProjectStatus } from '@/types/issue';
@@ -104,9 +107,7 @@ const ProjectsPage = () => {
       </div>
 
       {isLoading ? (
-        <div className="flex-1 flex items-center justify-center bg-[#090909]">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
-        </div>
+        <LoadingState message="Loading projects..." />
       ) : (
         <div className="flex-1 overflow-y-auto scrollbar-none px-2 py-4">
           <div className="max-w-7xl mx-auto space-y-8 pb-20">
@@ -116,10 +117,10 @@ const ProjectsPage = () => {
               return (
                 <div key={status}>
                   <div className="flex items-center gap-3 px-4 py-2 mb-2">
-                    <Badge variant="outline" className={cn("h-5 px-2 text-[9px] font-black uppercase tracking-[0.2em] bg-white/5 border-white/5", getStatusColorClass(status).replace('bg-', 'text-'))}>
+                    <Badge variant="surface" className={cn("h-5 px-2.5 text-[10px] font-bold uppercase tracking-wider", getStatusColorClass(status).replace('bg-', 'text-'))}>
                       {PROJECT_STATUS_CONFIG[status].label}
                     </Badge>
-                    <span className="flex h-5 w-5 items-center justify-center rounded-md bg-white/5 text-[10px] font-bold text-white/20 border border-white/5">{statusProjects.length}</span>
+                    <span className="flex h-5 w-5 items-center justify-center rounded-md bg-white/5 text-[10px] font-bold text-white/30 border border-white/5">{statusProjects.length}</span>
                   </div>
                   <div className="space-y-1">
                     {statusProjects.map((project) => (
@@ -140,20 +141,15 @@ const ProjectsPage = () => {
               );
             })}
             {projects.length === 0 && (
-               <div className="flex flex-col items-center justify-center py-20 text-muted-foreground animate-in fade-in zoom-in duration-500">
-                 <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mb-6 shadow-2xl">
-                   <div className="text-3xl opacity-50">📁</div>
-                 </div>
-                 <h3 className="text-xl font-semibold text-white/90 mb-2">No projects yet</h3>
-                 <p className="text-sm text-white/40 mb-8 max-w-[280px] text-center">Get started by creating your first project to organize your team's work.</p>
-                 <Button 
-                   onClick={() => setCreateDialogOpen(true)}
-                   className="h-10 px-6 gap-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:scale-105"
-                 >
-                   <Plus className="h-4 w-4" />
-                   Create Project
-                 </Button>
-               </div>
+              <EmptyState
+                iconType="folder"
+                title="No projects yet"
+                description="Get started by creating your first project to organize your team's work."
+                action={{
+                  label: "Create Project",
+                  onClick: () => setCreateDialogOpen(true),
+                }}
+              />
             )}
           </div>
         </div>

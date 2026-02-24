@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { Feature, FeatureStatus, FeatureHealth, FeatureMilestone } from '@/types/feature';
+import { Feature, FeatureStatus, FeatureHealth, FeatureMilestone, FeatureType } from '@/types/feature';
 import { Project, IssuePriority, PRIORITY_CONFIG } from '@/types/issue';
 import { Team } from '@/types/auth';
 import {
@@ -36,6 +36,7 @@ import {
   CornersIn,
   CornersOut,
   ArrowRight,
+  User,
 } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import {
@@ -77,6 +78,13 @@ export const FEATURE_HEALTH_CONFIG: Record<FeatureHealth, { label: string; color
   on_track: { label: 'On Track', color: 'text-emerald-400' },
   at_risk: { label: 'At Risk', color: 'text-yellow-400' },
   off_track: { label: 'Off Track', color: 'text-red-400' },
+};
+
+export const FEATURE_TYPE_CONFIG: Record<FeatureType, { label: string; icon: string }> = {
+  new_capability: { label: 'New Capability', icon: '✨' },
+  enhancement: { label: 'Enhancement', icon: '🔧' },
+  experiment: { label: 'Experiment', icon: '🧪' },
+  infrastructure: { label: 'Infrastructure', icon: '🏗️' },
 };
 
 const PRIORITY_ORDER: IssuePriority[] = ['urgent', 'high', 'medium', 'low', 'none'];
@@ -719,6 +727,7 @@ export const FeatureWindow = {
       features, 
       projects,
       teams,
+      orgMembers,
       onClose, 
       onUpdateFeature, 
       onDeleteFeature, 
@@ -734,6 +743,7 @@ export const FeatureWindow = {
       features: Feature[]; 
       projects: Project[];
       teams?: Team[];
+      orgMembers?: any[];
       onClose: () => void; 
       onUpdateFeature: (id: string, updates: Partial<Feature>) => Promise<void>; 
       onDeleteFeature: (id: string) => Promise<void>; 
@@ -751,7 +761,12 @@ export const FeatureWindow = {
       const [createSubFeatureOpen, setCreateSubFeatureOpen] = useState(false);
       const feature = useMemo(() => featureId ? features.find(f => f.id === featureId) : null, [features, featureId]);
       const project = useMemo(() => feature ? projects.find(p => p.id === feature.projectId) : null, [projects, feature?.projectId]);
-  
+
+      const getInitials = (name?: string) => {
+        if (!name) return '?';
+        return name.split(' ').map(n => n?.[0] || '').join('').toUpperCase().slice(0, 2);
+      };
+
       const handleUpdateStatus = async (status: FeatureStatus) => {
         if (!feature) return;
         try {
@@ -760,6 +775,20 @@ export const FeatureWindow = {
         } catch (error: any) {
           toast({ 
             title: 'Failed to update status', 
+            description: error.response?.data?.detail || 'An error occurred',
+            variant: 'destructive' 
+          });
+        }
+      };
+
+      const handleUpdateType = async (type: FeatureType) => {
+        if (!feature) return;
+        try {
+          await onUpdateFeature(feature.id, { type });
+          toast({ title: 'Type updated' });
+        } catch (error: any) {
+          toast({ 
+            title: 'Failed to update type', 
             description: error.response?.data?.detail || 'An error occurred',
             variant: 'destructive' 
           });
@@ -788,6 +817,20 @@ export const FeatureWindow = {
         } catch (error: any) {
           toast({ 
             title: 'Failed to update priority', 
+            description: error.response?.data?.detail || 'An error occurred',
+            variant: 'destructive' 
+          });
+        }
+      };
+
+      const handleUpdateOwner = async (ownerId: string | undefined) => {
+        if (!feature) return;
+        try {
+          await onUpdateFeature(feature.id, { ownerId });
+          toast({ title: 'Owner updated' });
+        } catch (error: any) {
+          toast({ 
+            title: 'Failed to update owner', 
             description: error.response?.data?.detail || 'An error occurred',
             variant: 'destructive' 
           });
@@ -878,276 +921,329 @@ export const FeatureWindow = {
             
             {feature ? (
               <div className="flex-1 flex overflow-hidden">
-                {/* Main Content Page */}
                 <ScrollArea className="flex-1 h-full bg-[#080809]">
-                  <div className="max-w-4xl mx-auto py-8 px-6 space-y-6">
-                    {/* Page Header Area */}
+                  <div className="max-w-4xl mx-auto py-12 px-10 space-y-10">
                     <div className="space-y-6">
-                      <div className="flex items-center gap-3">
-                        <Badge variant="outline" className={cn("h-6 px-3 text-[10px] font-black uppercase tracking-widest border-white/5 bg-white/5", FEATURE_STATUS_CONFIG[feature.status].color)}>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className={cn("h-5 px-2.5 text-[9px] font-black uppercase tracking-widest border-white/10 bg-white/5", FEATURE_STATUS_CONFIG[feature.status].color)}>
                           {FEATURE_STATUS_CONFIG[feature.status].label}
                         </Badge>
-                        <div className="h-1 w-1 rounded-full bg-white/10" />
                         <FeatureWindow.HealthIcon health={feature.health} className="h-2 w-2" />
-                        <span className={cn("text-[10px] font-black uppercase tracking-widest", FEATURE_HEALTH_CONFIG[feature.health].color)}>
+                        <span className={cn("text-[9px] font-bold uppercase tracking-widest", FEATURE_HEALTH_CONFIG[feature.health].color)}>
                           {FEATURE_HEALTH_CONFIG[feature.health].label}
                         </span>
                       </div>
 
-                      <div className="flex flex-col gap-1">
-                        <h2 className="text-2xl font-black tracking-[-0.02em] text-white leading-tight selection:bg-primary/30">
-                          {feature.name}
-                        </h2>
-                        {feature.parentId && (
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Sub-Feature of</span>
-                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/5 border border-white/5">
-                              <Package className="h-3 w-3 text-white/40" />
-                              <span className="text-[10px] font-bold text-white/60 uppercase tracking-wider">
-                                {features.find(f => f.id === feature.parentId)?.name || '...'}
+                      <div className="flex items-start gap-4">
+                        <div className="h-14 w-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-2xl shrink-0">
+                          {FEATURE_TYPE_CONFIG[feature.type || 'new_capability']?.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h2 className="text-3xl font-bold tracking-tight text-white leading-tight selection:bg-primary/30">
+                            {feature.name}
+                          </h2>
+                          {feature.parentId && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <Package className="h-3 w-3 text-white/30" />
+                              <span className="text-[10px] text-white/40">
+                                Sub-feature of <span className="text-white/60 font-medium">{features.find(f => f.id === feature.parentId)?.name || '...'}</span>
                               </span>
                             </div>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
 
                       {project && (
                         <div 
-                          className="flex items-center gap-3.5 bg-white/[0.04] backdrop-blur-md border border-white/10 p-4 rounded-2xl w-fit group hover:border-primary/40 transition-all cursor-pointer shadow-lg ring-1 ring-white/5 hover:ring-primary/20"
+                          className="flex items-center gap-3 bg-white/[0.02] border border-white/5 p-3 rounded-xl w-fit group hover:border-white/10 transition-all cursor-pointer"
                           onClick={() => navigate(`/projects/${project.id}`)}
                         >
-                            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 flex items-center justify-center text-xl shadow-inner group-hover:scale-105 transition-transform duration-500">
+                          <div className="h-9 w-9 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
                             {project.icon}
                           </div>
-                          <div className="flex flex-col pr-6">
-                            <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/30 mb-0.5">Project</span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-base font-black text-white/80 tracking-tight leading-none">{project.name}</span>
-                            </div>
+                          <div className="flex flex-col">
+                            <span className="text-[9px] font-bold text-white/30 uppercase tracking-widest">Project</span>
+                            <span className="text-sm font-semibold text-white/70">{project.name}</span>
                           </div>
                         </div>
                       )}
                     </div>
 
-                    {/* Problem Statement Area */}
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-3 text-primary/40">
-                        <div className="h-px w-6 bg-current opacity-20" />
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Description</h3>
-                      </div>
-                      
-                      <div className="relative text-base text-white/80 leading-relaxed font-medium tracking-tight bg-gradient-to-b from-white/[0.03] to-transparent p-6 rounded-2xl border border-white/10 shadow-lg group/statement overflow-hidden ring-1 ring-white/5">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-primary/20" />
-                        <div className="relative z-10">
-                          {feature.problemStatement || 'No description provided.'}
-                        </div>
-                        <Button variant="ghost" size="icon" className="absolute right-6 top-6 h-9 w-9 rounded-full bg-[#0C0C0D] border border-white/10 text-primary opacity-0 group-hover/statement:opacity-100 transition-all shadow-xl hover:scale-105 active:scale-95 duration-300">
-                          <NotePencil className="h-5 w-5" />
-                        </Button>
+                    <div className="space-y-3">
+                      <h3 className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Description</h3>
+                      <div className="text-sm text-white/60 leading-relaxed p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                        {feature.problemStatement || <span className="text-white/20 italic">No description provided.</span>}
                       </div>
                     </div>
 
-                                        {/* Strategic Composition (Sub-features) */}
-                                        <div className="space-y-6">
-                                          <div className="flex items-center justify-between group/section">
-                                            <div className="flex items-center gap-3 text-primary/40">
-                                              <div className="h-px w-6 bg-current opacity-20" />
-                                              <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Sub-Features</h3>
-                                            </div>
-                                            <Button 
-                                              variant="ghost" 
-                                              size="sm" 
-                                              className="h-7 px-2 text-[9px] font-black uppercase tracking-widest text-white/20 hover:text-primary transition-all rounded-lg"
-                                              onClick={() => onAddSubFeature?.(feature)}
-                                            >
-                                              <Plus className="h-3 w-3 mr-1.5" />
-                                              Create Sub-feature
-                                            </Button>
-                                          </div>
-                                          
-                                          {features.filter(f => f.parentId === feature.id).length > 0 ? (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                              {features.filter(f => f.parentId === feature.id).map(subF => (
-                                                <div 
-                                                  key={subF.id}
-                                                   className="group relative bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 hover:border-primary/20 p-3.5 rounded-xl transition-all cursor-pointer shadow-md"
-                                                  onClick={() => {
-                                                    onClose();
-                                                    navigate(`/features/${subF.id}`);
-                                                  }}
-                                                >
-                                                  <div className="flex items-center justify-between mb-3">
-                                                    <Badge variant="outline" className="h-5 px-2 text-[8px] font-black uppercase tracking-widest border-white/10 bg-white/5 text-white/40">
-                                                      {subF.identifier}
-                                                    </Badge>
-                                                    <FeatureWindow.HealthIcon health={subF.health} />
-                                                  </div>
-                                                  <h4 className="text-sm font-bold text-white/70 group-hover:text-primary transition-colors mb-1">{subF.name}</h4>
-                                                  <p className="text-[10px] text-white/20 line-clamp-2 font-medium leading-relaxed">
-                                                    {subF.problemStatement || "Part of " + feature.name}
-                                                  </p>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          ) : (
-                                            <div className="py-8 bg-white/[0.01] border border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center gap-3">
-                                              <Package className="h-6 w-6 text-white/5" />
-                                              <span className="text-[10px] font-bold text-white/10 uppercase tracking-widest">No sub-features defined</span>
-                                            </div>
-                                          )}
-                                        </div>
-                    
-                                        <div className="relative py-6">
-                                          <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                                            <div className="w-full border-t border-white/5" />
-                                          </div>
-                                          <div className="relative flex justify-center">
-                                            <span className="bg-[#080809] px-6 text-[10px] font-black uppercase tracking-[0.6em] text-white/10">Feature Context</span>
-                                          </div>
-                                        </div>
-                    
-                                        {/* Strategic Roadmap */}
-                                        <div className="space-y-8 pb-24">
-                                          <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-4">
-                                              <div className="h-8 w-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-lg shadow-primary/5">
-                                                <Target className="h-4 w-4" />
-                                              </div>
-                                              <div>
-                                                <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-white/80">Roadmap</h3>
-                                                <p className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] mt-0.5">Tasks & Goals</p>
-                                              </div>
-                                                                    </div>
-                                                                    <Button 
-                                                                      onClick={() => onAddMilestone(feature.id)}
-                                                                      className="h-9 px-4 rounded-lg bg-white/5 border border-white/10 hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all text-[9px] font-black uppercase tracking-[0.2em] shadow-lg group/roadmap"
-                                                                    >
-                                                                      <Plus className="mr-2 h-3.5 w-3.5 group-hover:rotate-90 transition-transform duration-300" />
-                                                                      Add Item
-                                                                    </Button>
-                                                                  </div>                      {feature.milestones && feature.milestones.length > 0 ? (
-                        <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-[#0C0C0D] to-[#080809] overflow-hidden shadow-2xl p-2 ring-1 ring-white/5">
-                          {(() => {
-                            const mapMilestonesToTasks = (ms: FeatureMilestone[]): Task[] => {
-                              return ms.map(m => ({
-                                id: m.id,
-                                title: m.name,
-                                description: m.description || '',
-                                status: m.completed ? 'completed' : 'pending',
-                                priority: 'medium',
-                                level: 0,
-                                dependencies: [],
-                                subtasks: [] as any[]
-                              }));
-                            };
-                            return (
-                              <AgentPlan 
-                                tasks={mapMilestonesToTasks(feature.milestones)}
-                                onToggleStatus={(taskId) => handleToggleMilestoneStatus(taskId)}
-                                onCreateIssue={(milestoneId) => onCreateIssueForMilestone?.(feature.id, milestoneId)}
-                                onDeleteTask={(milestoneId) => onDeleteMilestone(feature.id, milestoneId)}
-                              />
-                            );
-                          })()}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Sub-Features</h3>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 px-3 text-[9px] font-bold text-white/30 hover:text-primary"
+                          onClick={() => onAddSubFeature?.(feature)}
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Add
+                        </Button>
+                      </div>
+                      
+                      {features.filter(f => f.parentId === feature.id).length > 0 ? (
+                        <div className="grid grid-cols-2 gap-3">
+                          {features.filter(f => f.parentId === feature.id).map(subF => (
+                            <div 
+                              key={subF.id}
+                              className="group bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 hover:border-primary/20 p-3 rounded-lg transition-all cursor-pointer"
+                              onClick={() => { onClose(); navigate(`/features/${subF.id}`); }}
+                            >
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[9px] font-bold text-white/30">{subF.identifier}</span>
+                                <FeatureWindow.HealthIcon health={subF.health} />
+                              </div>
+                              <h4 className="text-xs font-semibold text-white/70 group-hover:text-primary transition-colors">{subF.name}</h4>
+                            </div>
+                          ))}
                         </div>
                       ) : (
-                        <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-b from-white/[0.02] to-transparent border border-dashed border-white/10 rounded-[32px] space-y-6 shadow-inner">
-                          <div className="h-14 w-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-white/10 shadow-xl relative">
-                            <Target className="h-7 w-7" />
-                            <div className="absolute inset-0 bg-primary/5 blur-2xl rounded-full animate-pulse" />
-                          </div>
-                          <div className="text-center space-y-3">
-                            <span className="block text-[11px] font-black text-white/30 uppercase tracking-[0.4em]">Empty Roadmap</span>
-                            <p className="text-[11px] text-white/10 font-bold max-w-sm leading-relaxed px-12">Start planning the delivery path for this feature.</p>
-                          </div>
-                          <Button 
-                            variant="outline"
-                            onClick={() => onAddMilestone(feature.id)}
-                            className="bg-white/5 border-white/10 rounded-xl h-10 px-6 text-[9px] font-black uppercase tracking-widest hover:bg-white/10 transition-all font-mono"
-                          >
-                            Create First Item
-                          </Button>
+                        <div className="py-6 border border-dashed border-white/5 rounded-lg flex items-center justify-center">
+                          <span className="text-[10px] text-white/20">No sub-features</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border-t border-white/5 pt-6 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Roadmap</h3>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 px-3 text-[9px] font-bold text-white/30 hover:text-primary"
+                          onClick={() => onAddMilestone(feature.id)}
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Add Milestone
+                        </Button>
+                      </div>
+                      
+                      {feature.milestones && feature.milestones.length > 0 ? (
+                        <div className="space-y-2">
+                          {feature.milestones.map(m => (
+                            <div key={m.id} className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/5 rounded-lg group">
+                              <button
+                                onClick={() => handleToggleMilestoneStatus(m.id)}
+                                className="flex-shrink-0"
+                              >
+                                {m.completed ? (
+                                  <CheckSquare weight="fill" className="h-4 w-4 text-emerald-500" />
+                                ) : (
+                                  <Square className="h-4 w-4 text-white/20 group-hover:text-white/40 transition-colors" />
+                                )}
+                              </button>
+                              <div className="flex-1 min-w-0">
+                                <span className={cn("text-xs font-medium", m.completed ? "text-white/40 line-through" : "text-white/70")}>
+                                  {m.name}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-6 w-6 text-white/20 hover:text-primary"
+                                  onClick={() => onCreateIssueForMilestone?.(feature.id, m.id)}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-6 w-6 text-white/20 hover:text-red-400"
+                                  onClick={() => onDeleteMilestone(feature.id, m.id)}
+                                >
+                                  <Trash className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="py-10 border border-dashed border-white/5 rounded-lg flex flex-col items-center justify-center gap-3">
+                          <Target className="h-8 w-8 text-white/10" />
+                          <span className="text-[10px] text-white/20">No milestones yet</span>
                         </div>
                       )}
                     </div>
                   </div>
                 </ScrollArea>
 
-                {/* High-Fidelity Properties Sidebar */}
-                <aside className="w-[300px] h-full bg-[#0C0C0D] shrink-0 flex flex-col border-l border-white/5 shadow-2xl">
+                <aside className="w-[320px] h-full bg-[#0C0C0D] shrink-0 flex flex-col border-l border-white/5">
                   <ScrollArea className="flex-1">
-                    <div className="p-6 space-y-8">
-                      {/* Minimal Side Controls */}
+                    <div className="p-5 space-y-6">
                       <div className="space-y-4">
-                        <Select value={feature.status} onValueChange={(v) => handleUpdateStatus(v as FeatureStatus)}>
-                          <SelectTrigger className="h-10 bg-white/[0.03] border-white/10 rounded-xl hover:bg-white/5 transition-all font-bold px-4 shadow-lg ring-1 ring-white/5">
-                            <SelectValue>
-                              <Badge variant="outline" className={cn("h-6 p-0 border-none bg-transparent uppercase tracking-widest text-[10px] font-black", FEATURE_STATUS_CONFIG[feature.status].color)}>
-                                {FEATURE_STATUS_CONFIG[feature.status].label}
-                              </Badge>
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent className="bg-[#0C0C0D] border-white/10 shadow-2xl rounded-[24px] p-2">
-                            {Object.entries(FEATURE_STATUS_CONFIG).map(([s, config]) => (
-                              <SelectItem key={s} value={s} className="rounded-xl focus:bg-primary/10 focus:text-primary m-1 px-4 py-3 cursor-pointer">
-                                <span className={cn("text-[10px] font-black uppercase tracking-[0.2em]", config.color)}>{config.label}</span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex items-center gap-2 text-white/20">
+                          <Gear className="h-3 w-3" />
+                          <h3 className="text-[9px] font-bold uppercase tracking-widest">Properties</h3>
+                        </div>
 
-                        <Select value={feature.health} onValueChange={(v) => handleUpdateHealth(v as FeatureHealth)}>
-                          <SelectTrigger className="h-10 bg-white/[0.03] border-white/10 rounded-xl hover:bg-white/5 transition-all font-bold px-4 shadow-lg ring-1 ring-white/5">
-                            <SelectValue>
-                              <div className="flex items-center gap-3">
-                                <FeatureWindow.HealthIcon health={feature.health} />
-                                <span className={cn("text-[10px] font-black uppercase tracking-widest", FEATURE_HEALTH_CONFIG[feature.health].color)}>
-                                  {FEATURE_HEALTH_CONFIG[feature.health].label}
-                                </span>
-                              </div>
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent className="bg-[#0C0C0D] border-white/10 shadow-2xl rounded-[24px] p-2">
-                            {Object.entries(FEATURE_HEALTH_CONFIG).map(([h, config]) => (
-                              <SelectItem key={h} value={h} className="rounded-xl focus:bg-white/5 m-1 px-4 py-3 cursor-pointer">
-                                <div className="flex items-center gap-3">
-                                  <FeatureWindow.HealthIcon health={h as FeatureHealth} />
-                                  <span className={cn("text-[10px] font-black uppercase tracking-[0.2em]", config.color)}>{config.label}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="space-y-3">
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-semibold text-white/30 uppercase tracking-wide">Type</label>
+                            <Select value={feature.type || 'new_capability'} onValueChange={(v) => handleUpdateType(v as FeatureType)}>
+                              <SelectTrigger className="h-9 bg-white/[0.03] border-white/5 rounded-lg text-xs">
+                                <SelectValue>
+                                  <div className="flex items-center gap-2">
+                                    <span>{FEATURE_TYPE_CONFIG[feature.type || 'new_capability']?.icon}</span>
+                                    <span className="text-white/60">{FEATURE_TYPE_CONFIG[feature.type || 'new_capability']?.label}</span>
+                                  </div>
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent className="bg-[#0C0C0D] border-white/10 rounded-xl">
+                                {Object.entries(FEATURE_TYPE_CONFIG).map(([key, config]) => (
+                                  <SelectItem key={key} value={key} className="rounded-lg">
+                                    <div className="flex items-center gap-2">
+                                      <span>{config.icon}</span>
+                                      <span>{config.label}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
 
-                        <Select value={feature.priority || 'none'} onValueChange={(v) => handleUpdatePriority(v as IssuePriority)}>
-                          <SelectTrigger className="h-10 bg-white/[0.03] border-white/10 rounded-xl hover:bg-white/5 transition-all font-bold px-4 shadow-lg ring-1 ring-white/5">
-                            <SelectValue>
-                              <div className="flex items-center gap-3">
-                                <FeatureWindow.PriorityIcon priority={feature.priority || 'none'} />
-                                <span className={cn("text-[10px] font-black uppercase tracking-widest", PRIORITY_CONFIG[feature.priority || 'none'].color)}>
-                                  {PRIORITY_CONFIG[feature.priority || 'none'].label}
-                                </span>
-                              </div>
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent className="bg-[#0C0C0D] border-white/10 shadow-2xl rounded-[24px] p-2">
-                            {Object.entries(PRIORITY_CONFIG).map(([p, config]) => (
-                              <SelectItem key={p} value={p} className="rounded-xl m-1 focus:bg-white/5 cursor-pointer py-3 px-4">
-                                <div className="flex items-center gap-3">
-                                  <FeatureWindow.PriorityIcon priority={p as any} />
-                                  <span className={cn("text-[10px] font-black uppercase tracking-widest", config.color)}>{config.label}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-semibold text-white/30 uppercase tracking-wide">Status</label>
+                            <Select value={feature.status} onValueChange={(v) => handleUpdateStatus(v as FeatureStatus)}>
+                              <SelectTrigger className="h-9 bg-white/[0.03] border-white/5 rounded-lg text-xs">
+                                <SelectValue>
+                                  <div className="flex items-center gap-2">
+                                    <FeatureWindow.StatusIcon status={feature.status} className="h-3.5 w-3.5" />
+                                    <span className={cn(FEATURE_STATUS_CONFIG[feature.status].color)}>{FEATURE_STATUS_CONFIG[feature.status].label}</span>
+                                  </div>
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent className="bg-[#0C0C0D] border-white/10 rounded-xl">
+                                {Object.entries(FEATURE_STATUS_CONFIG).map(([key, config]) => (
+                                  <SelectItem key={key} value={key} className="rounded-lg">
+                                    <div className="flex items-center gap-2">
+                                      <FeatureWindow.StatusIcon status={key as FeatureStatus} className="h-3.5 w-3.5" />
+                                      <span className={cn(config.color)}>{config.label}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-semibold text-white/30 uppercase tracking-wide">Owner</label>
+                            <Select value={feature.ownerId || 'none'} onValueChange={(v) => handleUpdateOwner(v === 'none' ? undefined : v)}>
+                              <SelectTrigger className="h-9 bg-white/[0.03] border-white/5 rounded-lg text-xs">
+                                <SelectValue>
+                                  {feature.ownerId && orgMembers ? (
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-[8px] font-bold text-primary">
+                                        {getInitials(orgMembers.find(m => m.id === feature.ownerId)?.full_name)}
+                                      </div>
+                                      <span className="text-white/60 truncate">{orgMembers.find(m => m.id === feature.ownerId)?.full_name}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-2 text-white/30">
+                                      <User className="h-3.5 w-3.5" />
+                                      <span>Unassigned</span>
+                                    </div>
+                                  )}
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent className="bg-[#0C0C0D] border-white/10 rounded-xl max-h-[300px]">
+                                <SelectItem value="none" className="rounded-lg text-white/40">Unassigned</SelectItem>
+                                {orgMembers?.map((member) => (
+                                  <SelectItem key={member.id} value={member.id} className="rounded-lg">
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-5 w-5 rounded-full bg-white/10 flex items-center justify-center text-[8px] font-bold">
+                                        {member.first_name?.[0]}{member.last_name?.[0]}
+                                      </div>
+                                      <span>{member.full_name}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-semibold text-white/30 uppercase tracking-wide">Priority</label>
+                              <Select value={feature.priority || 'none'} onValueChange={(v) => handleUpdatePriority(v as IssuePriority)}>
+                                <SelectTrigger className="h-9 bg-white/[0.03] border-white/5 rounded-lg text-xs">
+                                  <SelectValue>
+                                    <div className="flex items-center gap-1.5">
+                                      <FeatureWindow.PriorityIcon priority={feature.priority || 'none'} className="h-3 w-3" />
+                                      <span className={cn("text-[10px]", PRIORITY_CONFIG[feature.priority || 'none'].color)}>
+                                        {PRIORITY_CONFIG[feature.priority || 'none'].label}
+                                      </span>
+                                    </div>
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent className="bg-[#0C0C0D] border-white/10 rounded-xl">
+                                  {Object.entries(PRIORITY_CONFIG).map(([p, config]) => (
+                                    <SelectItem key={p} value={p} className="rounded-lg">
+                                      <div className="flex items-center gap-2">
+                                        <FeatureWindow.PriorityIcon priority={p as any} className="h-3 w-3" />
+                                        <span className={cn(config.color)}>{config.label}</span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-semibold text-white/30 uppercase tracking-wide">Health</label>
+                              <Select value={feature.health} onValueChange={(v) => handleUpdateHealth(v as FeatureHealth)}>
+                                <SelectTrigger className="h-9 bg-white/[0.03] border-white/5 rounded-lg text-xs">
+                                  <SelectValue>
+                                    <div className="flex items-center gap-1.5">
+                                      <FeatureWindow.HealthIcon health={feature.health} className="h-2 w-2" />
+                                      <span className={cn("text-[10px]", FEATURE_HEALTH_CONFIG[feature.health].color)}>
+                                        {FEATURE_HEALTH_CONFIG[feature.health].label}
+                                      </span>
+                                    </div>
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent className="bg-[#0C0C0D] border-white/10 rounded-xl">
+                                  {Object.entries(FEATURE_HEALTH_CONFIG).map(([h, config]) => (
+                                    <SelectItem key={h} value={h} className="rounded-lg">
+                                      <div className="flex items-center gap-2">
+                                        <FeatureWindow.HealthIcon health={h as FeatureHealth} className="h-2 w-2" />
+                                        <span className={cn(config.color)}>{config.label}</span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="pt-8 border-t border-white/5">
+                      <div className="pt-4 border-t border-white/5">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => onAddSubFeature?.(feature)}
+                          className="w-full h-9 gap-2 text-[10px] font-bold border-dashed border-white/10 hover:border-primary/30 hover:text-primary rounded-lg"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Create Sub-feature
+                        </Button>
+                      </div>
+
+                      <div className="pt-4 border-t border-white/5">
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="w-full h-10 text-red-500/40 hover:text-red-500 hover:bg-red-500/[0.05] text-[10px] font-black uppercase tracking-[0.3em] rounded-xl transition-all border border-dashed border-red-500/10 hover:border-red-500/30 group/decom"
+                          className="w-full h-9 text-red-400/50 hover:text-red-400 hover:bg-red-500/5 text-[10px] font-bold rounded-lg"
                           onClick={async () => {
                             if (confirm('Delete this feature? This action cannot be undone.')) {
                               try {
@@ -1164,7 +1260,7 @@ export const FeatureWindow = {
                             }
                           }}
                         >
-                          <Trash className="h-3.5 w-3.5 mr-2 group-hover/decom:scale-110 transition-transform" />
+                          <Trash className="h-3.5 w-3.5 mr-1.5" />
                           Delete Feature
                         </Button>
                       </div>

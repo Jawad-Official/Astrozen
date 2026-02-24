@@ -1,7 +1,13 @@
 from pydantic import BaseModel, UUID4
 from typing import Optional, List
 from datetime import datetime, date
-from app.models.issue import IssueStatus, IssuePriority, IssueType, TriageStatus, Visibility
+from app.models.issue import (
+    IssueStatus,
+    IssuePriority,
+    IssueType,
+    TriageStatus,
+    Visibility,
+)
 from app.models.project import ResourceType
 
 
@@ -32,18 +38,16 @@ class IssueBase(BaseModel):
     status: IssueStatus = IssueStatus.BACKLOG
     priority: IssuePriority = IssuePriority.NONE
     triage_status: Optional[TriageStatus] = None
-    
+
     # Organization/Team fields
     team_id: UUID4
     visibility: Visibility = Visibility.TEAM
-    
+
     feature_id: UUID4
     milestone_id: Optional[UUID4] = None
-    cycle_id: Optional[UUID4] = None
     assignee_id: Optional[UUID4] = None
     parent_id: Optional[UUID4] = None
     blueprint_node_id: Optional[str] = None
-    estimate: Optional[int] = None
     due_date: Optional[date] = None
 
 
@@ -61,15 +65,14 @@ class IssueUpdate(BaseModel):
     visibility: Optional[Visibility] = None
     feature_id: Optional[UUID4] = None
     milestone_id: Optional[UUID4] = None
-    cycle_id: Optional[UUID4] = None
     assignee_id: Optional[UUID4] = None
     parent_id: Optional[UUID4] = None
     blueprint_node_id: Optional[str] = None
-    estimate: Optional[int] = None
     due_date: Optional[date] = None
 
 
 from app.schemas.user import UserBase
+
 
 class Issue(IssueBase):
     id: UUID4
@@ -79,7 +82,7 @@ class Issue(IssueBase):
     updated_at: datetime
     sub_issues: List["Issue"] = []
     resources: List[IssueResource] = []
-    
+
     class Config:
         from_attributes = True
         use_enum_values = True

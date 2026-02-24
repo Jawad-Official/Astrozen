@@ -4,6 +4,8 @@ import { useNotificationStore } from '@/store/notificationStore';
 import { useIssueStore } from '@/store/issueStore';
 import { Notification } from '@/services/notifications';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { LoadingState, EmptyState } from '@/components/ui/empty-state';
 import { 
   Tray as InboxIcon, 
   Check, 
@@ -21,7 +23,6 @@ import {
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
-import { Button } from '@/components/ui/button';
 
 const NotificationItem = ({ notification, onMarkRead, onNavigate }: { notification: Notification; onMarkRead: (id: string) => void; onNavigate: (type: string, id: string) => void }) => {
   const getIcon = () => {
@@ -168,9 +169,7 @@ const InboxPage = () => {
       
       <div className="flex-1 max-w-4xl mx-auto w-full pt-4 pb-20 px-4">
         {isLoading && notifications.length === 0 ? (
-          <div className="flex items-center justify-center py-20">
-            <ArrowClockwise className="animate-spin h-8 w-8 text-primary/50" />
-          </div>
+          <LoadingState message="Loading notifications..." />
         ) : notifications.length > 0 ? (
           <div className="bg-white/5 border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/[0.02]">
             {notifications.map((notification) => (
@@ -183,16 +182,12 @@ const InboxPage = () => {
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-32 text-center animate-in fade-in zoom-in duration-700">
-            <div className="w-24 h-24 rounded-full bg-white/[0.01] border border-white/5 flex items-center justify-center mb-8 relative">
-              <div className="absolute inset-0 rounded-full bg-primary/5 blur-2xl animate-pulse" />
-              <InboxIcon className="h-10 w-10 text-white/10" weight="thin" />
-            </div>
-            <h3 className="text-2xl font-bold text-white/90 mb-3 tracking-tight">You're all caught up</h3>
-            <p className="text-sm text-white/30 max-w-[320px] leading-relaxed">
-              When something important happens in your projects, you'll find those notifications here.
-            </p>
-          </div>
+          <EmptyState
+            icon={<InboxIcon className="h-10 w-10 text-white/15" weight="thin" />}
+            title="You're all caught up"
+            description="When something important happens in your projects, you'll find those notifications here."
+            size="lg"
+          />
         )}
       </div>
     </div>

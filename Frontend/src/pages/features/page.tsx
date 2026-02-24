@@ -1,24 +1,20 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useIssueStore } from '@/store/issueStore';
 import { useAuth } from '@/context/AuthContext';
 import { hasTeamAccess } from '@/lib/permissions';
 import { FeatureWindow } from '@/components/FeatureWindow';
 import { Button } from '@/components/ui/button';
-import { Plus, MagnifyingGlass, Funnel, Diamond, CalendarBlank, Package, FolderSimple, Lock, ChatTeardropText } from '@phosphor-icons/react';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
-import { FeatureStatus, FeatureType } from '@/types/feature';
-import { IssuePriority, PRIORITY_CONFIG } from '@/types/issue';
+import { EmptyState } from '@/components/ui/empty-state';
 import { cn } from '@/lib/utils';
 import { MilestoneDialog } from '@/components/dialogs/MilestoneDialog';
 import { CreateIssueDialog } from '@/components/issue/CreateIssueDialog';
 import { FeatureKanban } from '@/components/FeatureKanban';
-import { List, Kanban } from '@phosphor-icons/react';
+import { List, Kanban, Plus, MagnifyingGlass, Funnel, Lock } from '@phosphor-icons/react';
 import { CreateSubFeatureDialog } from '@/components/feature/CreateSubFeatureDialog';
+import { CreateFeatureDialog } from '@/components/feature/CreateFeatureDialog';
 import { Feature } from '@/types/feature';
 
 export default function FeaturesPage() {
@@ -66,15 +62,7 @@ export default function FeaturesPage() {
   const [createSubFeatureOpen, setCreateSubFeatureOpen] = useState(false);
   const [parentFeatureForSub, setParentFeatureForSub] = useState<Feature | null>(null);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | undefined>();
-  const { teams: allTeams, addIssue } = useIssueStore(); // addIssue is already in store
-  
-  // Create Feature Form State
-  const [newFeature, setNewFeature] = useState({
-    name: '',
-    project_id: '',
-    type: 'new_capability' as FeatureType,
-    priority: 'none' as any
-  });
+  const { teams: allTeams, addIssue } = useIssueStore();
 
   // Create Milestone Form State
   const [newMilestone, setNewMilestone] = useState({
@@ -106,12 +94,9 @@ export default function FeaturesPage() {
     return result;
   }, [features, projects, searchQuery, teamId, hasAccess]);
 
-  const handleCreateFeature = async () => {
-    if (!newFeature.name || !newFeature.project_id) return;
+  const handleAddFeature = async (data: any) => {
     try {
-      await addFeature(newFeature);
-      setCreateDialogOpen(false);
-      setNewFeature({ name: '', project_id: '', type: 'new_capability', priority: 'none' });
+      await addFeature(data);
       toast({ title: 'Feature created successfully' });
     } catch (error) {
       toast({ title: 'Failed to create feature', variant: 'destructive' });
@@ -149,8 +134,6 @@ export default function FeaturesPage() {
     recurse(feature.milestones);
     return flat;
   };
-
-  const currentProjectForNewFeature = projects.find(p => p.id === newFeature.project_id);
 
   return (
     <div className="flex flex-col h-full bg-[#090909] overflow-hidden">
@@ -213,16 +196,11 @@ export default function FeaturesPage() {
       </div>
 
       {teamId && !hasAccess ? (
-        <div className="flex-1 flex flex-col items-center justify-center bg-[#090909] text-center p-8">
-          <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mb-6 shadow-2xl">
-            <Lock weight="bold" className="h-8 w-8 text-white/20" />
-          </div>
-          <h3 className="text-xl font-semibold text-white/90 mb-2">Restricted Access</h3>
-          <p className="text-sm text-white/40 max-w-[320px]">
-            You don't have permission to view features for the <span className="text-white/60 font-medium">{selectedTeam?.name || 'requested'}</span> team.
-            Only admins and team leaders can access this information.
-          </p>
-        </div>
+        <EmptyState
+          icon={<Lock weight="duotone" className="h-8 w-8 text-white/20" />}
+          title="Restricted Access"
+          description={`You don't have permission to view features for the ${selectedTeam?.name || 'requested'} team. Only admins and team leaders can access this information.`}
+        />
       ) : (
         <>
           {/* Main Content */}
@@ -269,6 +247,7 @@ export default function FeaturesPage() {
             features={features}
             projects={projects}
             teams={teams}
+            orgMembers={orgMembers}
             onClose={() => setSelectedFeatureId(null)}
             onUpdateFeature={updateFeature}
             onDeleteFeature={deleteFeature}
@@ -294,171 +273,16 @@ export default function FeaturesPage() {
       )}
 
       {/* Create Feature Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[700px] p-0 gap-0 bg-[#080808] border-white/[0.08] overflow-hidden shadow-[0_0_80px_-12px_rgba(0,0,0,0.7)] outline-none rounded-2xl">
-          <DialogTitle className="sr-only">Create New Feature</DialogTitle>
-          <DialogDescription className="sr-only">Fill in the details to create a new product feature.</DialogDescription>
-          <motion.div 
-            initial={{ opacity: 0, y: 10, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="flex flex-col"
-          >
-            <div className="px-6 py-4 border-b border-white/[0.03] flex items-center gap-2 text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] bg-white/[0.01]">
-              <span className="hover:text-white/40 cursor-default transition-colors">{selectedTeam?.name || 'Workspace'}</span>
-              <span className="opacity-30">/</span>
-              <span className="text-primary/60">New Feature</span>
-            </div>
-
-            <div className="flex flex-col md:flex-row h-full min-h-[400px]">
-              {/* Left Column: Visuals */}
-              <div className="w-full md:w-1/3 border-r border-white/[0.03] p-8 flex flex-col items-center justify-center space-y-6 bg-white/[0.01]">
-                <div className="relative group">
-                  <div className="h-32 w-32 rounded-3xl bg-primary/10 border-2 border-primary/20 flex items-center justify-center text-6xl shadow-2xl transition-all duration-500 group-hover:scale-105">
-                    🔹
-                  </div>
-                  <div className="absolute -inset-4 bg-primary/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                </div>
-                <div className="text-center space-y-1">
-                  <h4 className="text-xs font-bold text-white/80 uppercase tracking-widest">Feature</h4>
-                  <p className="text-[10px] text-white/20 font-medium leading-relaxed max-w-[120px] mx-auto">Build and track key product capabilities</p>
-                </div>
-              </div>
-
-              {/* Right Column: Details */}
-              <div className="flex-1 p-8 space-y-8">
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <input 
-                      placeholder="Feature name" 
-                      value={newFeature.name}
-                      onChange={(e) => setNewFeature({ ...newFeature, name: e.target.value })}
-                      className="w-full text-3xl font-semibold bg-transparent border-none p-0 focus:outline-none placeholder:text-white/[0.03] text-white/90 selection:bg-primary/30 tracking-tight" 
-                      autoFocus 
-                    />
-                    <div className="h-px w-full bg-gradient-to-r from-primary/30 via-primary/5 to-transparent mt-1" />
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 px-1">
-                        <FolderSimple className="h-3 w-3 text-white/20" />
-                        <h3 className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">Associated Project</h3>
-                      </div>
-                      <Select 
-                        value={newFeature.project_id} 
-                        onValueChange={(v) => setNewFeature({ ...newFeature, project_id: v })}
-                      >
-                        <SelectTrigger className="h-11 bg-white/[0.03] border-white/[0.05] hover:bg-white/[0.05] rounded-xl px-4 transition-all focus:ring-1 focus:ring-primary/20 text-xs">
-                          <SelectValue placeholder="Select project" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-[#0C0C0C] border-white/10 max-h-[250px]">
-                          {projects
-                            .filter(p => !teamId || p.teamId === teamId || p.teams?.includes(teamId))
-                            .map(p => (
-                              <SelectItem key={p.id} value={p.id} className="text-xs focus:bg-white/5 py-2.5">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-lg">{p.icon}</span>
-                                  <span className="font-semibold text-white/80">{p.name}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 px-1">
-                        <Diamond className="h-3 w-3 text-white/20" />
-                        <h3 className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">Feature Type</h3>
-                      </div>
-                      <Select 
-                        value={newFeature.type} 
-                        onValueChange={(v) => setNewFeature({ ...newFeature, type: v as FeatureType })}
-                      >
-                        <SelectTrigger className="h-11 bg-white/[0.03] border-white/[0.05] hover:bg-white/[0.05] rounded-xl px-4 transition-all focus:ring-1 focus:ring-primary/20 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-[#0C0C0C] border-white/10">
-                          <SelectItem value="new_capability" className="text-xs focus:bg-white/5 py-2.5">New Capability</SelectItem>
-                          <SelectItem value="enhancement" className="text-xs focus:bg-white/5 py-2.5">Enhancement</SelectItem>
-                          <SelectItem value="experiment" className="text-xs focus:bg-white/5 py-2.5">Experiment</SelectItem>
-                          <SelectItem value="infrastructure" className="text-xs focus:bg-white/5 py-2.5">Infrastructure</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 px-1">
-                        <Funnel className="h-3 w-3 text-white/20" />
-                        <h3 className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">Priority</h3>
-                      </div>
-                      <Select 
-                        value={newFeature.priority} 
-                        onValueChange={(v) => setNewFeature({ ...newFeature, priority: v as IssuePriority })}
-                      >
-                        <SelectTrigger className="h-11 bg-white/[0.03] border-white/[0.05] hover:bg-white/[0.05] rounded-xl px-4 transition-all focus:ring-1 focus:ring-primary/20 text-xs">
-                          <SelectValue>
-                            <div className="flex items-center gap-2 text-left">
-                              <FeatureWindow.PriorityIcon priority={newFeature.priority} />
-                              <span className={cn("font-bold uppercase", PRIORITY_CONFIG[newFeature.priority].color)}>
-                                {PRIORITY_CONFIG[newFeature.priority].label}
-                              </span>
-                            </div>
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent className="bg-[#0C0C0C] border-white/10">
-                          {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
-                            <SelectItem key={key} value={key} className="text-xs focus:bg-white/5 py-2.5">
-                              <div className="flex items-center gap-2">
-                                <FeatureWindow.PriorityIcon priority={key as IssuePriority} />
-                                <span className={cn("font-bold uppercase", config.color)}>{config.label}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-6 py-5 border-t border-white/[0.03] flex items-center justify-between bg-black/40">
-              <div className="flex items-center gap-4 text-white/10 select-none">
-                <div className="flex items-center gap-1.5 opacity-50">
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.02]">
-                    <span className="text-[9px] font-black">⌘</span>
-                  </div>
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.02]">
-                    <span className="text-[9px] font-black">ENTER</span>
-                  </div>
-                </div>
-                <span className="text-[10px] font-bold tracking-widest uppercase opacity-20">Create Feature</span>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  onClick={() => setCreateDialogOpen(false)}
-                  className="h-9 text-[11px] font-bold px-5 transition-all uppercase tracking-wider text-white/40 hover:text-white hover:bg-white/5"
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  variant="glass-primary"
-                  onClick={handleCreateFeature}
-                  disabled={!newFeature.name || !newFeature.project_id}
-                  className="h-9 px-8 text-[11px] font-bold transition-all disabled:opacity-20 disabled:shadow-none uppercase tracking-widest rounded-xl"
-                >
-                  Create Feature
-                </Button>
-              </div>
-            </div>
-          </motion.div>
-        </DialogContent>
-      </Dialog>
+      <CreateFeatureDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        projects={projects}
+        teams={teams}
+        orgMembers={orgMembers}
+        selectedProjectId={null}
+        selectedTeamId={teamId}
+        onAddFeature={handleAddFeature}
+      />
 
       <MilestoneDialog 
         open={milestoneDialogOpen}
