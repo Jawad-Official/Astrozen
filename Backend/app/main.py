@@ -24,6 +24,7 @@ if "*" in cors_origins:
         "http://localhost:5173",
         "http://localhost:3000",
         "http://localhost:8000",
+        "https://astrozen.up.railway.app"
     ]
 
 app.add_middleware(
