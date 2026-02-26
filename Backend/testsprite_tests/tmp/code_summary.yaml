@@ -1,0 +1,383 @@
+version: "2"
+type: backend
+tech_stack:
+  - Python
+  - FastAPI
+  - PostgreSQL
+  - SQLAlchemy
+features:
+  - name: Authentication
+    description: User registration, login, and session management
+    files:
+      - app/api/v1/auth.py
+      - app/services/auth_service.py
+    endpoints:
+      - method: POST
+        path: /api/v1/auth/register
+        description: Register a new user
+        auth_required: false
+        request_schema:
+          body:
+            email: string
+            password: string
+            first_name: string
+            last_name: string
+        response_schema:
+          "201": User
+      - method: POST
+        path: /api/v1/auth/login
+        description: Login and get access token
+        auth_required: false
+        request_schema:
+          form_data:
+            username: string
+            password: string
+        response_schema:
+          "200": Token
+      - method: GET
+        path: /api/v1/auth/me
+        description: Get current user info
+        auth_required: true
+        response_schema:
+          "200": User
+    depends_on: []
+  - name: Organizations
+    description: Organization management and member management
+    files:
+      - app/api/v1/organizations.py
+      - app/models/organization.py
+    endpoints:
+      - method: POST
+        path: /api/v1/organizations
+        description: Create organization
+        auth_required: true
+        request_schema:
+          body:
+            name: string
+            description: string
+        response_schema:
+          "201": Organization
+      - method: GET
+        path: /api/v1/organizations/me
+        description: Get my organization
+        auth_required: true
+        response_schema:
+          "200": Organization
+      - method: GET
+        path: /api/v1/organizations/me/members
+        description: Get organization members
+        auth_required: true
+        response_schema:
+          "200": User[]
+      - method: POST
+        path: /api/v1/organizations/invite-codes
+        description: Generate invite code
+        auth_required: true
+        response_schema:
+          "201": InviteCode
+    depends_on:
+      - Authentication
+  - name: Teams
+    description: Team management with unique identifiers
+    files:
+      - app/api/v1/teams.py
+      - app/models/team_model.py
+    endpoints:
+      - method: GET
+        path: /api/v1/teams
+        description: List teams
+        auth_required: true
+        response_schema:
+          "200": Team[]
+      - method: POST
+        path: /api/v1/teams
+        description: Create team
+        auth_required: true
+        request_schema:
+          body:
+            name: string
+            identifier: string
+        response_schema:
+          "201": Team
+      - method: GET
+        path: /api/v1/teams/{team_id}
+        description: Get team
+        auth_required: true
+        response_schema:
+          "200": Team
+      - method: PATCH
+        path: /api/v1/teams/{team_id}
+        description: Update team
+        auth_required: true
+        response_schema:
+          "200": Team
+      - method: DELETE
+        path: /api/v1/teams/{team_id}
+        description: Delete team
+        auth_required: true
+        response_schema:
+          "204": null
+    depends_on:
+      - Organizations
+  - name: Projects
+    description: Project management with updates, resources, and comments
+    files:
+      - app/api/v1/projects.py
+      - app/models/project.py
+    endpoints:
+      - method: GET
+        path: /api/v1/projects
+        description: List projects
+        auth_required: true
+        response_schema:
+          "200": Project[]
+      - method: POST
+        path: /api/v1/projects
+        description: Create project
+        auth_required: true
+        request_schema:
+          body:
+            name: string
+            description: string
+            team_id: string
+            visibility: string
+        response_schema:
+          "201": Project
+      - method: GET
+        path: /api/v1/projects/{project_id}
+        description: Get project
+        auth_required: true
+        response_schema:
+          "200": Project
+      - method: PATCH
+        path: /api/v1/projects/{project_id}
+        description: Update project
+        auth_required: true
+        response_schema:
+          "200": Project
+      - method: DELETE
+        path: /api/v1/projects/{project_id}
+        description: Delete project
+        auth_required: true
+        response_schema:
+          "204": null
+      - method: POST
+        path: /api/v1/projects/{project_id}/updates
+        description: Create project update
+        auth_required: true
+        response_schema:
+          "201": ProjectUpdate
+      - method: DELETE
+        path: /api/v1/projects/{project_id}/updates/{update_id}
+        description: Delete project update
+        auth_required: true
+        response_schema:
+          "204": null
+      - method: POST
+        path: /api/v1/projects/{project_id}/resources
+        description: Create project resource
+        auth_required: true
+        response_schema:
+          "201": ProjectResource
+      - method: DELETE
+        path: /api/v1/projects/{project_id}/resources/{resource_id}
+        description: Delete project resource
+        auth_required: true
+        response_schema:
+          "204": null
+      - method: POST
+        path: /api/v1/projects/{project_id}/updates/{update_id}/comments
+        description: Create update comment
+        auth_required: true
+        response_schema:
+          "201": Comment
+      - method: DELETE
+        path: /api/v1/projects/{project_id}/updates/{update_id}/comments/{comment_id}
+        description: Delete update comment
+        auth_required: true
+        response_schema:
+          "204": null
+      - method: POST
+        path: /api/v1/projects/{project_id}/updates/{update_id}/reactions
+        description: Toggle update reaction
+        auth_required: true
+        response_schema:
+          "200": Reaction
+    depends_on:
+      - Teams
+  - name: Features
+    description: Feature management with milestones
+    files:
+      - app/api/v1/features.py
+      - app/models/feature.py
+    endpoints:
+      - method: GET
+        path: /api/v1/features
+        description: List features
+        auth_required: true
+        response_schema:
+          "200": Feature[]
+      - method: POST
+        path: /api/v1/features
+        description: Create feature
+        auth_required: true
+        response_schema:
+          "201": Feature
+      - method: GET
+        path: /api/v1/features/{feature_id}
+        description: Get feature
+        auth_required: true
+        response_schema:
+          "200": Feature
+      - method: PATCH
+        path: /api/v1/features/{feature_id}
+        description: Update feature
+        auth_required: true
+        response_schema:
+          "200": Feature
+      - method: DELETE
+        path: /api/v1/features/{feature_id}
+        description: Delete feature
+        auth_required: true
+        response_schema:
+          "204": null
+      - method: POST
+        path: /api/v1/features/{feature_id}/milestones
+        description: Create milestone
+        auth_required: true
+        response_schema:
+          "201": Milestone
+      - method: PATCH
+        path: /api/v1/features/{feature_id}/milestones/{milestone_id}
+        description: Update milestone
+        auth_required: true
+        response_schema:
+          "200": Milestone
+      - method: DELETE
+        path: /api/v1/features/{feature_id}/milestones/{milestone_id}
+        description: Delete milestone
+        auth_required: true
+        response_schema:
+          "204": null
+    depends_on:
+      - Projects
+  - name: Issues
+    description: Issue management with comments and activities
+    files:
+      - app/api/v1/issues.py
+      - app/models/issue.py
+    endpoints:
+      - method: GET
+        path: /api/v1/issues
+        description: List issues
+        auth_required: true
+        response_schema:
+          "200": IssueList
+      - method: POST
+        path: /api/v1/issues
+        description: Create issue
+        auth_required: true
+        response_schema:
+          "201": Issue
+      - method: GET
+        path: /api/v1/issues/{issue_id}
+        description: Get issue
+        auth_required: true
+        response_schema:
+          "200": Issue
+      - method: PATCH
+        path: /api/v1/issues/{issue_id}
+        description: Update issue
+        auth_required: true
+        response_schema:
+          "200": Issue
+      - method: DELETE
+        path: /api/v1/issues/{issue_id}
+        description: Delete issue
+        auth_required: true
+        response_schema:
+          "204": null
+      - method: POST
+        path: /api/v1/issues/{issue_id}/comments
+        description: Add comment
+        auth_required: true
+        response_schema:
+          "201": Comment
+      - method: GET
+        path: /api/v1/issues/{issue_id}/comments
+        description: Get comments
+        auth_required: true
+        response_schema:
+          "200": Comment[]
+      - method: GET
+        path: /api/v1/issues/{issue_id}/activities
+        description: Get activities
+        auth_required: true
+        response_schema:
+          "200": Activity[]
+      - method: GET
+        path: /api/v1/issues/my-issues
+        description: Get my issues
+        auth_required: true
+        response_schema:
+          "200": Issue[]
+      - method: GET
+        path: /api/v1/issues/inbox
+        description: Get inbox issues
+        auth_required: true
+        response_schema:
+          "200": Issue[]
+    depends_on:
+      - Teams
+  - name: Notifications
+    description: Notification management
+    files:
+      - app/api/v1/notifications.py
+      - app/models/notification.py
+    endpoints:
+      - method: GET
+        path: /api/v1/notifications
+        description: Get notifications
+        auth_required: true
+        response_schema:
+          "200": Notification[]
+      - method: PATCH
+        path: /api/v1/notifications/{notification_id}/read
+        description: Mark notification read
+        auth_required: true
+        response_schema:
+          "200": Notification
+      - method: POST
+        path: /api/v1/notifications/read-all
+        description: Mark all notifications read
+        auth_required: true
+        response_schema:
+          "200": Success
+    depends_on:
+      - Authentication
+  - name: AI
+    description: AI-powered idea generation and validation
+    files:
+      - app/api/v1/ai_projects.py
+    endpoints:
+      - method: GET
+        path: /api/v1/ai/pillars
+        description: Get core pillars
+        auth_required: true
+        response_schema:
+          "200": Pillars[]
+      - method: GET
+        path: /api/v1/ai/doc-order
+        description: Get doc order
+        auth_required: true
+        response_schema:
+          "200": Doc[]
+      - method: GET
+        path: /api/v1/ai/ideas/{project_id}
+        description: Get project ideas
+        auth_required: true
+        response_schema:
+          "200": Idea[]
+    depends_on:
+      - Projects
+known_limitations: []

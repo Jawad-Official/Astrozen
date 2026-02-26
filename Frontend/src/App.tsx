@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { RequireAuth } from "@/components/RequireAuth";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { IconContext } from "@phosphor-icons/react";
@@ -37,9 +38,10 @@ const App = () => (
       }}
     >
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
+        <ThemeProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
               {/* Public Routes */}
@@ -77,7 +79,8 @@ const App = () => (
             </Routes>
           </BrowserRouter>
         </TooltipProvider>
-      </AuthProvider>
+      </ThemeProvider>
+    </AuthProvider>
     </IconContext.Provider>
   </QueryClientProvider>
 );

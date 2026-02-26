@@ -180,7 +180,7 @@ export default function AIGeneratorPage() {
         
         {/* Phase 1: Input */}
         {phase === 'INPUT' && (
-          <Card className="border-white/5 bg-white/5 backdrop-blur-xl">
+          <Card className="border-border bg-card shadow-lg">
             <CardHeader>
               <CardTitle>Describe your project idea</CardTitle>
               <CardDescription>The more detail you provide, the better the initial validation will be.</CardDescription>
@@ -188,7 +188,7 @@ export default function AIGeneratorPage() {
             <CardContent className="space-y-4">
               <Textarea 
                 placeholder="What are you building? Who is it for? What problem does it solve?" 
-                className="min-h-[200px] bg-black/20 border-white/10"
+                className="min-h-[200px] bg-muted/20 border-border"
                 value={rawInput}
                 onChange={(e) => setRawInput(e.target.value)}
               />
@@ -197,7 +197,7 @@ export default function AIGeneratorPage() {
               <Button 
                 onClick={submitIdea} 
                 disabled={isGenerating || !rawInput.trim()}
-                className="w-full"
+                className="w-full h-12 text-lg font-bold"
               >
                 {isGenerating ? <ArrowClockwise className="animate-spin mr-2" /> : <MagicWand className="mr-2" />}
                 Generate Initial Validation
@@ -221,7 +221,7 @@ export default function AIGeneratorPage() {
                 <div className="flex gap-2">
                   <Input 
                     placeholder="Your answer..." 
-                    className="flex-1"
+                    className="flex-1 h-12 text-lg bg-background border-border"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && e.currentTarget.value) {
                         answerQuestion(e.currentTarget.value);
@@ -229,14 +229,14 @@ export default function AIGeneratorPage() {
                       }
                     }}
                   />
-                  <Button onClick={(e) => {
+                  <Button size="lg" className="h-12 w-12 shrink-0" onClick={(e) => {
                     const input = e.currentTarget.previousElementSibling as HTMLInputElement;
                     if (input.value) {
                       answerQuestion(input.value);
                       input.value = '';
                     }
                   }}>
-                    <PaperPlaneTilt weight="bold" />
+                    <PaperPlaneTilt weight="bold" size={20} />
                   </Button>
                 </div>
               </CardContent>
@@ -249,24 +249,24 @@ export default function AIGeneratorPage() {
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
 
             {/* Validation Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-white/5 p-4 rounded-xl border border-white/5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-muted/30 p-6 rounded-2xl border border-border">
               <div className="space-y-1">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
+                <h2 className="text-lg font-semibold flex items-center gap-2 text-foreground">
                   <ChartBar className="text-primary" /> Market Analysis
                 </h2>
                 <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
                   {validationReport.market_feasibility?.analysis || 'No analysis available'}
                 </p>
               </div>
-              <div className="flex items-center gap-3 sm:flex-col sm:items-end sm:gap-0 bg-black/20 sm:bg-transparent p-3 sm:p-0 rounded-lg">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Feasibility Score</span>
+              <div className="flex items-center gap-3 sm:flex-col sm:items-end sm:gap-0 bg-background/50 sm:bg-transparent p-3 sm:p-0 rounded-lg">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60">Feasibility Score</span>
                 <span className={cn(
                   "text-3xl font-black",
-                  (validationReport.market_feasibility?.score ?? 0) >= 80 ? "text-emerald-400" :
-                  (validationReport.market_feasibility?.score ?? 0) >= 60 ? "text-amber-400" : "text-red-400"
+                  (validationReport.market_feasibility?.score ?? 0) >= 80 ? "text-emerald-600 dark:text-emerald-400" :
+                  (validationReport.market_feasibility?.score ?? 0) >= 60 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400"
                 )}>
                   {validationReport.market_feasibility?.score ?? 0}
-                  <span className="text-sm text-muted-foreground font-medium">/100</span>
+                  <span className="text-sm text-muted-foreground/40 font-medium">/100</span>
                 </span>
               </div>
             </div>
@@ -274,15 +274,19 @@ export default function AIGeneratorPage() {
             {/* Market Analysis Pillars */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                {(validationReport.market_feasibility?.pillars || []).map((pillar: any) => (
-                 <Card key={pillar.name} className="border-white/5 bg-white/5">
+                 <Card key={pillar.name} className="border-border bg-card hover:bg-accent/5 transition-all shadow-sm">
                    <CardHeader className="pb-2">
                      <div className="flex items-center justify-between">
-                       <CardTitle className="text-sm font-medium">{pillar.name}</CardTitle>
-                       <Badge variant={pillar.status === 'Strong' ? 'default' : 'secondary'}>{pillar.status}</Badge>
+                       <CardTitle className="text-sm font-bold uppercase tracking-tight text-muted-foreground/80">{pillar.name}</CardTitle>
+                       <Badge variant={pillar.status === 'Strong' ? 'default' : 'secondary'} className={cn(
+                         pillar.status === 'Strong' ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" :
+                         pillar.status === 'Moderate' ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20" :
+                         "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
+                       )}>{pillar.status}</Badge>
                      </div>
                    </CardHeader>
                    <CardContent>
-                     <p className="text-xs text-muted-foreground">{pillar.reason}</p>
+                     <p className="text-xs text-muted-foreground/80 leading-relaxed">{pillar.reason}</p>
                    </CardContent>
                  </Card>
                ))}
@@ -290,7 +294,7 @@ export default function AIGeneratorPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Core Features */}
-              <Card className="border-white/5 bg-white/5">
+              <Card className="border-border bg-card shadow-md">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <ChartBar className="text-primary" /> Core Features
@@ -298,8 +302,8 @@ export default function AIGeneratorPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {(validationReport.core_features || []).map((feature: any, i: number) => (
-                    <div key={i} className="flex gap-3 p-4 rounded-xl bg-white/5 border border-white/5 group relative transition-all hover:bg-white/[0.08]">
-                      <div className="mt-1 bg-primary/20 p-1 rounded-md shrink-0">
+                    <div key={i} className="flex gap-3 p-4 rounded-xl bg-muted/20 border border-border group relative transition-all hover:bg-muted/40 shadow-sm">
+                      <div className="mt-1 bg-primary/10 p-1 rounded-md shrink-0">
                         <CheckCircle className="text-primary" size={16} weight="fill" />
                       </div>
                       <div className="flex-1 space-y-1">
@@ -311,7 +315,7 @@ export default function AIGeneratorPage() {
                             newFeatures[i].name = e.target.value;
                             updateValidationReport({...validationReport, core_features: newFeatures});
                           }}
-                          className="h-7 text-sm font-bold bg-transparent border-none p-0 focus-visible:ring-0 mb-0 shadow-none"
+                          className="h-7 text-sm font-bold bg-transparent border-none p-0 focus-visible:ring-0 mb-0 shadow-none text-foreground"
                         />
                         <Textarea
                           value={feature.description}
@@ -327,7 +331,7 @@ export default function AIGeneratorPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity absolute right-2 top-2 hover:bg-red-500/10 hover:text-red-400"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity absolute right-2 top-2 hover:bg-destructive/10 hover:text-destructive"
                         onClick={() => {
                           const newFeatures = (validationReport.core_features || []).filter((_, idx) => idx !== i);
                           updateValidationReport({...validationReport, core_features: newFeatures});
@@ -340,7 +344,7 @@ export default function AIGeneratorPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full h-10 border-dashed border-white/10 text-muted-foreground hover:text-white hover:border-white/30 transition-all"
+                    className="w-full h-10 border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all"
                     onClick={() => {
                       const newFeatures = [...(validationReport.core_features || []), { name: 'New Feature', description: 'Brief description of the feature...', type: 'Core' }];
                       updateValidationReport({...validationReport, core_features: newFeatures});
@@ -352,7 +356,7 @@ export default function AIGeneratorPage() {
               </Card>
 
               {/* Recommended Stack */}
-              <Card className="border-white/5 bg-white/5">
+              <Card className="border-border bg-card shadow-md">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Stack className="text-primary" /> Recommended Stack
@@ -361,17 +365,17 @@ export default function AIGeneratorPage() {
                 <CardContent className="space-y-4">
                    {Object.entries(validationReport.tech_stack || {}).map(([key, value]) => (
                      <div key={key}>
-                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">{key}</p>
+                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 mb-2">{key}</p>
                        <div className="flex flex-wrap gap-2">
                          {(value || []).map((item: any, i: number) => (
                            <Badge
                             key={i}
-                            variant="outline"
-                            className="group relative pr-6"
+                            variant="secondary"
+                            className="group relative pr-6 bg-muted/50 border border-border"
                            >
                              {item}
                              <button
-                              className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive"
                               onClick={() => {
                                 const newStack = {...(validationReport.tech_stack || {})};
                                 (newStack[key as keyof TechStack] as string[]) = (newStack[key as keyof TechStack] as string[]).filter((_, idx) => idx !== i);
@@ -384,7 +388,7 @@ export default function AIGeneratorPage() {
                          ))}
                          <Input
                           placeholder="Add..."
-                          className="h-6 w-20 text-[10px] bg-transparent border-dashed"
+                          className="h-6 w-20 text-[10px] bg-transparent border-dashed border-border"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && e.currentTarget.value) {
                               const newStack = {...(validationReport.tech_stack || {})};
@@ -404,7 +408,7 @@ export default function AIGeneratorPage() {
             {/* Improvements & Pricing (NEW) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Improvements */}
-              <Card className="border-white/5 bg-white/5">
+              <Card className="border-border bg-card shadow-md">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Lightbulb className="text-primary" /> Improvements
@@ -414,7 +418,7 @@ export default function AIGeneratorPage() {
                 <CardContent className="space-y-4">
                   <div className="space-y-3">
                     {(validationReport.improvements || []).map((improvement, i) => (
-                      <div key={i} className="flex items-start space-x-3 p-2 rounded hover:bg-white/5 transition-colors">
+                      <div key={i} className="flex items-start space-x-3 p-3 rounded-xl hover:bg-muted/50 transition-colors border border-transparent hover:border-border">
                         <Checkbox 
                           id={`improvement-${i}`} 
                           checked={selectedImprovementIndices.includes(i)}
@@ -429,7 +433,7 @@ export default function AIGeneratorPage() {
                         <div className="grid gap-1.5 leading-none">
                           <label
                             htmlFor={`improvement-${i}`}
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                            className="text-sm font-medium leading-relaxed peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer text-foreground/80"
                           >
                             {improvement}
                           </label>
@@ -442,7 +446,7 @@ export default function AIGeneratorPage() {
                     <Button 
                       onClick={() => acceptImprovements(selectedImprovementIndices)}
                       disabled={isGenerating}
-                      className="w-full bg-primary/10 text-primary hover:bg-primary/20 border-primary/20 border"
+                      className="w-full bg-primary/10 text-primary hover:bg-primary/20 border-primary/20 border h-10 font-bold"
                       size="sm"
                     >
                       {isGenerating ? <ArrowClockwise className="animate-spin mr-2" /> : <CheckCircle className="mr-2" />}
@@ -453,7 +457,7 @@ export default function AIGeneratorPage() {
               </Card>
 
               {/* Pricing Model */}
-              <Card className="border-white/5 bg-white/5">
+              <Card className="border-border bg-card shadow-md">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <CurrencyDollar className="text-primary" /> Pricing Model
@@ -462,7 +466,7 @@ export default function AIGeneratorPage() {
                 <CardContent className="space-y-4">
                   <div className="space-y-4">
                     <div className="space-y-3">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Model Type</p>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">Model Type</p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {[
                           'One-Time Purchase',
@@ -476,7 +480,7 @@ export default function AIGeneratorPage() {
                             key={model}
                             variant={validationReport.pricing_model?.type === model ? 'default' : 'outline'}
                             size="sm"
-                            className="text-[10px] h-8 relative group"
+                            className="text-[10px] h-8 relative group border-border"
                             onClick={() => {
                               const newModel = model;
                               const currentTiers = [...(validationReport.pricing_model?.tiers || [])];
@@ -753,7 +757,7 @@ export default function AIGeneratorPage() {
 
              {/* Expanded Canvas Dialog */}
              <Dialog open={isCanvasExpanded} onOpenChange={setIsCanvasExpanded}>
-               <DialogContent className="max-w-[95vw] w-full h-[90vh] p-0 gap-0 overflow-hidden bg-[#090909] border-white/10">
+               <DialogContent className="max-w-[95vw] w-full h-[90vh] p-0 gap-0 overflow-hidden bg-background border-border">
                  <div className="flex h-full">
                    {/* Main Canvas Area */}
                    <div className="flex-1 flex flex-col relative overflow-hidden">

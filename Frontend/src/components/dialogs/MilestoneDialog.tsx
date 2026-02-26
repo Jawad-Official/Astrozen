@@ -73,7 +73,7 @@ export function MilestoneDialog({
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] p-0 gap-0 bg-[#080808] border-white/[0.08] overflow-hidden shadow-[0_0_80px_-12px_rgba(0,0,0,0.8)] outline-none rounded-[1.5rem] max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-[480px] p-0 gap-0 bg-popover border-border overflow-hidden shadow-[0_0_80px_-12px_rgba(0,0,0,0.5)] outline-none rounded-[1.5rem] max-h-[90vh] flex flex-col">
         <DialogHeader className="sr-only">
           <DialogTitle>{isEditing ? 'Edit' : 'New'} {title}</DialogTitle>
           <DialogDescription>{subtitle}</DialogDescription>
@@ -144,7 +144,7 @@ export function MilestoneDialog({
           </div>
 
           {/* Premium Fixed Footer */}
-          <div className="px-8 py-8 border-t border-white/[0.03] bg-[#0A0A0A]/95 backdrop-blur-3xl shrink-0">
+          <div className="px-8 py-8 border-t border-border/50 bg-muted/50 backdrop-blur-3xl shrink-0">
             <div className="flex items-center gap-4">
               <Button 
                 type="button" 

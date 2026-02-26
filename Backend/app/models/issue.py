@@ -10,9 +10,10 @@ from sqlalchemy import (
     Integer,
     Table,
     Index,
+    and_,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, foreign
 from datetime import datetime
 from app.core.database import Base
 from app.models.enums import (
@@ -80,7 +81,8 @@ class Issue(Base):
     )
     resources = relationship(
         "Resource",
-        primaryjoin="and_(Resource.target_id==Issue.id, Resource.target_type=='issue')",
+        primaryjoin="and_(Issue.id==Resource.target_id, Resource.target_type=='issue')",
+        foreign_keys="[Resource.target_id]",
         viewonly=True,
     )
 

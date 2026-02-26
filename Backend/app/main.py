@@ -15,9 +15,20 @@ app = FastAPI(
 )
 
 # Configure CORS
+# Starlette/FastAPI CORS middleware does not allow allow_origins=["*"] with allow_credentials=True
+# We need to provide specific origins if we want to support credentials
+cors_origins = [str(origin) for origin in settings.BACKEND_CORS_ORIGINS]
+if "*" in cors_origins:
+    cors_origins = [
+        "http://localhost:8080",
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost:8000",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

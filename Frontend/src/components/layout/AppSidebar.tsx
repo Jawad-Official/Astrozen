@@ -49,6 +49,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 
 interface AppSidebarProps {
   onOpenCommandPalette: () => void;
@@ -77,7 +78,7 @@ function NavItem({ icon, label, to, onClick, shortcut, badge, indent, end }: Nav
       <span className="flex h-4 w-4 items-center justify-center shrink-0">{icon}</span>
       <span className="flex-1 text-left truncate">{label}</span>
       {badge !== undefined && badge > 0 && (
-        <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-[10px] bg-white/10 hover:bg-white/10 border-0">{badge}</Badge>
+        <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-[10px] bg-muted hover:bg-muted/80 border-0">{badge}</Badge>
       )}
       {shortcut && (
         <span className="text-[10px] text-muted-foreground/60">{shortcut}</span>
@@ -102,8 +103,8 @@ function NavItem({ icon, label, to, onClick, shortcut, badge, indent, end }: Nav
 
   const className = cn(
     'flex w-full items-center gap-2.5 px-2.5 py-2 text-sm rounded-lg transition-all duration-150',
-    'hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
-    active ? 'bg-white/10 text-foreground' : 'text-white/50',
+    'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
+    active ? 'bg-secondary text-foreground' : 'text-muted-foreground',
     indent && 'pl-8'
   );
 
@@ -120,7 +121,7 @@ function NavItem({ icon, label, to, onClick, shortcut, badge, indent, end }: Nav
       onClick={onClick}
       className={cn(
         'flex w-full items-center gap-2.5 px-2 py-1.5 text-sm rounded-md transition-all duration-150',
-        'hover:bg-white/5 text-muted-foreground',
+        'hover:bg-muted/50 text-muted-foreground',
         indent && 'pl-7'
       )}
     >
@@ -171,14 +172,14 @@ export function AppSidebar({
 
   return (
     <div className={cn(
-      "flex flex-col bg-sidebar/50 backdrop-blur-3xl border-white/5 shadow-2xl overflow-hidden",
+      "flex flex-col bg-sidebar/50 backdrop-blur-3xl border-border shadow-2xl overflow-hidden",
       isMobile ? "w-full h-full border-r" : "w-[240px] border rounded-2xl my-4 ml-4 h-[calc(100vh-2rem)]"
     )}>
       {/* Workspace header */}
-      <div className="flex h-12 items-center justify-between px-3 border-b border-white/5 shrink-0">
+      <div className="flex h-12 items-center justify-between px-3 border-b border-border shrink-0">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <div className="flex items-center gap-2 group cursor-pointer hover:bg-white/5 p-1 rounded-md -ml-1 pr-2 transition-colors">
+            <div className="flex items-center gap-2 group cursor-pointer hover:bg-muted/50 p-1 rounded-md -ml-1 pr-2 transition-colors">
               <div className="flex h-6 w-6 items-center justify-center rounded bg-gradient-to-br from-primary to-primary/70 text-primary-foreground text-xs font-bold shadow-lg shadow-primary/20">
                 {organization?.name.charAt(0).toUpperCase() || "O"}
               </div>
@@ -207,7 +208,7 @@ export function AppSidebar({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 rounded-md hover:bg-white/10 text-muted-foreground hover:text-foreground"
+                  className="h-7 w-7 rounded-md hover:bg-muted/50 text-muted-foreground hover:text-foreground"
                   onClick={onOpenCommandPalette}
                 >
                   <MagnifyingGlass className="h-4 w-4" />
@@ -223,7 +224,7 @@ export function AppSidebar({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 rounded-md hover:bg-white/10 text-muted-foreground hover:text-foreground"
+                  className="h-7 w-7 rounded-md hover:bg-muted/50 text-muted-foreground hover:text-foreground"
                   onClick={onOpenCreateDialog}
                 >
                   <NotePencil className="h-4 w-4" />
@@ -254,8 +255,8 @@ export function AppSidebar({
 
         {/* Organization Workspace section */}
         <Collapsible open={workspaceOpen} onOpenChange={setWorkspaceOpen} className="mt-4">
-          <CollapsibleTrigger className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-white/40 hover:text-white/60 w-full group transition-colors">
-            <CaretDown className={cn('h-3 w-3 transition-transform text-white/30 group-hover:text-white/50', !workspaceOpen && '-rotate-90')} />
+          <CollapsibleTrigger className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-muted-foreground/60 hover:text-foreground w-full group transition-colors">
+            <CaretDown className={cn('h-3 w-3 transition-transform text-muted-foreground/40 group-hover:text-muted-foreground/60', !workspaceOpen && '-rotate-90')} />
             <span>{organization?.name || "Workspace"}</span>
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-1 space-y-0.5">
@@ -285,8 +286,8 @@ export function AppSidebar({
         {/* Favorites section */}
         {favoriteProjects.length > 0 && (
           <Collapsible open={favoritesOpen} onOpenChange={setFavoritesOpen} className="mt-4">
-            <CollapsibleTrigger className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-white/40 hover:text-white/60 w-full group transition-colors">
-              <CaretDown className={cn('h-3 w-3 transition-transform text-white/30 group-hover:text-white/50', !favoritesOpen && '-rotate-90')} />
+            <CollapsibleTrigger className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-muted-foreground/60 hover:text-foreground w-full group transition-colors">
+              <CaretDown className={cn('h-3 w-3 transition-transform text-muted-foreground/40 group-hover:text-muted-foreground/60', !favoritesOpen && '-rotate-90')} />
               <span>Favorites</span>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-1 space-y-0.5">
@@ -305,8 +306,8 @@ export function AppSidebar({
 
         {/* Teams section */}
         <Collapsible open={teamsOpen} onOpenChange={setTeamsOpen} className="mt-4">
-          <CollapsibleTrigger className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-white/40 hover:text-white/60 w-full group transition-colors">
-            <CaretDown className={cn('h-3 w-3 transition-transform text-white/30 group-hover:text-white/50', !teamsOpen && '-rotate-90')} />
+          <CollapsibleTrigger className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-muted-foreground/60 hover:text-foreground w-full group transition-colors">
+            <CaretDown className={cn('h-3 w-3 transition-transform text-muted-foreground/40 group-hover:text-muted-foreground/60', !teamsOpen && '-rotate-90')} />
             <span>Teams</span>
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-1 space-y-1">
@@ -318,9 +319,9 @@ export function AppSidebar({
                 >
                   <CollapsibleTrigger asChild>
                     <div 
-                      className="flex items-center gap-2.5 px-2.5 py-2 text-sm text-white/50 hover:text-white w-full rounded-lg hover:bg-white/5 group cursor-pointer transition-colors"
+                      className="flex items-center gap-2.5 px-2.5 py-2 text-sm text-muted-foreground hover:text-foreground w-full rounded-lg hover:bg-muted/50 group cursor-pointer transition-colors"
                     >
-                    <div className="flex h-5 w-5 items-center justify-center rounded bg-zinc-800 text-zinc-500 text-[10px] font-bold group-hover:bg-zinc-700 group-hover:text-zinc-400 transition-colors">
+                    <div className="flex h-5 w-5 items-center justify-center rounded bg-secondary text-muted-foreground text-[10px] font-bold group-hover:bg-accent group-hover:text-accent-foreground transition-colors">
                       {team.identifier.charAt(0)}
                     </div>
                     <span className="flex-1 text-left truncate">{team.name}</span>
@@ -332,13 +333,13 @@ export function AppSidebar({
                             e.stopPropagation();
                             handleNavClick(`/teams/${team.id}/settings`);
                           }}
-                          className="p-1 hover:bg-white/10 rounded-md opacity-0 group-hover:opacity-100 transition-all text-white/30 hover:text-white cursor-pointer focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
+                          className="p-1 hover:bg-muted/50 rounded-md opacity-0 group-hover:opacity-100 transition-all text-muted-foreground/30 hover:text-foreground cursor-pointer focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
                           aria-label="Team settings"
                         >
                           <Sliders className="h-3 w-3" />
                         </button>
                       )}
-                      <CaretRight weight="bold" className={cn('h-3 w-3 transition-transform text-white/30', openTeams[team.id] && 'rotate-90')} />
+                      <CaretRight weight="bold" className={cn('h-3 w-3 transition-transform text-muted-foreground/30', openTeams[team.id] && 'rotate-90')} />
                     </div>
                   </div>
                 </CollapsibleTrigger>
@@ -381,7 +382,7 @@ export function AppSidebar({
       </div>
 
       {/* Footer - User */}
-      <div className="border-t border-white/5 p-3 shrink-0">
+      <div className="border-t border-border p-3 shrink-0">
          <div className="flex items-center justify-between px-2">
             <div className="flex items-center gap-3 overflow-hidden">
               <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center text-primary font-medium text-xs shrink-0">
@@ -395,23 +396,27 @@ export function AppSidebar({
               </div>
             </div>
 
-            {onToggle && !isMobile && (
-              <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 rounded-md hover:bg-white/10 text-muted-foreground hover:text-foreground ml-1"
-                      onClick={onToggle}
-                    >
-                      <SidebarSimple className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">Hide sidebar ⌘\</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
+            <div className="flex items-center gap-0.5">
+              <ThemeSwitcher />
+
+              {onToggle && !isMobile && (
+                <TooltipProvider delayDuration={0}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 rounded-md hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                        onClick={onToggle}
+                      >
+                        <SidebarSimple className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">Hide sidebar ⌘\</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
          </div>
       </div>
     </div>

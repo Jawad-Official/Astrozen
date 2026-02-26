@@ -49,7 +49,7 @@ export function StatusGroup({
         className="flex items-center gap-2 px-4 py-1.5 text-sm text-muted-foreground hover:text-foreground w-full group"
       >
         <CaretRight weight="bold" className={cn('h-3.5 w-3.5 transition-transform', expanded && 'rotate-90')} />
-        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">{STATUS_CONFIG[status].label}</span>
+        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">{STATUS_CONFIG[status].label}</span>
         <span className="text-xs ml-1 opacity-40">{statusIssues.length}</span>
       </button>
       

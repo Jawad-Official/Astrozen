@@ -1,0 +1,1868 @@
+{
+  "tests": [
+    {
+      "id": "UI_AUTH001",
+      "title": "Login Page - Load and Display",
+      "description": "Verify that the login page loads correctly and displays all required elements: title, description, email field, password field, login button, and register link.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/login"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='login-form']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "h1:contains('Welcome back')"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "#email"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "#password"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "button[type='submit']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "a[href='/register']"
+        }
+      ]
+    },
+    {
+      "id": "UI_AUTH002",
+      "title": "Login Page - Form Validation",
+      "description": "Verify that the login form validates empty fields and shows appropriate error messages.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/login"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='login-form']"
+        },
+        {
+          "action": "fill",
+          "selector": "#email",
+          "value": ""
+        },
+        {
+          "action": "fill",
+          "selector": "#password",
+          "value": ""
+        },
+        {
+          "action": "click",
+          "selector": "button[type='submit']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": ".text-destructive:contains('email address')"
+        }
+      ]
+    },
+    {
+      "id": "UI_AUTH003",
+      "title": "Login Page - Valid Login",
+      "description": "Verify that a valid user can log in successfully and is redirected to the appropriate page.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/login"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='login-form']"
+        },
+        {
+          "action": "fill",
+          "selector": "#email",
+          "value": "testuser@astrozen.com"
+        },
+        {
+          "action": "fill",
+          "selector": "#password",
+          "value": "SecurePassword123!"
+        },
+        {
+          "action": "click",
+          "selector": "button[type='submit']"
+        },
+        {
+          "action": "wait",
+          "ms": 2000
+        },
+        {
+          "action": "assert",
+          "type": "url_contains",
+          "value": "/all-issues"
+        }
+      ]
+    },
+    {
+      "id": "UI_AUTH004",
+      "title": "Login Page - Invalid Credentials",
+      "description": "Verify that login with invalid credentials shows an error message.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/login"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='login-form']"
+        },
+        {
+          "action": "fill",
+          "selector": "#email",
+          "value": "invalid@astrozen.com"
+        },
+        {
+          "action": "fill",
+          "selector": "#password",
+          "value": "WrongPassword"
+        },
+        {
+          "action": "click",
+          "selector": "button[type='submit']"
+        },
+        {
+          "action": "wait",
+          "ms": 2000
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[role='status']:contains('Error')"
+        }
+      ]
+    },
+    {
+      "id": "UI_AUTH005",
+      "title": "Register Page - Load and Display",
+      "description": "Verify that the register page loads correctly and displays all required elements: title, description, email, password, first name, last name fields, and register button.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/register"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='register-form']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "h1:contains('Create an account')"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "#email"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "#password"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "#first_name"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "#last_name"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "button[type='submit']"
+        }
+      ]
+    },
+    {
+      "id": "UI_AUTH006",
+      "title": "Register Page - Valid Registration",
+      "description": "Verify that a new user can register successfully with valid data.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/register"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='register-form']"
+        },
+        {
+          "action": "fill",
+          "selector": "#email",
+          "value": "newuser${Date.now()}@astrozen.com"
+        },
+        {
+          "action": "fill",
+          "selector": "#password",
+          "value": "SecurePassword123!"
+        },
+        {
+          "action": "fill",
+          "selector": "#first_name",
+          "value": "New"
+        },
+        {
+          "action": "fill",
+          "selector": "#last_name",
+          "value": "User"
+        },
+        {
+          "action": "click",
+          "selector": "button[type='submit']"
+        },
+        {
+          "action": "wait",
+          "ms": 2000
+        },
+        {
+          "action": "assert",
+          "type": "url_contains",
+          "value": "/org-setup"
+        }
+      ]
+    },
+    {
+      "id": "UI_AUTH007",
+      "title": "Organization Setup Page - Load and Display",
+      "description": "Verify that the organization setup page loads correctly after registration.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/org-setup"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='org-setup-form']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "h1:contains('Organization')"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "#organization_name"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "button[type='submit']"
+        }
+      ]
+    },
+    {
+      "id": "UI_AUTH008",
+      "title": "Organization Setup - Create Organization",
+      "description": "Verify that a user can create an organization successfully.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/org-setup"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='org-setup-form']"
+        },
+        {
+          "action": "fill",
+          "selector": "#organization_name",
+          "value": "Test Organization"
+        },
+        {
+          "action": "fill",
+          "selector": "#organization_description",
+          "value": "A test organization"
+        },
+        {
+          "action": "click",
+          "selector": "button[type='submit']"
+        },
+        {
+          "action": "wait",
+          "ms": 2000
+        },
+        {
+          "action": "assert",
+          "type": "url_contains",
+          "value": "/all-issues"
+        }
+      ]
+    },
+    {
+      "id": "UI_ISSUE001",
+      "title": "All Issues Page - Load and Display",
+      "description": "Verify that the all issues page loads correctly and displays the issue list, filter bar, and sidebar.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='issues-page']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='filter-bar']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='sidebar']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='issue-list']"
+        }
+      ],
+      "depends_on": ["UI_AUTH003"]
+    },
+    {
+      "id": "UI_ISSUE002",
+      "title": "All Issues Page - Filter by Status",
+      "description": "Verify that issues can be filtered by status using the filter bar.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='filter-bar']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='status-filter']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-value='open']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='issue-list']"
+        }
+      ],
+      "depends_on": ["UI_ISSUE001"]
+    },
+    {
+      "id": "UI_ISSUE003",
+      "title": "All Issues Page - Filter by Priority",
+      "description": "Verify that issues can be filtered by priority using the filter bar.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='filter-bar']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='priority-filter']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-value='high']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='issue-list']"
+        }
+      ],
+      "depends_on": ["UI_ISSUE001"]
+    },
+    {
+      "id": "UI_ISSUE004",
+      "title": "All Issues Page - Search Issues",
+      "description": "Verify that issues can be searched using the search input.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='filter-bar']"
+        },
+        {
+          "action": "fill",
+          "selector": "[data-testid='search-input']",
+          "value": "test"
+        },
+        {
+          "action": "wait",
+          "ms": 1000
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='issue-list']"
+        }
+      ],
+      "depends_on": ["UI_ISSUE001"]
+    },
+    {
+      "id": "UI_ISSUE005",
+      "title": "All Issues Page - Create Issue Button",
+      "description": "Verify that the create issue button is visible and clicking it opens the create issue dialog.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='create-issue-button']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='create-issue-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='create-issue-dialog']"
+        }
+      ],
+      "depends_on": ["UI_ISSUE001"]
+    },
+    {
+      "id": "UI_ISSUE006",
+      "title": "All Issues Page - Create Issue",
+      "description": "Verify that a new issue can be created with valid data.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='create-issue-button']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='create-issue-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "fill",
+          "selector": "[data-testid='issue-title-input']",
+          "value": "Test Issue from TestSprite"
+        },
+        {
+          "action": "fill",
+          "selector": "[data-testid='issue-description-input']",
+          "value": "This is a test issue created by TestSprite"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='save-issue-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 2000
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-issue-title='Test Issue from TestSprite']"
+        }
+      ],
+      "depends_on": ["UI_ISSUE005"]
+    },
+    {
+      "id": "UI_ISSUE007",
+      "title": "All Issues Page - Click Issue Card",
+      "description": "Verify that clicking on an issue card opens the issue detail view.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='issue-card']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='issue-card']:first-child"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='issue-detail-panel']"
+        }
+      ],
+      "depends_on": ["UI_ISSUE006"]
+    },
+    {
+      "id": "UI_ISSUE008",
+      "title": "My Issues Page - Load and Display",
+      "description": "Verify that the my issues page loads correctly and displays issues assigned to the current user.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/my-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='issues-page']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "h1:contains('My Issues')"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='issue-list']"
+        }
+      ],
+      "depends_on": ["UI_AUTH003"]
+    },
+    {
+      "id": "UI_ISSUE009",
+      "title": "Inbox Page - Load and Display",
+      "description": "Verify that the inbox page loads correctly and displays pending triage issues.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/inbox"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='issues-page']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "h1:contains('Inbox')"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='issue-list']"
+        }
+      ],
+      "depends_on": ["UI_AUTH003"]
+    },
+    {
+      "id": "UI_PROJ001",
+      "title": "Projects Page - Load and Display",
+      "description": "Verify that the projects page loads correctly and displays the project list, filter options, and project cards.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/projects"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='projects-page']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "h1:contains('Projects')"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='project-list']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='create-project-button']"
+        }
+      ],
+      "depends_on": ["UI_AUTH003"]
+    },
+    {
+      "id": "UI_PROJ002",
+      "title": "Projects Page - Create Project Button",
+      "description": "Verify that clicking the create project button opens the create project dialog.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/projects"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='create-project-button']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='create-project-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='create-project-dialog']"
+        }
+      ],
+      "depends_on": ["UI_PROJ001"]
+    },
+    {
+      "id": "UI_PROJ003",
+      "title": "Projects Page - Create Project",
+      "description": "Verify that a new project can be created with valid data.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/projects"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='create-project-button']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='create-project-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "fill",
+          "selector": "[data-testid='project-name-input']",
+          "value": "Test Project from TestSprite"
+        },
+        {
+          "action": "fill",
+          "selector": "[data-testid='project-description-input']",
+          "value": "This is a test project created by TestSprite"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='team-select']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-value='test-team']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='save-project-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 2000
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-project-name='Test Project from TestSprite']"
+        }
+      ],
+      "depends_on": ["UI_PROJ002"]
+    },
+    {
+      "id": "UI_PROJ004",
+      "title": "Projects Page - Click Project Card",
+      "description": "Verify that clicking on a project card navigates to the project detail page.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/projects"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='project-card']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='project-card']:first-child"
+        },
+        {
+          "action": "wait",
+          "ms": 1000
+        },
+        {
+          "action": "assert",
+          "type": "url_contains",
+          "value": "/projects/"
+        }
+      ],
+      "depends_on": ["UI_PROJ001"]
+    },
+    {
+      "id": "UI_PROJ005",
+      "title": "Project Detail Page - Load and Display",
+      "description": "Verify that the project detail page loads correctly and displays project information, features, updates, and resources tabs.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/projects/test-project-id"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='project-detail-page']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='project-header']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='project-tabs']"
+        }
+      ],
+      "depends_on": ["UI_PROJ001"]
+    },
+    {
+      "id": "UI_PROJ006",
+      "title": "Project Detail Page - Navigate Tabs",
+      "description": "Verify that clicking on different tabs (Features, Updates, Resources) updates the view accordingly.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/projects/test-project-id"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='project-tabs']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-tab='features']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='features-view']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-tab='updates']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='updates-view']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-tab='resources']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='resources-view']"
+        }
+      ],
+      "depends_on": ["UI_PROJ005"]
+    },
+    {
+      "id": "UI_PROJ007",
+      "title": "Project Detail Page - Create Update",
+      "description": "Verify that a project update can be created.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/projects/test-project-id"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='project-tabs']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-tab='updates']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='create-update-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='create-update-dialog']"
+        },
+        {
+          "action": "fill",
+          "selector": "[data-testid='update-content-input']",
+          "value": "This is a test update from TestSprite"
+        },
+        {
+          "action": "click",
+          "selector": "[data-health-status='on_track']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='save-update-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 2000
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-update-content='This is a test update from TestSprite']"
+        }
+      ],
+      "depends_on": ["UI_PROJ005"]
+    },
+    {
+      "id": "UI_PROJ008",
+      "title": "Project Detail Page - Create Resource",
+      "description": "Verify that a project resource can be created.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/projects/test-project-id"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='project-tabs']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-tab='resources']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='create-resource-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='create-resource-dialog']"
+        },
+        {
+          "action": "fill",
+          "selector": "[data-testid='resource-name-input']",
+          "value": "Test Resource"
+        },
+        {
+          "action": "fill",
+          "selector": "[data-testid='resource-url-input']",
+          "value": "https://example.com"
+        },
+        {
+          "action": "click",
+          "selector": "[data-resource-type='link']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='save-resource-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 2000
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-resource-name='Test Resource']"
+        }
+      ],
+      "depends_on": ["UI_PROJ005"]
+    },
+    {
+      "id": "UI_FEAT001",
+      "title": "Features Page - Load and Display",
+      "description": "Verify that the features page loads correctly and displays the feature list and kanban board.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/features"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='features-page']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "h1:contains('Features')"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='kanban-board']"
+        }
+      ],
+      "depends_on": ["UI_AUTH003"]
+    },
+    {
+      "id": "UI_FEAT002",
+      "title": "Features Page - Create Feature Button",
+      "description": "Verify that clicking the create feature button opens the create feature dialog.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/features"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='create-feature-button']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='create-feature-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='create-feature-dialog']"
+        }
+      ],
+      "depends_on": ["UI_FEAT001"]
+    },
+    {
+      "id": "UI_FEAT003",
+      "title": "Features Page - Create Feature",
+      "description": "Verify that a new feature can be created with valid data.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/features"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='create-feature-button']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='create-feature-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "fill",
+          "selector": "[data-testid='feature-name-input']",
+          "value": "Test Feature from TestSprite"
+        },
+        {
+          "action": "fill",
+          "selector": "[data-testid='feature-description-input']",
+          "value": "This is a test feature created by TestSprite"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='project-select']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-value='test-project']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='save-feature-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 2000
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-feature-name='Test Feature from TestSprite']"
+        }
+      ],
+      "depends_on": ["UI_FEAT002"]
+    },
+    {
+      "id": "UI_FEAT004",
+      "title": "Features Page - Drag and Drop Feature",
+      "description": "Verify that features can be dragged and dropped between kanban columns.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/features"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='feature-card']"
+        },
+        {
+          "action": "drag",
+          "selector": "[data-testid='feature-card']:first-child",
+          "target": "[data-status='in_progress']"
+        },
+        {
+          "action": "wait",
+          "ms": 1000
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-status='in_progress'] [data-testid='feature-card']"
+        }
+      ],
+      "depends_on": ["UI_FEAT001"]
+    },
+    {
+      "id": "UI_AI001",
+      "title": "AI Generator Page - Load and Display",
+      "description": "Verify that the AI generator page loads correctly and displays the idea submission form and core pillars.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/ai-generator"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='ai-generator-page']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "h1:contains('AI Generator')"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='idea-form']"
+        }
+      ],
+      "depends_on": ["UI_AUTH003"]
+    },
+    {
+      "id": "UI_AI002",
+      "title": "AI Generator Page - Submit Idea",
+      "description": "Verify that an idea can be submitted for AI processing.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/ai-generator"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='idea-form']"
+        },
+        {
+          "action": "fill",
+          "selector": "[data-testid='idea-name-input']",
+          "value": "Test Idea from TestSprite"
+        },
+        {
+          "action": "fill",
+          "selector": "[data-testid='idea-description-input']",
+          "value": "This is a test idea for AI generation"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='submit-idea-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 2000
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='validation-view']"
+        }
+      ],
+      "depends_on": ["UI_AI001"]
+    },
+    {
+      "id": "UI_AI003",
+      "title": "AI Generator Page - Answer Questions",
+      "description": "Verify that validation questions can be answered.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/ai-generator/idea-test-id"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='validation-view']"
+        },
+        {
+          "action": "fill",
+          "selector": "[data-testid='question-answer-input']:first-child",
+          "value": "Test answer"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='next-question-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='validation-view']"
+        }
+      ],
+      "depends_on": ["UI_AI001"]
+    },
+    {
+      "id": "UI_AI004",
+      "title": "AI Generator Page - Generate Blueprint",
+      "description": "Verify that a blueprint can be generated after validation.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/ai-generator/idea-test-id"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='validation-view']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='generate-blueprint-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 3000
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='blueprint-view']"
+        }
+      ],
+      "depends_on": ["UI_AI001"]
+    },
+    {
+      "id": "UI_SETTINGS001",
+      "title": "Settings Page - Load and Display",
+      "description": "Verify that the settings page loads correctly and displays profile, organization, and team settings tabs.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/settings"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='settings-page']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "h1:contains('Settings')"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='settings-tabs']"
+        }
+      ],
+      "depends_on": ["UI_AUTH003"]
+    },
+    {
+      "id": "UI_SETTINGS002",
+      "title": "Settings Page - Navigate Tabs",
+      "description": "Verify that clicking on different settings tabs updates the view.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/settings"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='settings-tabs']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-tab='profile']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='profile-settings']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-tab='organization']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='organization-settings']"
+        }
+      ],
+      "depends_on": ["UI_SETTINGS001"]
+    },
+    {
+      "id": "UI_SETTINGS003",
+      "title": "Settings Page - Update Profile",
+      "description": "Verify that user profile can be updated.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/settings"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='settings-tabs']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-tab='profile']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "fill",
+          "selector": "[data-testid='first-name-input']",
+          "value": "Updated First Name"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='save-profile-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 2000
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[role='status']:contains('Profile updated')"
+        }
+      ],
+      "depends_on": ["UI_SETTINGS001"]
+    },
+    {
+      "id": "UI_NAV001",
+      "title": "Sidebar Navigation - All Menu Items",
+      "description": "Verify that all sidebar menu items are visible and clickable.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='sidebar']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-nav='all-issues']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-nav='inbox']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-nav='my-issues']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-nav='projects']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-nav='features']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-nav='ai-generator']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-nav='insights']"
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-nav='settings']"
+        }
+      ],
+      "depends_on": ["UI_AUTH003"]
+    },
+    {
+      "id": "UI_NAV002",
+      "title": "Sidebar Navigation - Click Menu Items",
+      "description": "Verify that clicking sidebar menu items navigates to the correct pages.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='sidebar']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-nav='projects']"
+        },
+        {
+          "action": "wait",
+          "ms": 1000
+        },
+        {
+          "action": "assert",
+          "type": "url_contains",
+          "value": "/projects"
+        },
+        {
+          "action": "click",
+          "selector": "[data-nav='features']"
+        },
+        {
+          "action": "wait",
+          "ms": 1000
+        },
+        {
+          "action": "assert",
+          "type": "url_contains",
+          "value": "/features"
+        },
+        {
+          "action": "click",
+          "selector": "[data-nav='ai-generator']"
+        },
+        {
+          "action": "wait",
+          "ms": 1000
+        },
+        {
+          "action": "assert",
+          "type": "url_contains",
+          "value": "/ai-generator"
+        }
+      ],
+      "depends_on": ["UI_NAV001"]
+    },
+    {
+      "id": "UI_NAV003",
+      "title": "User Menu - Toggle",
+      "description": "Verify that clicking the user menu toggles the dropdown.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='user-menu']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='user-menu']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='user-dropdown']"
+        }
+      ],
+      "depends_on": ["UI_AUTH003"]
+    },
+    {
+      "id": "UI_NAV004",
+      "title": "User Menu - Logout",
+      "description": "Verify that clicking logout from the user menu logs the user out and redirects to login page.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='user-menu']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='user-menu']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='logout-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 1000
+        },
+        {
+          "action": "assert",
+          "type": "url_contains",
+          "value": "/login"
+        }
+      ],
+      "depends_on": ["UI_AUTH003"]
+    },
+    {
+      "id": "UI_DIA001",
+      "title": "Command Palette - Open",
+      "description": "Verify that pressing Ctrl+K or clicking the command palette button opens the command palette.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='command-palette-trigger']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='command-palette-trigger']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='command-palette']"
+        }
+      ],
+      "depends_on": ["UI_AUTH003"]
+    },
+    {
+      "id": "UI_DIA002",
+      "title": "Command Palette - Search and Navigate",
+      "description": "Verify that the command palette can search for and navigate to pages.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='command-palette-trigger']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='command-palette-trigger']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "fill",
+          "selector": "[data-testid='command-palette-input']",
+          "value": "Projects"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='command-item-projects']"
+        },
+        {
+          "action": "wait",
+          "ms": 1000
+        },
+        {
+          "action": "assert",
+          "type": "url_contains",
+          "value": "/projects"
+        }
+      ],
+      "depends_on": ["UI_DIA001"]
+    },
+    {
+      "id": "UI_ISSUE010",
+      "title": "Issue Detail - Add Comment",
+      "description": "Verify that a comment can be added to an issue.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='issue-card']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='issue-card']:first-child"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "fill",
+          "selector": "[data-testid='comment-input']",
+          "value": "This is a test comment from TestSprite"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='submit-comment-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 2000
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-comment-content='This is a test comment from TestSprite']"
+        }
+      ],
+      "depends_on": ["UI_ISSUE007"]
+    },
+    {
+      "id": "UI_ISSUE011",
+      "title": "Issue Detail - Update Status",
+      "description": "Verify that issue status can be updated from the detail panel.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='issue-card']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='issue-card']:first-child"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='status-select']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-status='in_progress']"
+        },
+        {
+          "action": "wait",
+          "ms": 1000
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-issue-status='in_progress']"
+        }
+      ],
+      "depends_on": ["UI_ISSUE007"]
+    },
+    {
+      "id": "UI_ISSUE012",
+      "title": "Issue Detail - Update Priority",
+      "description": "Verify that issue priority can be updated from the detail panel.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='issue-card']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='issue-card']:first-child"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='priority-select']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-priority='high']"
+        },
+        {
+          "action": "wait",
+          "ms": 1000
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-issue-priority='high']"
+        }
+      ],
+      "depends_on": ["UI_ISSUE007"]
+    },
+    {
+      "id": "UI_ISSUE013",
+      "title": "Issue Detail - View Activities",
+      "description": "Verify that activity history can be viewed for an issue.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='issue-card']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='issue-card']:first-child"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='activities-tab']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='activities-list']"
+        }
+      ],
+      "depends_on": ["UI_ISSUE007"]
+    },
+    {
+      "id": "UI_NOTIF001",
+      "title": "Notifications - Bell Icon",
+      "description": "Verify that the notification bell icon is visible and clicking it shows notifications.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='notification-bell']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='notification-bell']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='notifications-dropdown']"
+        }
+      ],
+      "depends_on": ["UI_AUTH003"]
+    },
+    {
+      "id": "UI_NOTIF002",
+      "title": "Notifications - Mark as Read",
+      "description": "Verify that notifications can be marked as read.",
+      "steps": [
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='notification-bell']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='notification-bell']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='mark-all-read-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 1000
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='notifications-dropdown']"
+        }
+      ],
+      "depends_on": ["UI_AUTH003"]
+    },
+    {
+      "id": "UI_RESP001",
+      "title": "Responsive - Mobile Navigation",
+      "description": "Verify that the mobile navigation menu works correctly on small screens.",
+      "steps": [
+        {
+          "action": "resize_viewport",
+          "width": 375,
+          "height": 667
+        },
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='mobile-menu-button']"
+        },
+        {
+          "action": "click",
+          "selector": "[data-testid='mobile-menu-button']"
+        },
+        {
+          "action": "wait",
+          "ms": 500
+        },
+        {
+          "action": "assert",
+          "type": "element_visible",
+          "selector": "[data-testid='mobile-menu']"
+        }
+      ],
+      "depends_on": ["UI_AUTH003"]
+    },
+    {
+      "id": "UI_RESP002",
+      "title": "Responsive - Mobile Sidebar",
+      "description": "Verify that the sidebar is hidden on mobile and can be toggled.",
+      "steps": [
+        {
+          "action": "resize_viewport",
+          "width": 375,
+          "height": 667
+        },
+        {
+          "action": "navigate",
+          "url": "http://localhost:3000/all-issues"
+        },
+        {
+          "action": "wait_for_element",
+          "selector": "[data-testid='mobile-menu-button']"
+        },
+        {
+          "action": "assert",
+          "type": "element_not_visible",
+          "selector": "[data-testid='sidebar']"
+        }
+      ],
+      "depends_on": ["UI_AUTH003"]
+    }
+  ]
+}

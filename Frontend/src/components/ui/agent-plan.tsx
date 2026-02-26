@@ -71,14 +71,14 @@ const RecursiveTask = ({
 
   return (
     <motion.li
-      className={cn("list-none", level > 0 && "ml-4 border-l border-white/5 pl-2 mt-1")}
+      className={cn("list-none", level > 0 && "ml-4 border-l border-border/50 pl-2 mt-1")}
       initial="hidden"
       animate="visible"
       variants={taskVariants}
     >
       <div className="group flex flex-col">
         <motion.div 
-          className="flex items-center px-2 py-1.5 rounded-md transition-colors hover:bg-white/[0.03]"
+          className="flex items-center px-2 py-1.5 rounded-md transition-colors hover:bg-accent/50"
         >
           <motion.div
             className="mr-2 flex-shrink-0 cursor-pointer"
@@ -89,9 +89,9 @@ const RecursiveTask = ({
             whileTap={{ scale: 0.9 }}
           >
             {task.status === "completed" ? (
-              <CheckCircle weight="fill" className="h-4 w-4 text-emerald-500" />
+              <CheckCircle weight="fill" className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />
             ) : task.status === "in-progress" || task.status === "in_build" ? (
-              <CircleDotDashed className="h-4 w-4 text-blue-500 animate-spin-slow" />
+              <CircleDotDashed className="h-4 w-4 text-blue-600 dark:text-blue-500 animate-spin-slow" />
             ) : (
               <Circle className="text-muted-foreground h-4 w-4" />
             )}
@@ -104,7 +104,7 @@ const RecursiveTask = ({
             <div className="mr-2 flex-1 truncate">
               <span className={cn(
                 "text-sm",
-                isCompleted ? "text-muted-foreground line-through font-normal" : "font-medium text-white/80"
+                isCompleted ? "text-muted-foreground line-through font-normal" : "font-medium text-foreground/80"
               )}>
                 {task.title}
               </span>
@@ -119,7 +119,7 @@ const RecursiveTask = ({
                      onCreateIssue(task.id);
                    }}
                    title="Create issue for this milestone"
-                   className="p-1 hover:bg-white/10 rounded transition-all active:scale-95"
+                   className="p-1 hover:bg-accent rounded transition-all active:scale-95"
                  >
                    <Plus className="h-3.5 w-3.5 text-primary/60" weight="bold" />
                  </button>
@@ -133,7 +133,7 @@ const RecursiveTask = ({
                      }
                    }}
                    title="Delete milestone"
-                   className="p-1 hover:bg-red-500/10 rounded transition-all active:scale-95 text-muted-foreground hover:text-red-400"
+                   className="p-1 hover:bg-destructive/10 rounded transition-all active:scale-95 text-muted-foreground hover:text-destructive"
                  >
                    <CircleX className="h-3.5 w-3.5" />
                  </button>

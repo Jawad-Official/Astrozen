@@ -92,7 +92,7 @@ export function CommandPalette({ open, onOpenChange, onCreateIssue }: CommandPal
             <CommandGroup heading="Issues">
               {filteredIssues.map((issue) => (
                 <CommandItem key={issue.id}>
-                  <Badge variant="outline" className="h-4 px-1 text-[8px] font-bold uppercase border-white/5 bg-white/5 text-white/60 mr-2">
+                  <Badge variant="outline" className="h-4 px-1 text-[8px] font-bold uppercase border-border bg-muted text-muted-foreground/60 mr-2">
                     {STATUS_CONFIG[issue.status].label}
                   </Badge>
                   <span className="font-mono text-xs text-muted-foreground mr-2">

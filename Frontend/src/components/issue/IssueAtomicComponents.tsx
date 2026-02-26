@@ -24,11 +24,11 @@ import { Badge } from "@/components/ui/badge";
 
 export const getStatusColorClass = (status: IssueStatus) => {
   switch (status) {
-    case 'backlog': return 'bg-purple-500/10 text-purple-400 border-purple-500/20';
-    case 'todo': return 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20';
-    case 'in_progress': return 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20';
-    case 'done': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-    case 'cancelled': return 'bg-red-500/10 text-red-400 border-red-500/20';
+    case 'backlog': return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20';
+    case 'todo': return 'bg-muted text-muted-foreground border-border';
+    case 'in_progress': return 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20';
+    case 'done': return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
+    case 'cancelled': return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20';
     default: return 'bg-primary/10 text-primary border-primary/20';
   }
 };
@@ -36,11 +36,11 @@ export const getStatusColorClass = (status: IssueStatus) => {
 export const IssueStatusIcon = ({ status, className }: { status: IssueStatus; className?: string }) => {
   const iconClass = cn('h-4 w-4', className);
   switch (status) {
-    case 'backlog': return <CircleDashed className={cn(iconClass, 'text-purple-400')} />;
-    case 'todo': return <Circle className={cn(iconClass, 'text-zinc-400')} />;
-    case 'in_progress': return <CircleHalf className={cn(iconClass, 'text-cyan-400')} />;
-    case 'done': return <CheckCircle weight="fill" className={cn(iconClass, 'text-emerald-400')} />;
-    case 'cancelled': return <XCircle className={cn(iconClass, 'text-red-400')} />;
+    case 'backlog': return <CircleDashed className={cn(iconClass, 'text-purple-600 dark:text-purple-400')} />;
+    case 'todo': return <Circle className={cn(iconClass, 'text-muted-foreground')} />;
+    case 'in_progress': return <CircleHalf className={cn(iconClass, 'text-cyan-600 dark:text-cyan-400')} />;
+    case 'done': return <CheckCircle weight="fill" className={cn(iconClass, 'text-emerald-600 dark:text-emerald-400')} />;
+    case 'cancelled': return <XCircle className={cn(iconClass, 'text-red-600 dark:text-red-400')} />;
     default: return <Circle className={iconClass} />;
   }
 };
@@ -84,7 +84,7 @@ export const IssueStatusBadge = ({ status, className, children }: { status: Issu
     <Badge 
       variant="outline" 
       className={cn(
-        "h-5 px-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors hover:bg-white/5 whitespace-nowrap border",
+        "h-5 px-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors hover:bg-muted whitespace-nowrap border",
         getStatusColorClass(status),
         className
       )}
@@ -96,7 +96,7 @@ export const IssueStatusBadge = ({ status, className, children }: { status: Issu
 
 export const IssueIdentifier = ({ identifier, className }: { identifier: string; className?: string }) => {
   return (
-    <span className={cn("text-[11px] text-white/70 font-mono transition-colors truncate tracking-tight", className)}>
+    <span className={cn("text-[11px] text-muted-foreground/70 font-mono transition-colors truncate tracking-tight", className)}>
       {identifier}
     </span>
   );

@@ -1,0 +1,1399 @@
+{
+  "tests": [
+    {
+      "id": "AUTH001",
+      "title": "User Registration with Valid Data",
+      "description": "Test the POST /api/v1/auth/register endpoint to ensure a new user can register successfully with valid email, password, first_name, and last_name, and that the response returns appropriate success status (201) and user data.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/auth/register",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "email": "testuser@astrozen.com",
+            "password": "SecurePassword123!",
+            "first_name": "Test",
+            "last_name": "User"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 201,
+          "body_contains": ["email", "id", "first_name", "last_name"]
+        }
+      ]
+    },
+    {
+      "id": "AUTH002",
+      "title": "User Login with Correct Credentials",
+      "description": "Test the POST /api/v1/auth/login endpoint to verify that a user can log in with valid username and password, and receives a valid JWT access token.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/auth/login",
+          "headers": {
+            "Content-Type": "application/x-www-form-urlencoded"
+          },
+          "body": "username=testuser@astrozen.com&password=SecurePassword123!"
+        },
+        {
+          "action": "assert",
+          "status_code": 200,
+          "body_contains": ["access_token", "token_type"]
+        }
+      ],
+      "depends_on": ["AUTH001"]
+    },
+    {
+      "id": "AUTH003",
+      "title": "Get Current User Info",
+      "description": "Test the GET /api/v1/auth/me endpoint to verify that authenticated users can retrieve their current user information.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/auth/me",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200,
+          "body_contains": ["id", "email", "first_name", "last_name"]
+        }
+      ],
+      "depends_on": ["AUTH002"]
+    },
+    {
+      "id": "AUTH004",
+      "title": "Login with Invalid Credentials",
+      "description": "Test the POST /api/v1/auth/login endpoint with invalid password to verify proper error handling.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/auth/login",
+          "headers": {
+            "Content-Type": "application/x-www-form-urlencoded"
+          },
+          "body": "username=testuser@astrozen.com&password=WrongPassword!"
+        },
+        {
+          "action": "assert",
+          "status_code": 401
+        }
+      ]
+    },
+    {
+      "id": "AUTH005",
+      "title": "Register with Duplicate Email",
+      "description": "Test the POST /api/v1/auth/register endpoint with an existing email to verify duplicate registration is prevented.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/auth/register",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "email": "testuser@astrozen.com",
+            "password": "AnotherPassword123!",
+            "first_name": "Test",
+            "last_name": "User"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 400
+        }
+      ],
+      "depends_on": ["AUTH001"]
+    },
+    {
+      "id": "ORG001",
+      "title": "Create Organization",
+      "description": "Test the POST /api/v1/organizations endpoint to create a new organization.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/organizations",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "name": "Test Organization",
+            "description": "A test organization for TestSprite tests"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 201,
+          "body_contains": ["id", "name", "description"]
+        },
+        {
+          "action": "save",
+          "variable": "organization_id",
+          "from": "body.id"
+        }
+      ],
+      "depends_on": ["AUTH002"]
+    },
+    {
+      "id": "ORG002",
+      "title": "Get My Organization",
+      "description": "Test the GET /api/v1/organizations/me endpoint to retrieve the current user's organization.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/organizations/me",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200,
+          "body_contains": ["id", "name"]
+        }
+      ],
+      "depends_on": ["ORG001"]
+    },
+    {
+      "id": "ORG003",
+      "title": "Get Organization Members",
+      "description": "Test the GET /api/v1/organizations/me/members endpoint to retrieve organization members.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/organizations/me/members",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["ORG001"]
+    },
+    {
+      "id": "ORG004",
+      "title": "Generate Invite Code",
+      "description": "Test the POST /api/v1/organizations/invite-codes endpoint to generate an invite code.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/organizations/invite-codes",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}",
+            "Content-Type": "application/json"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 201,
+          "body_contains": ["code"]
+        }
+      ],
+      "depends_on": ["ORG001"]
+    },
+    {
+      "id": "TEAM001",
+      "title": "List Teams",
+      "description": "Test the GET /api/v1/teams endpoint to list all teams the user has access to.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/teams",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["ORG001"]
+    },
+    {
+      "id": "TEAM002",
+      "title": "Create Team",
+      "description": "Test the POST /api/v1/teams endpoint to create a new team with unique identifier.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/teams",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "name": "Test Team",
+            "identifier": "test-team"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 201,
+          "body_contains": ["id", "name", "identifier"]
+        },
+        {
+          "action": "save",
+          "variable": "team_id",
+          "from": "body.id"
+        }
+      ],
+      "depends_on": ["ORG001"]
+    },
+    {
+      "id": "TEAM003",
+      "title": "Get Team",
+      "description": "Test the GET /api/v1/teams/{team_id} endpoint to retrieve a specific team.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/teams/{{team_id}}",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200,
+          "body_contains": ["id", "name"]
+        }
+      ],
+      "depends_on": ["TEAM002"]
+    },
+    {
+      "id": "TEAM004",
+      "title": "Update Team",
+      "description": "Test the PATCH /api/v1/teams/{team_id} endpoint to update team details.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "PATCH",
+          "url": "http://localhost:8080/api/v1/teams/{{team_id}}",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "name": "Updated Test Team",
+            "description": "This team has been updated"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200,
+          "body_contains": ["name", "description"]
+        }
+      ],
+      "depends_on": ["TEAM002"]
+    },
+    {
+      "id": "TEAM005",
+      "title": "Create Team with Duplicate Identifier",
+      "description": "Test the POST /api/v1/teams endpoint with duplicate identifier to verify validation.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/teams",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "name": "Another Test Team",
+            "identifier": "test-team"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 400
+        }
+      ],
+      "depends_on": ["TEAM002"]
+    },
+    {
+      "id": "PROJ001",
+      "title": "List Projects",
+      "description": "Test the GET /api/v1/projects endpoint to list all projects the user can access.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/projects",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["TEAM002"]
+    },
+    {
+      "id": "PROJ002",
+      "title": "Create Project",
+      "description": "Test the POST /api/v1/projects endpoint to create a new project linked to a team.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/projects",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "name": "Test Project",
+            "description": "A test project for TestSprite",
+            "team_id": "{{team_id}}",
+            "visibility": "team"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 201,
+          "body_contains": ["id", "name", "description"]
+        },
+        {
+          "action": "save",
+          "variable": "project_id",
+          "from": "body.id"
+        }
+      ],
+      "depends_on": ["TEAM002"]
+    },
+    {
+      "id": "PROJ003",
+      "title": "Get Project",
+      "description": "Test the GET /api/v1/projects/{project_id} endpoint to retrieve a specific project.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/projects/{{project_id}}",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200,
+          "body_contains": ["id", "name", "description"]
+        }
+      ],
+      "depends_on": ["PROJ002"]
+    },
+    {
+      "id": "PROJ004",
+      "title": "Update Project",
+      "description": "Test the PATCH /api/v1/projects/{project_id} endpoint to update project details.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "PATCH",
+          "url": "http://localhost:8080/api/v1/projects/{{project_id}}",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "name": "Updated Test Project",
+            "description": "This project has been updated"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200,
+          "body_contains": ["name", "description"]
+        }
+      ],
+      "depends_on": ["PROJ002"]
+    },
+    {
+      "id": "PROJ005",
+      "title": "Create Project Update",
+      "description": "Test the POST /api/v1/projects/{project_id}/updates endpoint to create a project update.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/projects/{{project_id}}/updates",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "content": "This is a test project update",
+            "health": "on_track"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 201,
+          "body_contains": ["id", "content"]
+        },
+        {
+          "action": "save",
+          "variable": "update_id",
+          "from": "body.id"
+        }
+      ],
+      "depends_on": ["PROJ002"]
+    },
+    {
+      "id": "PROJ006",
+      "title": "Create Project Resource",
+      "description": "Test the POST /api/v1/projects/{project_id}/resources endpoint to create a project resource.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/projects/{{project_id}}/resources",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "name": "Test Resource",
+            "url": "https://example.com/resource",
+            "resource_type": "link"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 201,
+          "body_contains": ["id", "name"]
+        },
+        {
+          "action": "save",
+          "variable": "resource_id",
+          "from": "body.id"
+        }
+      ],
+      "depends_on": ["PROJ002"]
+    },
+    {
+      "id": "PROJ007",
+      "title": "Delete Project Update",
+      "description": "Test the DELETE /api/v1/projects/{project_id}/updates/{update_id} endpoint.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "DELETE",
+          "url": "http://localhost:8080/api/v1/projects/{{project_id}}/updates/{{update_id}}",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 204
+        }
+      ],
+      "depends_on": ["PROJ005"]
+    },
+    {
+      "id": "PROJ008",
+      "title": "Delete Project Resource",
+      "description": "Test the DELETE /api/v1/projects/{project_id}/resources/{resource_id} endpoint.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "DELETE",
+          "url": "http://localhost:8080/api/v1/projects/{{project_id}}/resources/{{resource_id}}",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 204
+        }
+      ],
+      "depends_on": ["PROJ006"]
+    },
+    {
+      "id": "PROJ009",
+      "title": "Create Update Comment",
+      "description": "Test the POST /api/v1/projects/{project_id}/updates/{update_id}/comments endpoint.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/projects/{{project_id}}/updates/{{update_id}}/comments",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "content": "This is a test comment"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 201,
+          "body_contains": ["id", "content"]
+        },
+        {
+          "action": "save",
+          "variable": "update_comment_id",
+          "from": "body.id"
+        }
+      ],
+      "depends_on": ["PROJ005"]
+    },
+    {
+      "id": "PROJ010",
+      "title": "Delete Update Comment",
+      "description": "Test the DELETE /api/v1/projects/{project_id}/updates/{update_id}/comments/{comment_id} endpoint.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "DELETE",
+          "url": "http://localhost:8080/api/v1/projects/{{project_id}}/updates/{{update_id}}/comments/{{update_comment_id}}",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 204
+        }
+      ],
+      "depends_on": ["PROJ009"]
+    },
+    {
+      "id": "PROJ011",
+      "title": "Toggle Update Reaction",
+      "description": "Test the POST /api/v1/projects/{project_id}/updates/{update_id}/reactions endpoint.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/projects/{{project_id}}/updates/{{update_id}}/reactions?emoji=👍",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["PROJ005"]
+    },
+    {
+      "id": "PROJ012",
+      "title": "Delete Project",
+      "description": "Test the DELETE /api/v1/projects/{project_id} endpoint.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "DELETE",
+          "url": "http://localhost:8080/api/v1/projects/{{project_id}}",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 204
+        }
+      ],
+      "depends_on": ["PROJ002"]
+    },
+    {
+      "id": "FEAT001",
+      "title": "List Features",
+      "description": "Test the GET /api/v1/features endpoint to list all features.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/features",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["TEAM002"]
+    },
+    {
+      "id": "FEAT002",
+      "title": "Create Feature",
+      "description": "Test the POST /api/v1/features endpoint to create a new feature linked to a project.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/projects",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "name": "Feature Test Project",
+            "description": "Project for feature testing",
+            "team_id": "{{team_id}}",
+            "visibility": "team"
+          }
+        }
+      ],
+      "depends_on": ["TEAM002"]
+    },
+    {
+      "id": "FEAT003",
+      "title": "Get Feature",
+      "description": "Test the GET /api/v1/features/{feature_id} endpoint to retrieve a specific feature.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/features/{{feature_id}}",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200,
+          "body_contains": ["id", "name"]
+        }
+      ],
+      "depends_on": ["FEAT002"]
+    },
+    {
+      "id": "FEAT004",
+      "title": "Update Feature",
+      "description": "Test the PATCH /api/v1/features/{feature_id} endpoint to update feature details.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "PATCH",
+          "url": "http://localhost:8080/api/v1/features/{{feature_id}}",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "name": "Updated Test Feature",
+            "status": "in_progress"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200,
+          "body_contains": ["name", "status"]
+        }
+      ],
+      "depends_on": ["FEAT003"]
+    },
+    {
+      "id": "FEAT005",
+      "title": "Create Milestone",
+      "description": "Test the POST /api/v1/features/{feature_id}/milestones endpoint to create a milestone.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/features/{{feature_id}}/milestones",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "title": "Test Milestone",
+            "description": "A test milestone",
+            "target_date": "2026-12-31"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 201,
+          "body_contains": ["id", "title"]
+        },
+        {
+          "action": "save",
+          "variable": "milestone_id",
+          "from": "body.id"
+        }
+      ],
+      "depends_on": ["FEAT002"]
+    },
+    {
+      "id": "FEAT006",
+      "title": "Update Milestone",
+      "description": "Test the PATCH /api/v1/features/{feature_id}/milestones/{milestone_id} endpoint.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "PATCH",
+          "url": "http://localhost:8080/api/v1/features/{{feature_id}}/milestones/{{milestone_id}}",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "title": "Updated Test Milestone",
+            "status": "completed"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200,
+          "body_contains": ["title", "status"]
+        }
+      ],
+      "depends_on": ["FEAT005"]
+    },
+    {
+      "id": "FEAT007",
+      "title": "Delete Milestone",
+      "description": "Test the DELETE /api/v1/features/{feature_id}/milestones/{milestone_id} endpoint.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "DELETE",
+          "url": "http://localhost:8080/api/v1/features/{{feature_id}}/milestones/{{milestone_id}}",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 204
+        }
+      ],
+      "depends_on": ["FEAT006"]
+    },
+    {
+      "id": "FEAT008",
+      "title": "Delete Feature",
+      "description": "Test the DELETE /api/v1/features/{feature_id} endpoint.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "DELETE",
+          "url": "http://localhost:8080/api/v1/features/{{feature_id}}",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 204
+        }
+      ],
+      "depends_on": ["FEAT004"]
+    },
+    {
+      "id": "ISSUE001",
+      "title": "List Issues",
+      "description": "Test the GET /api/v1/issues endpoint to list all issues with filters.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/issues",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200,
+          "body_contains": ["issues", "total"]
+        }
+      ],
+      "depends_on": ["AUTH002"]
+    },
+    {
+      "id": "ISSUE002",
+      "title": "Create Issue",
+      "description": "Test the POST /api/v1/issues endpoint to create a new issue.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/projects",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "name": "Issue Test Project",
+            "description": "Project for issue testing",
+            "team_id": "{{team_id}}",
+            "visibility": "team"
+          }
+        },
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/issues",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "title": "Test Issue",
+            "description": "A test issue for TestSprite",
+            "status": "open",
+            "priority": "medium",
+            "team_id": "{{team_id}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 201,
+          "body_contains": ["id", "title"]
+        },
+        {
+          "action": "save",
+          "variable": "issue_id",
+          "from": "body.id"
+        }
+      ],
+      "depends_on": ["TEAM002"]
+    },
+    {
+      "id": "ISSUE003",
+      "title": "Get Issue",
+      "description": "Test the GET /api/v1/issues/{issue_id} endpoint to retrieve a specific issue.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/issues/{{issue_id}}",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200,
+          "body_contains": ["id", "title"]
+        }
+      ],
+      "depends_on": ["ISSUE002"]
+    },
+    {
+      "id": "ISSUE004",
+      "title": "Update Issue",
+      "description": "Test the PATCH /api/v1/issues/{issue_id} endpoint to update issue details.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "PATCH",
+          "url": "http://localhost:8080/api/v1/issues/{{issue_id}}",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "title": "Updated Test Issue",
+            "status": "in_progress"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200,
+          "body_contains": ["title", "status"]
+        }
+      ],
+      "depends_on": ["ISSUE002"]
+    },
+    {
+      "id": "ISSUE005",
+      "title": "Add Comment to Issue",
+      "description": "Test the POST /api/v1/issues/{issue_id}/comments endpoint to add a comment.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/issues/{{issue_id}}/comments",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "content": "This is a test comment"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 201,
+          "body_contains": ["id", "content"]
+        },
+        {
+          "action": "save",
+          "variable": "comment_id",
+          "from": "body.id"
+        }
+      ],
+      "depends_on": ["ISSUE002"]
+    },
+    {
+      "id": "ISSUE006",
+      "title": "Get Issue Comments",
+      "description": "Test the GET /api/v1/issues/{issue_id}/comments endpoint to retrieve comments.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/issues/{{issue_id}}/comments",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["ISSUE005"]
+    },
+    {
+      "id": "ISSUE007",
+      "title": "Get Issue Activities",
+      "description": "Test the GET /api/v1/issues/{issue_id}/activities endpoint to retrieve activity history.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/issues/{{issue_id}}/activities",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["ISSUE002"]
+    },
+    {
+      "id": "ISSUE008",
+      "title": "Get My Issues",
+      "description": "Test the GET /api/v1/issues/my-issues endpoint to retrieve issues assigned to the current user.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/issues/my-issues",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["ISSUE002"]
+    },
+    {
+      "id": "ISSUE009",
+      "title": "Get Inbox Issues",
+      "description": "Test the GET /api/v1/issues/inbox endpoint to retrieve issues pending triage.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/issues/inbox",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["AUTH002"]
+    },
+    {
+      "id": "ISSUE010",
+      "title": "Delete Issue",
+      "description": "Test the DELETE /api/v1/issues/{issue_id} endpoint.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "DELETE",
+          "url": "http://localhost:8080/api/v1/issues/{{issue_id}}",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 204
+        }
+      ],
+      "depends_on": ["ISSUE004"]
+    },
+    {
+      "id": "NOTIF001",
+      "title": "Get Notifications",
+      "description": "Test the GET /api/v1/notifications endpoint to retrieve user notifications.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/notifications",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["AUTH002"]
+    },
+    {
+      "id": "NOTIF002",
+      "title": "Mark Notification Read",
+      "description": "Test the PATCH /api/v1/notifications/{notification_id}/read endpoint.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "PATCH",
+          "url": "http://localhost:8080/api/v1/notifications/{{notification_id}}/read",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["NOTIF001"]
+    },
+    {
+      "id": "NOTIF003",
+      "title": "Mark All Notifications Read",
+      "description": "Test the POST /api/v1/notifications/read-all endpoint.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/notifications/read-all",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["AUTH002"]
+    },
+    {
+      "id": "HEALTH001",
+      "title": "Root Endpoint",
+      "description": "Test the GET / endpoint to verify the API is running.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/"
+        },
+        {
+          "action": "assert",
+          "status_code": 200,
+          "body_contains": ["message", "version"]
+        }
+      ]
+    },
+    {
+      "id": "HEALTH002",
+      "title": "Health Check Endpoint",
+      "description": "Test the GET /health endpoint to verify API health status.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/health"
+        },
+        {
+          "action": "assert",
+          "status_code": 200,
+          "body_contains": ["status", "healthy"]
+        }
+      ]
+    },
+    {
+      "id": "AI001",
+      "title": "Get AI Core Pillars",
+      "description": "Test the GET /api/v1/ai/pillars endpoint to retrieve core pillars.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/ai/pillars",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["AUTH002"]
+    },
+    {
+      "id": "AI002",
+      "title": "Get AI Doc Order",
+      "description": "Test the GET /api/v1/ai/doc-order endpoint to retrieve document order.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/ai/doc-order",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["AUTH002"]
+    },
+    {
+      "id": "AI003",
+      "title": "Get Project Ideas",
+      "description": "Test the GET /api/v1/ai/ideas/{project_id} endpoint to retrieve project ideas.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/ai/ideas/{{project_id}}",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["PROJ002"]
+    },
+    {
+      "id": "TEAM006",
+      "title": "Delete Team",
+      "description": "Test the DELETE /api/v1/teams/{team_id} endpoint.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "DELETE",
+          "url": "http://localhost:8080/api/v1/teams/{{team_id}}",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 204
+        }
+      ],
+      "depends_on": ["TEAM004"]
+    },
+    {
+      "id": "PERM001",
+      "title": "Unauthorized Access Without Token",
+      "description": "Test that protected endpoints return 401 when accessed without authentication token.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/projects"
+        },
+        {
+          "action": "assert",
+          "status_code": 401
+        }
+      ]
+    },
+    {
+      "id": "PERM002",
+      "title": "Access Other Organization Data",
+      "description": "Test that users cannot access data from other organizations.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/projects/00000000-0000-0000-0000-000000000001",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 404
+        }
+      ],
+      "depends_on": ["AUTH002"]
+    },
+    {
+      "id": "FILTER001",
+      "title": "Filter Issues by Status",
+      "description": "Test filtering issues by status parameter.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/issues?status=open&status=in_progress",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["AUTH002"]
+    },
+    {
+      "id": "FILTER002",
+      "title": "Filter Issues by Priority",
+      "description": "Test filtering issues by priority parameter.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/issues?priority=high&priority=medium",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["AUTH002"]
+    },
+    {
+      "id": "FILTER003",
+      "title": "Search Issues",
+      "description": "Test searching issues with the search parameter.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/issues?search=test",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["AUTH002"]
+    },
+    {
+      "id": "FILTER004",
+      "title": "Paginate Issues",
+      "description": "Test pagination with skip and limit parameters.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/issues?skip=0&limit=10",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["AUTH002"]
+    },
+    {
+      "id": "FILTER005",
+      "title": "Filter Projects by Team",
+      "description": "Test filtering projects by team_id parameter.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "GET",
+          "url": "http://localhost:8080/api/v1/projects?team_id={{team_id}}",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 200
+        }
+      ],
+      "depends_on": ["TEAM002"]
+    },
+    {
+      "id": "PROJ013",
+      "title": "Create Project Without Team",
+      "description": "Test creating a project without assigning a team should fail.",
+      "steps": [
+        {
+          "action": "send_request",
+          "method": "POST",
+          "url": "http://localhost:8080/api/v1/projects",
+          "headers": {
+            "Authorization": "Bearer {{access_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "name": "Invalid Project",
+            "description": "Project without team"
+          }
+        },
+        {
+          "action": "assert",
+          "status_code": 400
+        }
+      ],
+      "depends_on": ["AUTH002"]
+    }
+  ]
+}

@@ -1,0 +1,242 @@
+version: "2"
+type: frontend
+tech_stack:
+  - TypeScript
+  - React
+  - Vite
+  - Tailwind CSS
+  - Radix UI
+  - React Router
+routes:
+  - path: /login
+    file: src/pages/auth/Login.tsx
+    auth_required: false
+    description: User login page
+  - path: /register
+    file: src/pages/auth/Register.tsx
+    auth_required: false
+    description: User registration page
+  - path: /org-setup
+    file: src/pages/auth/OrganizationSetup.tsx
+    auth_required: true
+    description: Organization setup page
+  - path: /
+    file: src/App.tsx
+    auth_required: true
+    description: Redirect to all-issues
+  - path: /all-issues
+    file: src/pages/all-issues/page.tsx
+    auth_required: true
+    description: View all issues page
+  - path: /inbox
+    file: src/pages/inbox/page.tsx
+    auth_required: true
+    description: View inbox issues page
+  - path: /my-issues
+    file: src/pages/my-issues/page.tsx
+    auth_required: true
+    description: View my issues page
+  - path: /projects
+    file: src/pages/projects/page.tsx
+    auth_required: true
+    description: View all projects page
+  - path: /projects/:projectId
+    file: src/pages/projects/[projectId]/page.tsx
+    auth_required: true
+    description: Project detail page
+  - path: /features
+    file: src/pages/features/page.tsx
+    auth_required: true
+    description: Features kanban board page
+  - path: /ai-generator
+    file: src/pages/ai-generator/page.tsx
+    auth_required: true
+    description: AI idea generator page
+  - path: /insights
+    file: src/pages/insights/page.tsx
+    auth_required: true
+    description: Insights dashboard page
+  - path: /settings
+    file: src/pages/settings/page.tsx
+    auth_required: true
+    description: User settings page
+  - path: /teams/:teamId/settings
+    file: src/pages/teams/[teamId]/settings/page.tsx
+    auth_required: true
+    description: Team settings page
+features:
+  - name: Authentication
+    description: User login and registration with form validation
+    files:
+      - src/pages/auth/Login.tsx
+      - src/pages/auth/Register.tsx
+      - src/context/AuthContext.tsx
+    entry_route: /login
+    user_interactions:
+      - Fill email input field on login page
+      - Fill password input field on login page
+      - Click Login button to submit
+      - See error message on invalid credentials
+      - Navigate to register page
+      - Fill registration form with email, password, first name, last name
+      - Click Register button
+      - Navigate to organization setup after registration
+    api_calls:
+      - method: POST
+        endpoint: /api/v1/auth/login
+      - method: POST
+        endpoint: /api/v1/auth/register
+    auth_required: false
+  - name: Issues Management
+    description: View, create, update, and filter issues
+    files:
+      - src/pages/all-issues/page.tsx
+      - src/components/issue/IssueCard.tsx
+      - src/components/IssueFilterBar.tsx
+    entry_route: /all-issues
+    user_interactions:
+      - View list of all issues
+      - Filter issues by status (open, in_progress, done, etc.)
+      - Filter issues by priority (high, medium, low)
+      - Search issues by keyword
+      - Click create issue button to open dialog
+      - Fill issue details (title, description, status, priority)
+      - Submit issue form
+      - Click on issue card to view details
+      - Update issue status and priority
+      - Add comments to issues
+      - View issue activity history
+    api_calls:
+      - method: GET
+        endpoint: /api/v1/issues
+      - method: POST
+        endpoint: /api/v1/issues
+      - method: PATCH
+        endpoint: /api/v1/issues/{issue_id}
+      - method: DELETE
+        endpoint: /api/v1/issues/{issue_id}
+      - method: POST
+        endpoint: /api/v1/issues/{issue_id}/comments
+      - method: GET
+        endpoint: /api/v1/issues/{issue_id}/activities
+    auth_required: true
+  - name: Projects Management
+    description: View, create, update projects with updates and resources
+    files:
+      - src/pages/projects/page.tsx
+      - src/pages/projects/[projectId]/page.tsx
+      - src/components/ProjectBar.tsx
+    entry_route: /projects
+    user_interactions:
+      - View list of all projects
+      - Filter projects by team
+      - Click create project button to open dialog
+      - Fill project details (name, description, team)
+      - Submit project form
+      - Click on project card to view details
+      - Navigate between tabs (Features, Updates, Resources)
+      - Create project updates with health status
+      - Add comments to updates
+      - Add project resources (links, files)
+      - React to updates with emojis
+    api_calls:
+      - method: GET
+        endpoint: /api/v1/projects
+      - method: POST
+        endpoint: /api/v1/projects
+      - method: GET
+        endpoint: /api/v1/projects/{project_id}
+      - method: PATCH
+        endpoint: /api/v1/projects/{project_id}
+      - method: POST
+        endpoint: /api/v1/projects/{project_id}/updates
+      - method: POST
+        endpoint: /api/v1/projects/{project_id}/resources
+    auth_required: true
+  - name: Features Kanban
+    description: Kanban board for feature management with drag and drop
+    files:
+      - src/pages/features/page.tsx
+      - src/components/FeatureKanban.tsx
+      - src/components/FeatureWindow.tsx
+    entry_route: /features
+    user_interactions:
+      - View kanban board with feature columns by status
+      - Drag and drop features between status columns
+      - Create new features
+      - Click on feature to view details
+      - Update feature status, priority
+      - Create and manage milestones
+      - View linked issues
+    api_calls:
+      - method: GET
+        endpoint: /api/v1/features
+      - method: POST
+        endpoint: /api/v1/features
+      - method: PATCH
+        endpoint: /api/v1/features/{feature_id}
+      - method: POST
+        endpoint: /api/v1/features/{feature_id}/milestones
+    auth_required: true
+  - name: AI Generator
+    description: AI-powered idea generation and validation
+    files:
+      - src/pages/ai-generator/page.tsx
+    entry_route: /ai-generator
+    user_interactions:
+      - Submit new idea with name and description
+      - Answer validation questions
+      - Get AI suggestions
+      - Generate blueprint from idea
+      - Upload documents for analysis
+      - Sync blueprint from docs
+      - Generate project documents
+      - Chat with AI for document refinement
+    api_calls:
+      - method: POST
+        endpoint: /api/v1/ai/idea/submit
+      - method: GET
+        endpoint: /api/v1/ai/pillars
+      - method: POST
+        endpoint: /api/v1/ai/idea/{idea_id}/answer
+      - method: POST
+        endpoint: /api/v1/ai/idea/{idea_id}/validate
+      - method: POST
+        endpoint: /api/v1/ai/idea/{idea_id}/blueprint
+    auth_required: true
+  - name: Navigation
+    description: Sidebar navigation and user menu
+    files:
+      - src/components/layout/MainLayout.tsx
+      - src/components/layout/Sidebar.tsx
+    entry_route: /
+    user_interactions:
+      - Click sidebar menu items to navigate
+      - View active page indicator
+      - Toggle user menu dropdown
+      - Click logout button
+      - View notification bell icon
+      - Open command palette (Ctrl+K)
+    api_calls:
+      - method: GET
+        endpoint: /api/v1/notifications
+      - method: POST
+        endpoint: /api/v1/notifications/read-all
+    auth_required: true
+  - name: Settings
+    description: User profile and organization settings
+    files:
+      - src/pages/settings/page.tsx
+    entry_route: /settings
+    user_interactions:
+      - Navigate between settings tabs (Profile, Organization)
+      - Update user profile (name, email)
+      - View organization details
+      - Manage team settings
+    api_calls:
+      - method: GET
+        endpoint: /api/v1/auth/me
+      - method: GET
+        endpoint: /api/v1/organizations/me
+    auth_required: true
+known_limitations: []

@@ -10,9 +10,10 @@ from sqlalchemy import (
     Boolean,
     Index,
     Table,
+    and_,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship, backref
+from sqlalchemy.orm import relationship, backref, foreign
 from datetime import datetime
 from app.core.database import Base
 from app.models.enums import (
@@ -99,6 +100,7 @@ class Project(Base):
         back_populates="project",
         cascade="all, delete-orphan",
         primaryjoin="and_(Project.id==Resource.target_id, Resource.target_type=='project')",
+        foreign_keys="[Resource.target_id]",
         viewonly=True,
     )
 
@@ -136,6 +138,7 @@ class ProjectUpdate(Base):
         "Reaction",
         back_populates="update",
         primaryjoin="and_(ProjectUpdate.id==Reaction.target_id, Reaction.target_type=='project_update')",
+        foreign_keys="[Reaction.target_id]",
         viewonly=True,
     )
 
@@ -177,6 +180,7 @@ class ProjectUpdateComment(Base):
         "Reaction",
         back_populates="comment",
         primaryjoin="and_(ProjectUpdateComment.id==Reaction.target_id, Reaction.target_type=='project_update_comment')",
+        foreign_keys="[Reaction.target_id]",
         viewonly=True,
     )
 
@@ -199,11 +203,13 @@ class Resource(Base):
         "Project",
         back_populates="resources",
         primaryjoin="and_(Resource.target_id==Project.id, Resource.target_type=='project')",
+        foreign_keys="[Resource.target_id]",
         viewonly=True,
     )
     issue = relationship(
         "Issue",
         primaryjoin="and_(Resource.target_id==Issue.id, Resource.target_type=='issue')",
+        foreign_keys="[Resource.target_id]",
         viewonly=True,
     )
 
@@ -227,11 +233,13 @@ class Reaction(Base):
     update = relationship(
         "ProjectUpdate",
         primaryjoin="and_(Reaction.target_id==ProjectUpdate.id, Reaction.target_type=='project_update')",
+        foreign_keys="[Reaction.target_id]",
         viewonly=True,
     )
     comment = relationship(
         "ProjectUpdateComment",
         primaryjoin="and_(Reaction.target_id==ProjectUpdateComment.id, Reaction.target_type=='project_update_comment')",
+        foreign_keys="[Reaction.target_id]",
         viewonly=True,
     )
 

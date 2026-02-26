@@ -25,6 +25,100 @@ from uuid import UUID
 
 
 class CRUDProject(CRUDBase[Project, ProjectCreate, ProjectUpdateSchema]):
+    def get_filtered(
+        self,
+        db: Session,
+        *,
+        user_id: UUID,
+        user_team_ids: List[UUID],
+        team_id: Optional[UUID] = None,
+        organization_id: Optional[UUID] = None,
+        skip: int = 0,
+        limit: int = 100,
+        is_admin: bool = False,
+    ) -> List[Project]:
+        """Get filtered projects with visibility rules"""
+        from app.models.team_model import Team
+
+        query = db.query(Project).join(Project.team)
+
+        if organization_id:
+            query = query.filter(Team.organization_id == organization_id)
+
+        if team_id:
+            query = query.filter(Project.team_id == team_id)
+
+        # Visibility logic:
+        # Admins see all in org
+        # Members see all in org (as per requirement: "Member can see all projects even if not in it")
+        # So we don't need additional filters here if organization_id is provided
+
+        return query.offset(skip).limit(limit).all()
+
+    def create_with_relations(
+        self,
+        db: Session,
+        *,
+        obj_in: ProjectCreate,
+        member_ids: Optional[List[UUID]] = None,
+        team_ids: Optional[List[UUID]] = None,
+    ) -> Project:
+        """Create project with member and team relations"""
+        from app.models.user import User
+        from app.models.team_model import Team
+
+        obj_in_data = obj_in.model_dump(exclude={"member_ids", "team_ids"})
+        db_obj = Project(**obj_in_data)
+
+        if member_ids:
+            members = db.query(User).filter(User.id.in_(member_ids)).all()
+            db_obj.members = members
+
+        if team_ids:
+            teams = db.query(Team).filter(Team.id.in_(team_ids)).all()
+            db_obj.teams = teams
+
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+
+    def update_with_relations(
+        self,
+        db: Session,
+        *,
+        db_obj: Project,
+        obj_in: ProjectUpdateSchema,
+    ) -> Project:
+        """Update project and its member/team relations"""
+        from app.models.user import User
+        from app.models.team_model import Team
+
+        update_data = obj_in.model_dump(exclude_unset=True)
+
+        # Handle members
+        if "member_ids" in update_data:
+            member_ids = update_data.pop("member_ids")
+            if member_ids is not None:
+                members = db.query(User).filter(User.id.in_(member_ids)).all()
+                db_obj.members = members
+
+        # Handle teams
+        if "team_ids" in update_data:
+            team_ids = update_data.pop("team_ids")
+            if team_ids is not None:
+                teams = db.query(Team).filter(Team.id.in_(team_ids)).all()
+                db_obj.teams = teams
+
+        # Update remaining fields
+        for field in update_data:
+            setattr(db_obj, field, update_data[field])
+
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+
     def get_multi(
         self, db: Session, *, skip: int = 0, limit: int = 100
     ) -> List[Project]:

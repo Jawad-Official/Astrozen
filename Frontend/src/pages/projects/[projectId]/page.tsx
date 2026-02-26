@@ -253,7 +253,7 @@ const ProjectDetailPage = () => {
 
   if (!project) {
     return (
-      <div className="flex items-center justify-center h-full text-muted-foreground bg-[#090909]">
+      <div className="flex items-center justify-center h-full text-muted-foreground bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
           <p className="text-sm font-medium">Loading project...</p>
@@ -772,7 +772,7 @@ const ProjectDetailPage = () => {
                      New Feature
                   </Button>
                 </div>
-                <div className="bg-[#090909] rounded-xl border border-white/5 overflow-hidden">
+                <div className="bg-muted/20 rounded-xl border border-border overflow-hidden shadow-sm">
                   <FeatureWindow.List 
                     features={projectFeatures}
                     projects={projects}
@@ -931,7 +931,7 @@ const ProjectDetailPage = () => {
               <span className="text-muted-foreground">Priority</span>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Badge variant="outline" className={cn('h-6 px-2 text-[11px] font-bold uppercase border-white/5 bg-white/5 cursor-pointer hover:bg-white/10', currentPriority.color)}>
+                  <Badge variant="outline" className={cn('h-6 px-2 text-[11px] font-bold uppercase border-border bg-muted cursor-pointer hover:bg-accent transition-colors', currentPriority.color)}>
                     {currentPriority.label}
                   </Badge>
                 </DropdownMenuTrigger>
@@ -956,50 +956,50 @@ const ProjectDetailPage = () => {
                   )}>
                     {project.lead ? (
                       <>
-                        <div className="h-5 w-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-[9px] font-bold border border-emerald-500/10 shadow-inner group-hover:scale-110 transition-transform">
+                        <div className="h-5 w-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 text-[9px] font-bold border border-emerald-500/10 shadow-inner group-hover:scale-110 transition-transform">
                           {leadName && typeof leadName === 'string' ? leadName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : '?'}
                         </div>
-                        <span className="text-xs font-medium text-white/70 group-hover:text-white transition-colors">{leadName}</span>
+                        <span className="text-xs font-medium text-foreground/70 group-hover:text-foreground transition-colors">{leadName}</span>
                       </>
                     ) : (
                       <>
-                        <User className="h-3.5 w-3.5 text-white/20" />
-                        <span className="text-xs text-white/20 hover:text-white/40 transition-colors font-medium">Add lead...</span>
+                        <User className="h-3.5 w-3.5 text-muted-foreground/40" />
+                        <span className="text-xs text-muted-foreground/40 hover:text-foreground transition-colors font-medium">Add lead...</span>
                       </>
                     )}
                   </span>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="bg-[#0C0C0C] border-white/10 w-56 p-1 shadow-2xl">
-                  <DropdownMenuItem key="no-lead" onClick={() => handleLeadChange('')} className="text-xs focus:bg-white/5 py-2">
-                    <div className="flex items-center gap-2 text-white/40">
-                      <User className="h-3.5 w-3.5" />
-                      No lead
-                    </div>
-                  </DropdownMenuItem>
-                  <Separator className="bg-white/5 my-1" />
-                  <div className="px-2 py-1.5 text-[10px] font-black text-white/20 uppercase tracking-widest">Assign Lead</div>
-                  {orgMembers.map((member) => (
-                    <DropdownMenuItem key={member.id} onClick={() => handleLeadChange(member.id)} className="text-xs focus:bg-white/5 py-2.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold border border-primary/10 shadow-inner">
-                          {member.first_name[0]}{member.last_name[0]}
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="font-semibold text-white/80 truncate">{member.full_name}</span>
-                          <span className="text-[10px] text-white/20 truncate">{member.email}</span>
-                        </div>
-                        {member.id === project.lead && <Check className="h-3 w-3 ml-auto text-primary" weight="bold" />}
+                  <DropdownMenuContent className="bg-popover border-border w-56 p-1 shadow-2xl">
+                    <DropdownMenuItem key="no-lead" onClick={() => handleLeadChange('')} className="text-xs focus:bg-muted py-2">
+                      <div className="flex items-center gap-2 text-muted-foreground/40">
+                        <User className="h-3.5 w-3.5" />
+                        No lead
                       </div>
                     </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
+                    <Separator className="bg-border my-1" />
+                    <div className="px-2 py-1.5 text-[10px] font-black text-muted-foreground/40 uppercase tracking-widest">Assign Lead</div>
+                    {orgMembers.map((member) => (
+                      <DropdownMenuItem key={member.id} onClick={() => handleLeadChange(member.id)} className="text-xs focus:bg-muted py-2.5">
+                        <div className="flex items-center gap-2.5">
+                          <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold border border-primary/10 shadow-inner">
+                            {member.first_name[0]}{member.last_name[0]}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-semibold text-foreground/80 truncate">{member.full_name}</span>
+                            <span className="text-[10px] text-muted-foreground/60 truncate">{member.email}</span>
+                          </div>
+                          {member.id === project.lead && <Check className="h-3 w-3 ml-auto text-primary" weight="bold" />}
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
               </DropdownMenu>
             </div>
 
             {/* Members */}
             <div className="space-y-3 pt-1">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-white/20 uppercase tracking-[0.15em] flex items-center gap-1.5">
+                <span className="text-[11px] font-bold text-muted-foreground/40 uppercase tracking-[0.15em] flex items-center gap-1.5">
                   Members
                 </span>
                 {canManageProject && (
@@ -1008,20 +1008,20 @@ const ProjectDetailPage = () => {
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-5 w-5 hover:bg-white/5 text-white/20 hover:text-white transition-colors" 
+                        className="h-5 w-5 hover:bg-accent text-muted-foreground/40 hover:text-foreground transition-colors" 
                       >
                         <Plus className="h-3 w-3" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent side="left" align="start" className="w-64 p-0 bg-[#0C0C0C] border-white/10 shadow-2xl overflow-hidden rounded-xl">
-                      <div className="p-2 border-b border-white/5 bg-white/[0.01]">
+                    <PopoverContent side="left" align="start" className="w-64 p-0 bg-popover border-border shadow-2xl overflow-hidden rounded-xl">
+                      <div className="p-2 border-b border-border bg-muted/20">
                         <div className="relative group">
-                          <MagnifyingGlass className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/20 group-focus-within:text-primary transition-colors" />
+                          <MagnifyingGlass className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
                           <input 
                             value={memberSearch} 
                             onChange={(e) => setMemberSearch(e.target.value)} 
                             placeholder="Search teammates..."
-                            className="w-full h-8 bg-white/5 border border-white/5 rounded-md pl-8 pr-2 text-xs text-white/80 focus:outline-none focus:border-primary/30 transition-colors placeholder:text-white/10 font-medium"
+                            className="w-full h-8 bg-muted/50 border border-border rounded-md pl-8 pr-2 text-xs text-foreground/80 focus:outline-none focus:border-primary/30 transition-colors placeholder:text-muted-foreground/40 font-medium"
                             autoFocus
                           />
                         </div>
@@ -1038,19 +1038,19 @@ const ProjectDetailPage = () => {
                               <button
                                 key={member.id}
                                 onClick={() => handleToggleMember(member.id)}
-                                className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/5 transition-all text-left group"
+                                className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted/50 transition-all text-left group"
                               >
                                 <div className={cn(
                                   "h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold border shadow-inner transition-all",
                                   isAssigned 
-                                    ? "bg-primary/20 border-primary/30 text-primary scale-105 shadow-[0_0_15px_rgba(var(--primary-rgb),0.2)]" 
-                                    : "bg-white/5 border-white/5 text-white/40 group-hover:bg-white/10 group-hover:text-white/60"
+                                    ? "bg-primary/20 border-primary/30 text-primary scale-105 shadow-[0_0_15px_rgba(var(--primary),0.2)]" 
+                                    : "bg-muted/50 border-border text-muted-foreground/40 group-hover:bg-muted group-hover:text-foreground/60"
                                 )}>
                                   {member.first_name[0]}{member.last_name[0]}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <div className="text-[11px] font-semibold text-white/80 truncate tracking-tight">{member.full_name}</div>
-                                  <div className="text-[10px] text-white/20 truncate font-medium">{member.email}</div>
+                                  <div className="text-[11px] font-semibold text-foreground/80 truncate tracking-tight">{member.full_name}</div>
+                                  <div className="text-[10px] text-muted-foreground/60 truncate font-medium">{member.email}</div>
                                 </div>
                                 {isAssigned && (
                                   <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
@@ -1061,7 +1061,7 @@ const ProjectDetailPage = () => {
                             );
                           })}
                         {orgMembers.length === 0 && (
-                          <div className="py-8 text-center text-[10px] text-white/20 font-medium italic">
+                          <div className="py-8 text-center text-[10px] text-muted-foreground/40 font-medium italic">
                             No organization members found
                           </div>
                         )}
@@ -1080,11 +1080,11 @@ const ProjectDetailPage = () => {
                       <TooltipProvider key={memberId} delayDuration={0}>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <div className="h-7 w-7 rounded-full bg-primary/5 border border-white/5 flex items-center justify-center text-primary/60 text-[10px] font-bold shadow-inner cursor-default hover:scale-110 hover:bg-primary/10 hover:border-primary/20 hover:text-primary transition-all duration-300 ring-1 ring-transparent hover:ring-primary/10">
+                            <div className="h-7 w-7 rounded-full bg-primary/5 border border-border flex items-center justify-center text-primary/60 text-[10px] font-bold shadow-inner cursor-default hover:scale-110 hover:bg-primary/10 hover:border-primary/20 hover:text-primary transition-all duration-300 ring-1 ring-transparent hover:ring-primary/10">
                               {m.first_name[0]}{m.last_name[0]}
                             </div>
                           </TooltipTrigger>
-                          <TooltipContent side="top" className="text-[10px] bg-zinc-900 border-white/10 text-white font-medium px-2 py-1 shadow-2xl">
+                          <TooltipContent side="top" className="text-[10px] bg-popover border-border text-foreground font-medium px-2 py-1 shadow-2xl">
                             {m.full_name}
                           </TooltipContent>
                         </Tooltip>
@@ -1092,7 +1092,7 @@ const ProjectDetailPage = () => {
                     );
                   })
                 ) : (
-                  <span className="text-[11px] text-white/10 italic font-medium">No collaborators assigned</span>
+                  <span className="text-[11px] text-muted-foreground/40 italic font-medium">No collaborators assigned</span>
                 )}
               </div>
             </div>
@@ -1174,7 +1174,7 @@ const ProjectDetailPage = () => {
                     const t = teams.find(team => team.id === teamId);
                     return (
                       <div key={teamId} className="flex items-center gap-2 group">
-                        <div className="h-5 w-5 rounded bg-zinc-800 flex items-center justify-center text-[9px] font-bold text-zinc-400">
+                        <div className="h-5 w-5 rounded bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground">
                           {t?.identifier?.charAt(0) || '?'}
                         </div>
                         <span className="text-xs flex-1 truncate">
@@ -1333,7 +1333,7 @@ const ProjectDetailPage = () => {
 
       {/* Resource Dialog */}
       <Dialog open={resourceDialogOpen} onOpenChange={setResourceDialogOpen}>
-        <DialogContent className="sm:max-w-[500px] p-0 gap-0 bg-[#080808] border-white/[0.08] overflow-hidden shadow-[0_0_80px_-12px_rgba(0,0,0,0.7)] outline-none rounded-2xl">
+        <DialogContent className="sm:max-w-[500px] p-0 gap-0 bg-popover border-border overflow-hidden shadow-[0_0_80px_-12px_rgba(0,0,0,0.5)] outline-none rounded-2xl">
           <DialogTitle className="sr-only">Add Resource</DialogTitle>
           <DialogDescription className="sr-only">
             Add external links and documents to your project for easy access by the team.
@@ -1425,7 +1425,7 @@ const ProjectDetailPage = () => {
 
       {/* Create Feature Dialog */}
       <Dialog open={createFeatureOpen} onOpenChange={setCreateFeatureOpen}>
-        <DialogContent className="sm:max-w-[600px] p-0 gap-0 bg-[#080808] border-white/[0.08] overflow-hidden shadow-[0_0_80px_-12px_rgba(0,0,0,0.7)] outline-none rounded-2xl">
+        <DialogContent className="sm:max-w-[600px] p-0 gap-0 bg-popover border-border overflow-hidden shadow-[0_0_80px_-12px_rgba(0,0,0,0.5)] outline-none rounded-2xl">
           <DialogTitle className="sr-only">Create New Feature</DialogTitle>
           <DialogDescription className="sr-only">
             Features help you bundle related issues into meaningful user value.
@@ -1436,8 +1436,8 @@ const ProjectDetailPage = () => {
             transition={{ duration: 0.2, ease: "easeOut" }}
             className="flex flex-col"
           >
-            <div className="px-6 py-3 border-b border-white/[0.03] flex items-center gap-2 text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] bg-white/[0.01]">
-              <span className="hover:text-white/40 cursor-default transition-colors">{project.name}</span>
+            <div className="px-6 py-3 border-b border-border flex items-center gap-2 text-[10px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em] bg-muted/20">
+              <span className="hover:text-muted-foreground/60 cursor-default transition-colors">{project.name}</span>
               <span className="opacity-30">/</span>
               <span className="text-primary/60">New Feature</span>
             </div>
@@ -1463,13 +1463,13 @@ const ProjectDetailPage = () => {
               </p>
             </div>
 
-            <div className="px-6 py-5 border-t border-white/[0.03] flex items-center justify-between bg-black/40">
-              <div className="flex items-center gap-4 text-white/10 select-none">
+            <div className="px-6 py-5 border-t border-border flex items-center justify-between bg-background/40">
+              <div className="flex items-center gap-4 text-muted-foreground/40 select-none">
                 <div className="flex items-center gap-1.5 opacity-50">
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.02]">
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-border bg-muted/30">
                     <span className="text-[9px] font-black">⌘</span>
                   </div>
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.02]">
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-border bg-muted/30">
                     <span className="text-[9px] font-black">ENTER</span>
                   </div>
                 </div>

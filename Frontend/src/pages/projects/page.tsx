@@ -93,16 +93,16 @@ const ProjectsPage = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#090909]">
-      <div className="flex items-center justify-between px-4 h-14 border-b border-white/5 bg-[#090909] shrink-0">
-        <div className="flex items-center gap-1 bg-white/[0.03] p-1 rounded-lg border border-white/5">
-          <button onClick={() => setActiveTab('projects')} className={cn('px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200', activeTab === 'projects' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white/60')}>My projects</button>
-          <button onClick={() => setActiveTab('all')} className={cn('px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-2', activeTab === 'all' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white/60')}><Eye className="h-3.5 w-3.5" />All projects</button>
+    <div className="flex flex-col h-full bg-background">
+      <div className="flex items-center justify-between px-4 h-14 border-b border-border bg-background shrink-0">
+        <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
+          <button onClick={() => setActiveTab('projects')} className={cn('px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200', activeTab === 'projects' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>My projects</button>
+          <button onClick={() => setActiveTab('all')} className={cn('px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-2', activeTab === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}><Eye className="h-3.5 w-3.5" />All projects</button>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" className="h-9 gap-2 bg-primary/10 text-primary hover:bg-primary/20 transition-all rounded-lg px-4 border border-primary/20" onClick={() => setCreateDialogOpen(true)}><Plus className="h-4 w-4" /><span className="font-semibold">New Project</span></Button>
-          <div className="w-[1px] h-6 bg-white/10 mx-1" />
-          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg hover:bg-white/5 text-white/40"><Columns className="h-4 w-4" /></Button>
+          <div className="w-[1px] h-6 bg-border mx-1" />
+          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"><Columns className="h-4 w-4" /></Button>
         </div>
       </div>
 
@@ -117,10 +117,10 @@ const ProjectsPage = () => {
               return (
                 <div key={status}>
                   <div className="flex items-center gap-3 px-4 py-2 mb-2">
-                    <Badge variant="surface" className={cn("h-5 px-2.5 text-[10px] font-bold uppercase tracking-wider", getStatusColorClass(status).replace('bg-', 'text-'))}>
+                    <Badge variant="surface" className={cn("h-5 px-2.5 text-[10px] font-bold uppercase tracking-wider bg-muted/50 border border-border", getStatusColorClass(status).replace('bg-', 'text-'))}>
                       {PROJECT_STATUS_CONFIG[status].label}
                     </Badge>
-                    <span className="flex h-5 w-5 items-center justify-center rounded-md bg-white/5 text-[10px] font-bold text-white/30 border border-white/5">{statusProjects.length}</span>
+                    <span className="flex h-5 w-5 items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground/60 border border-border">{statusProjects.length}</span>
                   </div>
                   <div className="space-y-1">
                     {statusProjects.map((project) => (

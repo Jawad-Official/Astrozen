@@ -6,9 +6,9 @@ const skeletonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-white/[0.02]",
-        subtle: "bg-white/[0.01]",
-        strong: "bg-white/[0.04]",
+        default: "bg-muted/50",
+        subtle: "bg-muted/30",
+        strong: "bg-muted",
       },
     },
     defaultVariants: {
@@ -82,7 +82,7 @@ function SkeletonInput({ className, ...props }: React.HTMLAttributes<HTMLDivElem
 
 function SkeletonCard({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("rounded-xl border border-white/5 p-4 space-y-3", className)} {...props}>
+    <div className={cn("rounded-xl border border-border p-4 space-y-3", className)} {...props}>
       <Skeleton className="h-4 w-1/3" />
       <Skeleton className="h-4 w-full" />
       <Skeleton className="h-4 w-2/3" />
@@ -94,7 +94,7 @@ function SkeletonIssueRow({ className, ...props }: React.HTMLAttributes<HTMLDivE
   return (
     <div
       className={cn(
-        "flex items-center gap-3 px-4 py-3 border-b border-white/[0.02]",
+        "flex items-center gap-3 px-4 py-3 border-b border-border/50",
         className
       )}
       {...props}

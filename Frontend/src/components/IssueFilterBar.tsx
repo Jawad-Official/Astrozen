@@ -126,7 +126,7 @@ export function IssueFilterBar() {
               checked={activeFilters.statuses.includes(key as IssueStatus)}
               onCheckedChange={() => toggleStatus(key as IssueStatus)}
             >
-              <Badge variant="outline" className="h-4 px-1 text-[8px] font-bold uppercase border-white/5 bg-white/5 text-white/60 mr-2">
+              <Badge variant="outline" className="h-4 px-1 text-[8px] font-bold uppercase border-border bg-muted/50 text-muted-foreground/60 mr-2">
                 {config.label}
               </Badge>
             </DropdownMenuCheckboxItem>

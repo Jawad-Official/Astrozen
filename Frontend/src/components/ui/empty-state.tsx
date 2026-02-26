@@ -81,19 +81,19 @@ export function EmptyState({
   return (
     <div className={cn("flex flex-col items-center justify-center text-center", sizeConfig.container, className)}>
       <div className={cn(
-        "rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-center mb-6 shadow-xl relative",
+        "rounded-2xl bg-muted/50 border border-border flex items-center justify-center mb-6 shadow-xl relative",
         sizeConfig.iconWrapper
       )}>
         <div className="absolute inset-0 rounded-2xl bg-primary/5 blur-2xl opacity-50" />
-        {icon || (IconComponent && <IconComponent className={cn(sizeConfig.icon, "text-white/20 relative z-10")} weight="duotone" />)}
+        {icon || (IconComponent && <IconComponent className={cn(sizeConfig.icon, "text-muted-foreground/40 relative z-10")} weight="duotone" />)}
       </div>
       
-      <h3 className={cn("font-semibold text-white/90 mb-2", sizeConfig.title)}>
+      <h3 className={cn("font-semibold text-foreground mb-2", sizeConfig.title)}>
         {title}
       </h3>
       
       {description && (
-        <p className={cn("text-white/40 leading-relaxed mb-6", sizeConfig.description)}>
+        <p className={cn("text-muted-foreground/60 leading-relaxed mb-6", sizeConfig.description)}>
           {description}
         </p>
       )}
@@ -105,7 +105,7 @@ export function EmptyState({
               variant="ghost"
               size="sm"
               onClick={secondaryAction.onClick}
-              className="text-white/40 hover:text-white"
+              className="text-muted-foreground/60 hover:text-foreground"
             >
               {secondaryAction.label}
             </Button>
@@ -134,7 +134,7 @@ export function LoadingState({ message = "Loading...", className }: LoadingState
   return (
     <div className={cn("flex flex-col items-center justify-center py-20", className)}>
       <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary mb-4" />
-      <p className="text-sm text-white/40">{message}</p>
+      <p className="text-sm text-muted-foreground/60">{message}</p>
     </div>
   );
 }
@@ -158,8 +158,8 @@ export function ErrorState({
         <Warning className="h-8 w-8 text-destructive/60" weight="duotone" />
       </div>
       
-      <h3 className="text-lg font-semibold text-white/90 mb-2">{title}</h3>
-      <p className="text-sm text-white/40 mb-6 max-w-[320px]">{message}</p>
+      <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
+      <p className="text-sm text-muted-foreground/60 mb-6 max-w-[320px]">{message}</p>
       
       {retry && (
         <Button variant="outline" size="sm" onClick={retry}>
@@ -192,9 +192,9 @@ export function SuccessState({
         <CheckCircle className="h-8 w-8 text-success" weight="fill" />
       </div>
       
-      <h3 className="text-lg font-semibold text-white/90 mb-2">{title}</h3>
+      <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
       {message && (
-        <p className="text-sm text-white/40 mb-6 max-w-[320px]">{message}</p>
+        <p className="text-sm text-muted-foreground/60 mb-6 max-w-[320px]">{message}</p>
       )}
       
       {action && (

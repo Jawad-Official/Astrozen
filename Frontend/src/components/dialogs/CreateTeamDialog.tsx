@@ -87,7 +87,7 @@ export function CreateTeamDialog({ open, onOpenChange, onCreateTeam, teams }: Cr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[650px] p-0 gap-0 bg-[#080808] border-white/[0.08] overflow-hidden shadow-[0_0_80px_-12px_rgba(0,0,0,0.7)] outline-none rounded-2xl">
+      <DialogContent className="sm:max-w-[650px] p-0 gap-0 bg-popover border-border overflow-hidden shadow-[0_0_80px_-12px_rgba(0,0,0,0.5)] outline-none rounded-2xl">
         <DialogHeader className="sr-only">
           <DialogTitle>Create New Team</DialogTitle>
           <DialogDescription>

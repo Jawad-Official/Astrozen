@@ -183,7 +183,7 @@ export default function TeamSettingsPage() {
           <p className="text-muted-foreground text-sm">Manage team identity, members, and permissions.</p>
         </div>
 
-        <Separator className="bg-white/5" />
+        <Separator className="bg-border" />
 
         {/* Basic Info Section */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -202,7 +202,7 @@ export default function TeamSettingsPage() {
                     id="team-name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="h-10 bg-white/5 border-white/10 focus:border-primary/40 focus:ring-0"
+                    className="h-10 bg-muted/50 border-border focus:border-primary/40 focus:ring-0"
                     placeholder="e.g. Engineering"
                   />
                 </div>
@@ -218,7 +218,7 @@ export default function TeamSettingsPage() {
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value.toUpperCase())}
                   maxLength={5}
-                  className="h-10 bg-white/5 border-white/10 focus:border-primary/40 focus:ring-0 font-mono tracking-widest"
+                  className="h-10 bg-muted/50 border-border focus:border-primary/40 focus:ring-0 font-mono tracking-widest"
                   placeholder="ENG"
                 />
                 <p className="text-[10px] text-muted-foreground/60 italic">Used as a prefix for issue IDs (e.g. {identifier || 'ENG'}-123)</p>
@@ -238,7 +238,7 @@ export default function TeamSettingsPage() {
           </div>
         </section>
 
-        <Separator className="bg-white/5" />
+        <Separator className="bg-border" />
 
         {/* Leaders Section */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -252,10 +252,10 @@ export default function TeamSettingsPage() {
             </p>
           </div>
           <div className="md:col-span-2 space-y-4">
-             <div className="rounded-xl border border-white/5 bg-white/[0.02] overflow-hidden">
-                <div className="divide-y divide-white/5">
+             <div className="rounded-xl border border-border bg-muted/20 overflow-hidden">
+                <div className="divide-y divide-border">
                   {(team.leaders || []).map((leader) => (
-                    <div key={`leader-${leader.id}`} className="flex items-center justify-between p-4 hover:bg-white/[0.02] transition-colors">
+                    <div key={`leader-${leader.id}`} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
                       <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-[10px] font-bold border border-primary/20">
                           {leader.firstName?.[0]}{leader.lastName?.[0]}
@@ -280,13 +280,13 @@ export default function TeamSettingsPage() {
              
              <div className="pt-2">
                 <Select onValueChange={(val) => { if(val !== "none") handleToggleLeader(val); }} value="none">
-                  <SelectTrigger className="w-full h-10 bg-white/5 border-dashed border-white/10 hover:bg-white/10 transition-all text-xs text-muted-foreground">
+                  <SelectTrigger className="w-full h-10 bg-muted/50 border-dashed border-border hover:bg-muted transition-all text-xs text-muted-foreground">
                     <div className="flex items-center gap-2">
                       {isUpdating ? <CircleNotch className="h-4 w-4 animate-spin text-primary" /> : <ShieldCheck className="h-4 w-4" />}
                       <span>Promote a member to leader...</span>
                     </div>
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-white/10">
+                  <SelectContent className="bg-popover border-border">
                     <SelectItem value="none" disabled className="hidden">Select member</SelectItem>
                     {(orgMembers || []).filter(m => 
                       (m.role === 'admin' || m.role === 'leader') && 
@@ -307,7 +307,7 @@ export default function TeamSettingsPage() {
           </div>
         </section>
 
-        <Separator className="bg-white/5" />
+        <Separator className="bg-border" />
 
         {/* Members Section */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -321,12 +321,12 @@ export default function TeamSettingsPage() {
             </p>
           </div>
           <div className="md:col-span-2 space-y-4">
-             <div className="rounded-xl border border-white/5 bg-white/[0.02] overflow-hidden">
-                <div className="divide-y divide-white/5">
+             <div className="rounded-xl border border-border bg-muted/20 overflow-hidden">
+                <div className="divide-y divide-border">
                   {(team.members || []).map((member) => (
-                    <div key={`member-${member.id}`} className="flex items-center justify-between p-4 hover:bg-white/[0.02] transition-colors group">
+                    <div key={`member-${member.id}`} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors group">
                       <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-white/5 flex items-center justify-center text-white/40 text-[10px] font-bold border border-white/5">
+                        <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground/40 text-[10px] font-bold border border-border">
                           {member.firstName?.[0]}{member.lastName?.[0]}
                         </div>
                         <div className="flex flex-col">
@@ -357,13 +357,13 @@ export default function TeamSettingsPage() {
 
               <div className="pt-2">
                 <Select onValueChange={(val) => { if(val !== "none") handleAddMember(val); }} value="none">
-                  <SelectTrigger className="w-full h-10 bg-white/5 border-dashed border-white/10 hover:bg-white/10 transition-all text-xs text-muted-foreground">
+                  <SelectTrigger className="w-full h-10 bg-muted/50 border-dashed border-border hover:bg-muted transition-all text-xs text-muted-foreground">
                     <div className="flex items-center gap-2">
                       {isUpdating ? <CircleNotch className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
                       <span>Add member from organization...</span>
                     </div>
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-white/10">
+                  <SelectContent className="bg-popover border-border">
                     <SelectItem value="none" disabled className="hidden">Select member</SelectItem>
                     {(orgMembers || []).filter(m => !team.members?.some(tm => tm.id === m.id)).map(member => (
                       <SelectItem key={`add-member-${member.id}`} value={member.id} className="text-xs">
@@ -381,7 +381,7 @@ export default function TeamSettingsPage() {
           </div>
         </section>
 
-        <Separator className="bg-white/5" />
+        <Separator className="bg-border" />
 
         {/* Danger Zone */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -411,19 +411,19 @@ export default function TeamSettingsPage() {
                      Delete Team
                    </Button>
                  </AlertDialogTrigger>
-                 <AlertDialogContent className="bg-zinc-900 border-white/10">
+                 <AlertDialogContent className="bg-popover border-border">
                    <AlertDialogHeader>
-                     <AlertDialogTitle className="text-white">Are you absolutely sure?</AlertDialogTitle>
-                     <AlertDialogDescription className="text-zinc-400">
+                     <AlertDialogTitle className="text-foreground">Are you absolutely sure?</AlertDialogTitle>
+                     <AlertDialogDescription className="text-muted-foreground">
                        This action cannot be undone. This will permanently delete the <strong>{team.name}</strong> team
                        and remove all data associated with it, including {team.identifier} issues and projects.
                      </AlertDialogDescription>
                    </AlertDialogHeader>
                    <AlertDialogFooter>
-                     <AlertDialogCancel className="bg-transparent border-white/10 text-white hover:bg-white/5">Cancel</AlertDialogCancel>
+                     <AlertDialogCancel className="bg-transparent border-border text-foreground hover:bg-muted">Cancel</AlertDialogCancel>
                      <AlertDialogAction 
                        onClick={handleDeleteTeam}
-                       className="bg-destructive text-white hover:bg-destructive/90"
+                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                      >
                        Delete Team
                      </AlertDialogAction>

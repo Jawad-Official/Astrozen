@@ -6,7 +6,7 @@ import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { IssueBar } from '@/components/IssueBar';
 import { AllIssuesHeader } from '@/components/AllIssuesHeader';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Lock, CircleDashed } from '@phosphor-icons/react';
+import { Lock } from '@phosphor-icons/react';
 
 interface MainLayoutContext {
   onCreateIssue: () => void;
@@ -53,52 +53,50 @@ const AllIssuesPage = () => {
 
   if (teamId && !hasAccess) {
     return (
-      <>
+      <div className="flex flex-col h-full bg-background overflow-hidden">
         <AllIssuesHeader 
           onCreateIssue={onCreateIssue}
           onOpenCommandPalette={onOpenCommandPalette}
         />
         <EmptyState
-          icon={<Lock weight="duotone" className="h-8 w-8 text-white/20" />}
+          icon={<Lock weight="duotone" className="h-8 w-8 text-muted-foreground/40" />}
           title="Restricted Access"
           description={`You don't have permission to view data for the ${selectedTeam?.name || 'requested'} team. Only admins and team leaders can access this information.`}
         />
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="flex flex-col h-full bg-background overflow-hidden">
       <AllIssuesHeader 
         onCreateIssue={onCreateIssue}
         onOpenCommandPalette={onOpenCommandPalette}
       />
-      <div className="flex-1 overflow-hidden flex flex-col bg-[#090909]">
-        {viewMode === 'list' ? (
-          <IssueBar.List 
-            issues={filteredIssues} 
-            projects={projects}
-            features={features}
-            orgMembers={orgMembers}
-            loading={isLoading}
-            onUpdateIssue={updateIssue}
-            onDeleteIssue={deleteIssue}
-            onSelectIssue={setSelectedIssue}
-            onCreateIssue={onCreateIssue}
-            onCreateSubIssue={onCreateSubIssue}
-          />
-        ) : (
-          <IssueBar.Board 
-            issues={filteredIssues} 
-            projects={projects}
-            features={features}
-            orgMembers={orgMembers}
-            onUpdateIssue={updateIssue}
-            onCreateIssue={onCreateIssue}
-          />
-        )}
-      </div>
-    </>
+      {viewMode === 'list' ? (
+        <IssueBar.List 
+          issues={filteredIssues} 
+          projects={projects}
+          features={features}
+          orgMembers={orgMembers}
+          loading={isLoading}
+          onUpdateIssue={updateIssue}
+          onDeleteIssue={deleteIssue}
+          onSelectIssue={setSelectedIssue}
+          onCreateIssue={onCreateIssue}
+          onCreateSubIssue={onCreateSubIssue}
+        />
+      ) : (
+        <IssueBar.Board 
+          issues={filteredIssues} 
+          projects={projects}
+          features={features}
+          orgMembers={orgMembers}
+          onUpdateIssue={updateIssue}
+          onCreateIssue={onCreateIssue}
+        />
+      )}
+    </div>
   );
 };
 

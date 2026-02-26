@@ -117,7 +117,7 @@ export function MainLayout() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-9 w-9 rounded-xl bg-background/80 backdrop-blur-xl border border-white/10 shadow-2xl hover:bg-white/10 text-muted-foreground hover:text-foreground transition-all hover:scale-110 active:scale-95"
+                      className="h-9 w-9 rounded-xl bg-background/80 backdrop-blur-xl border border-border shadow-2xl hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-all hover:scale-110 active:scale-95"
                       onClick={() => setSidebarVisible(true)}
                     >
                       <SidebarSimple className="h-5 w-5" />
@@ -130,19 +130,19 @@ export function MainLayout() {
           )}
 
           {/* Mobile Header */}
-          <div className="md:hidden flex items-center h-14 px-4 border-b border-white/5 bg-background shrink-0">
+          <div className="md:hidden flex items-center h-14 px-4 border-b border-border bg-background shrink-0">
             <Button variant="ghost" size="icon" className="-ml-2" onClick={() => setMobileMenuOpen(true)}>
               <List className="h-5 w-5" />
             </Button>
-                  <div className="flex h-6 w-6 items-center justify-center rounded bg-zinc-800">
-                    <div className="h-3 w-3 rounded-full bg-white"></div>
+                  <div className="flex h-6 w-6 items-center justify-center rounded bg-primary/20">
+                    <div className="h-3 w-3 rounded-full bg-primary"></div>
                   </div>
-                  <span className="font-semibold ml-2 text-zinc-100">Astrozen</span>
+                  <span className="font-semibold ml-2 text-foreground">Astrozen</span>
           </div>
 
           {/* Main Content Area */}
           <div className="flex-1 overflow-hidden p-2 md:p-4">
-            <main className="h-full w-full overflow-hidden flex flex-col relative rounded-xl md:rounded-2xl border border-white/5 bg-sidebar/30 backdrop-blur-xl shadow-2xl">
+            <main className="h-full w-full overflow-hidden flex flex-col relative rounded-xl md:rounded-2xl border border-border bg-sidebar/30 backdrop-blur-xl shadow-2xl">
               <Outlet context={{ 
                 onCreateIssue: () => setCreateDialogOpen(true),
                 onCreateSubIssue: (parentId: string) => {

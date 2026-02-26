@@ -1,12 +1,14 @@
+import { useRef } from 'react';
+import { motion } from 'framer-motion';
 import { 
   Issue, 
   IssueStatus, 
   IssuePriority, 
   STATUS_CONFIG, 
-  PRIORITY_CONFIG 
+  PRIORITY_CONFIG,
+  Project
 } from '@/types/issue';
 import { Feature } from '@/types/feature';
-import { Project } from '@/types/issue';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -26,9 +28,7 @@ import {
   IssueStatusIcon, 
   IssueTypeIcon, 
   IssuePriorityIcon, 
-  IssueStatusBadge, 
-  IssueIdentifier,
-  getStatusColorClass 
+  IssueIdentifier
 } from './IssueAtomicComponents';
 
 const getInitials = (name?: string) => {
@@ -57,12 +57,13 @@ export function IssueRow({
   onUpdate, 
   onDelete, 
   onClick, 
-  onCreateSubIssue 
+  onCreateSubIssue
 }: IssueRowProps) {
   const { toast } = useToast();
   const feature = features.find((f) => f.id === issue.featureId);
   const project = feature ? projects.find((p) => p.id === feature.projectId) : null;
   const assigneeName = issue.assigneeName || orgMembers.find(m => m.id === issue.assignee)?.full_name || issue.assignee;
+  const lastDraggedStatus = useRef<IssueStatus | null>(null);
   
   const handleUpdate = async (updates: Partial<Issue>, label: string) => {
     try {
@@ -90,145 +91,239 @@ export function IssueRow({
     }
   };
 
+  const getStatusColor = (status: IssueStatus) => {
+    switch (status) {
+      case 'backlog': return 'text-muted-foreground/60';
+      case 'todo': return 'text-muted-foreground';
+      case 'in_progress': return 'text-yellow-600 dark:text-yellow-400';
+      case 'done': return 'text-emerald-600 dark:text-emerald-400';
+      case 'cancelled': return 'text-red-600 dark:text-red-400';
+      default: return 'text-muted-foreground';
+    }
+  };
+
   return (
-    <div 
-      className={cn(
-        'group relative grid grid-cols-[32px_75px_1fr_80px_32px] md:grid-cols-[32px_80px_1fr_100px_32px_85px_32px_32px] items-center gap-2 md:gap-2 px-4 py-2.5 cursor-pointer transition-all duration-200 border-b border-white/[0.02] last:border-none bg-white/[0.02] hover:bg-white/[0.04] first:rounded-t-xl last:rounded-b-xl hover:z-10 select-none tracking-tight',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset'
-      )} 
-      onClick={onClick}
-      tabIndex={0}
-      role="button"
-      onKeyDown={(e) => e.key === 'Enter' && onClick?.()}
+    <motion.div 
+      layout
+      drag="y"
+      dragElastic={1} 
+      whileDrag={{ 
+        pointerEvents: "none", 
+        zIndex: 100, 
+        scale: 1.02,
+        x: [-2, 2, -2, 2, 0], 
+        rotate: [0, 0.5, -0.5, 0.5, 0], 
+        boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.2), 0 8px 10px -6px rgb(0 0 0 / 0.2)"
+      }}
+      onDrag={(_, info) => {
+        const x = info.point.x;
+        const y = info.point.y;
+        const statusElements = document.querySelectorAll('[data-status]');
+        let closestStatus: IssueStatus | null = null;
+        let minDistance = Infinity;
+
+        statusElements.forEach((el) => {
+          const rect = el.getBoundingClientRect();
+          const dx = Math.max(rect.left - x, 0, x - rect.right);
+          const dy = Math.max(rect.top - y, 0, y - rect.bottom);
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestStatus = el.getAttribute('data-status') as IssueStatus;
+          }
+        });
+
+        if (closestStatus && closestStatus !== lastDraggedStatus.current) {
+          lastDraggedStatus.current = closestStatus;
+        }
+      }}
+      onDragEnd={(_, info) => {
+        const x = info.point.x;
+        const y = info.point.y;
+        const statusElements = document.querySelectorAll('[data-status]');
+        let closestStatus: IssueStatus | null = null;
+        let minDistance = Infinity;
+
+        statusElements.forEach((el) => {
+          const rect = el.getBoundingClientRect();
+          const dx = Math.max(rect.left - x, 0, x - rect.right);
+          const dy = Math.max(rect.top - y, 0, y - rect.bottom);
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestStatus = el.getAttribute('data-status') as IssueStatus;
+          }
+        });
+
+        lastDraggedStatus.current = null;
+        if (closestStatus && closestStatus !== issue.status) {
+          onUpdate(issue.id, { status: closestStatus });
+        }
+      }}
+      className="flex flex-col group/row"
     >
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-r from-primary/[0.03] to-transparent pointer-events-none transition-opacity duration-300 rounded-xl" />
-      
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-          <button 
-            className="relative z-20 hover:bg-white/5 p-1 rounded-md transition-all duration-150 flex justify-center focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label={`Priority: ${issue.priority}`}
-          >
-            <IssuePriorityIcon priority={issue.priority} />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="bg-zinc-900/95 border-white/10 backdrop-blur-xl">
-          {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
-            <DropdownMenuItem key={key} onClick={() => handleUpdate({ priority: key as any }, 'Priority')} className="focus:bg-white/5 cursor-pointer">
-              <div className="flex items-center gap-2">
-                <IssuePriorityIcon priority={key} />
-                <span className={cn("text-[10px] font-bold uppercase", config.color)}>{config.label}</span>
-              </div>
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div 
+        className={cn(
+          'group relative grid grid-cols-[60px_32px_32px_1fr_100px_140px_32px_32px] items-center gap-2 px-4 py-2 cursor-grab active:cursor-grabbing transition-all duration-300 border-b border-border/20 last:border-none bg-secondary/20 hover:bg-secondary/40 first:rounded-t-xl last:rounded-b-xl hover:z-10 hover:scale-[1.01] select-none tracking-tight'
+        )} 
+        onClick={onClick}
+      >
+        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none transition-opacity duration-500 rounded-xl" />
+        
+        <div className="flex justify-center">
+          {issue.identifier && (
+            <span className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-wider bg-muted px-1.5 py-0.5 rounded border border-border">
+              {issue.identifier}
+            </span>
+          )}
+        </div>
 
-      <div className="relative z-20 overflow-hidden">
-        <IssueIdentifier identifier={issue.identifier} className="group-hover:text-white" />
-      </div>
-      
-      <div className="flex items-center gap-2 min-w-0">
-        {parentIssue && (
-           <span className="text-sm font-medium text-muted-foreground truncate max-w-[120px]">
-             {parentIssue.title} <span className="opacity-50 mx-1">&gt;</span>
-           </span>
-        )}
-        <span className="truncate text-sm font-medium tracking-tight text-foreground/90 group-hover:text-foreground transition-colors">{issue.title}</span>
-      </div>
+        <div className="flex justify-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <button className="relative z-20 hover:bg-muted p-1 rounded transition-colors">
+                <IssuePriorityIcon priority={issue.priority || 'none'} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="bg-popover border-border backdrop-blur-md">
+              {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
+                <DropdownMenuItem key={key} onClick={(e) => {
+                  e.stopPropagation();
+                  handleUpdate({ priority: key as any }, 'Priority');
+                }} className="focus:bg-muted">
+                  <div className="flex items-center gap-2">
+                    <IssuePriorityIcon priority={key as IssuePriority} />
+                    <span className={cn("text-[10px] font-bold uppercase", config.color)}>{config.label}</span>
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
-      <div className="hidden md:flex justify-center overflow-hidden">
-        {feature && (
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/5 border border-white/5 text-[10px] text-muted-foreground font-medium whitespace-nowrap overflow-hidden">
-            <span className="shrink-0">{project?.icon || '🔹'}</span>
-            <span className="truncate">{feature.name}</span>
-          </div>
-        )}
-      </div>
+        <div className="flex justify-center">
+          <IssueTypeIcon type={issue.issueType} className="opacity-50 group-hover:opacity-100 transition-opacity" />
+        </div>
 
-      <div className="hidden md:flex justify-center">
-        <IssueTypeIcon type={issue.issueType} className="opacity-50 group-hover:opacity-100" />
-      </div>
+        <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+          <span className="truncate text-sm font-medium tracking-tight text-foreground/90 group-hover:text-foreground transition-colors">
+            {issue.title}
+          </span>
+          {parentIssue && (
+            <div className="flex items-center gap-1.5 text-muted-foreground/30 shrink-0">
+              <span className="text-[10px] font-bold">&gt;</span>
+              <span className="text-[11px] font-medium truncate max-w-[120px]">
+                {parentIssue.title}
+              </span>
+            </div>
+          )}
+        </div>
 
-      <div className="flex justify-center md:justify-center">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-            <button className="relative z-20 focus-visible:ring-2 focus-visible:ring-ring rounded-md" aria-label={`Status: ${issue.status}`}>
-              <IssueStatusBadge status={issue.status} />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="bg-zinc-900/95 border-white/10 backdrop-blur-xl">
-            {Object.entries(STATUS_CONFIG).map(([key, config]) => (
-              <DropdownMenuItem key={key} onClick={() => handleUpdate({ status: key as any }, 'Status')} className="focus:bg-white/5 cursor-pointer">
-                <span className="text-[10px] font-bold uppercase text-white/60">{config.label}</span>
+        <div className="flex justify-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <button className="relative z-20">
+                <Badge variant="outline" className={cn("h-5 px-1.5 text-[10px] font-bold uppercase border-border bg-muted/50", getStatusColor(issue.status))}>
+                  {STATUS_CONFIG[issue.status].label}
+                </Badge>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-popover border-border backdrop-blur-md">
+              {Object.entries(STATUS_CONFIG).map(([key, config]) => (
+                <DropdownMenuItem key={key} onClick={(e) => {
+                  e.stopPropagation();
+                  handleUpdate({ status: key as any }, 'Status');
+                }} className="focus:bg-muted">
+                  <span className="text-[10px] font-bold uppercase text-muted-foreground">{config.label}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <div className="flex justify-center">
+          {feature && (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-muted/50 border border-border text-[10px] text-muted-foreground font-medium whitespace-nowrap overflow-hidden">
+              <span>{project?.icon || '🔹'}</span>
+              <span className="max-w-[80px] truncate">{feature.name}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-center">
+          {assigneeName ? (
+            <div className="h-6 w-6 rounded-full border border-primary/20 bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary shadow-inner">
+              {getInitials(assigneeName)}
+            </div>
+          ) : (
+            <div className="h-6 w-6 rounded-full border border-dashed border-border flex items-center justify-center">
+              <div className="h-1 w-1 rounded-full bg-muted-foreground/20" />
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted">
+                <DotsThree className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-popover border-border backdrop-blur-md">
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="focus:bg-muted">Change status</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="bg-popover border-border">
+                  {Object.entries(STATUS_CONFIG).map(([key, config]) => (
+                    <DropdownMenuItem key={key} onClick={(e) => {
+                      e.stopPropagation();
+                      handleUpdate({ status: key as any }, 'Status');
+                    }} className="focus:bg-muted">
+                      <IssueStatusIcon status={key as IssueStatus} className="mr-2" />
+                      {config.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="focus:bg-muted">Change priority</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="bg-popover border-border">
+                  {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
+                    <DropdownMenuItem key={key} onClick={(e) => {
+                      e.stopPropagation();
+                      handleUpdate({ priority: key as any }, 'Priority');
+                    }} className="focus:bg-muted">
+                      <IssuePriorityIcon priority={key as any} className="mr-2" />
+                      <span className={config.color}>{config.label}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              {onCreateSubIssue && (
+                <>
+                  <DropdownMenuSeparator className="border-border" />
+                  <DropdownMenuItem onClick={(e) => {
+                    e.stopPropagation();
+                    onCreateSubIssue(issue.id);
+                  }} className="focus:bg-muted">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create sub-issue
+                  </DropdownMenuItem>
+                </>
+              )}
+              <DropdownMenuSeparator className="border-border" />
+              <DropdownMenuItem className="text-red-400 focus:bg-red-500/10 focus:text-red-400" onClick={(e) => {
+                e.stopPropagation();
+                handleDelete();
+              }}>
+                <Trash className="mr-2 h-4 w-4" />
+                Delete issue
               </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
-
-      <div className="hidden md:flex justify-center">
-        {assigneeName ? (
-          <div className="h-6 w-6 rounded-full border border-primary/20 bg-gradient-to-br from-primary/30 to-purple-500/30 flex items-center justify-center text-[10px] font-bold text-primary shadow-inner">
-            {getInitials(assigneeName)}
-          </div>
-        ) : (
-          <div className="h-6 w-6 rounded-full border border-dashed border-white/10 flex items-center justify-center">
-            <div className="h-1 w-1 rounded-full bg-white/20" />
-          </div>
-        )}
-      </div>
-
-      <div className="flex justify-end">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-            <Button 
-              variant="ghost" 
-              size="icon-sm" 
-              className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label="Issue actions"
-            >
-              <DotsThree className="h-4 w-4 text-white/50 hover:text-white" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48 bg-zinc-900/95 border-white/10 backdrop-blur-xl">
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger className="focus:bg-white/5 cursor-pointer">Change status</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="bg-zinc-900/95 border-white/10">
-                {Object.entries(STATUS_CONFIG).map(([key, config]) => (
-                  <DropdownMenuItem key={key} onClick={() => handleUpdate({ status: key as any }, 'Status')} className="focus:bg-white/5 cursor-pointer">
-                    <IssueStatusIcon status={key as IssueStatus} className="mr-2" />
-                    {config.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger className="focus:bg-white/5 cursor-pointer">Change priority</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="bg-zinc-900/95 border-white/10">
-                {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
-                  <DropdownMenuItem key={key} onClick={() => handleUpdate({ priority: key as any }, 'Priority')} className="focus:bg-white/5 cursor-pointer">
-                    <IssuePriorityIcon priority={key as any} className="mr-2" />
-                    <span className={config.color}>{config.label}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuSeparator className="bg-white/5" />
-            <DropdownMenuItem onClick={() => onCreateSubIssue?.(issue.id)} className="focus:bg-white/5 cursor-pointer">
-              <div className="flex items-center gap-2">
-                 <Plus className="h-4 w-4 text-white/50" />
-                 <span>Create sub-issue</span>
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-white/5" />
-            <DropdownMenuItem className="text-red-400 focus:bg-red-500/10 focus:text-red-400 cursor-pointer" onClick={handleDelete}>
-              <Trash className="mr-2 h-4 w-4" />
-              Delete issue
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </div>
+    </motion.div>
   );
 }

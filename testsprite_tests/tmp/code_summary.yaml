@@ -1,0 +1,197 @@
+tech_stack:
+  backend:
+    language: Python
+    framework: FastAPI
+    database: PostgreSQL (via SQLAlchemy ORM)
+    authentication: JWT (OAuth2PasswordRequestForm)
+    storage: Cloudflare R2 (via boto3)
+    ai_provider: OpenRouter API
+    key_libraries:
+      - uvicorn
+      - sqlalchemy
+      - alembic
+      - pydantic
+      - python-jose (JWT)
+      - passlib (bcrypt)
+      - boto3 (R2 storage)
+      - openai (AI integration)
+      - mammoth (docx parsing)
+      - python-docx (docx generation)
+      - html2docx
+      - markdown
+
+  frontend:
+    language: TypeScript
+    framework: React 18.3
+    bundler: Vite
+    routing: React Router DOM
+    state_management: Zustand
+    api_client: Axios + TanStack Query
+    ui_library: shadcn/ui + Radix UI components
+    styling: Tailwind CSS
+    icons: Lucide React + Phosphor Icons
+    key_libraries:
+      - @tanstack/react-query
+      - react-router-dom
+      - zustand
+      - axios
+      - framer-motion
+      - recharts
+      - react-hook-form
+      - zod
+      - sonner (toast notifications)
+      - mermaid (diagrams)
+
+project_structure:
+  backend:
+    - app/main.py (FastAPI app entry point)
+    - app/api/v1/ (API endpoints)
+      - auth.py (authentication endpoints)
+      - issues.py (issue management)
+      - projects.py (project management)
+      - organizations.py (organization management)
+      - teams.py (team management)
+      - features.py (feature management)
+      - ai_projects.py (AI-powered features)
+      - notifications.py (notifications)
+    - app/models/ (SQLAlchemy models)
+    - app/schemas/ (Pydantic schemas)
+    - app/crud/ (database operations)
+    - app/services/ (business logic)
+    - app/core/ (configuration, database, security)
+    - requirements.txt (Python dependencies)
+
+  frontend:
+    - src/App.tsx (main app component)
+    - src/main.tsx (entry point)
+    - src/pages/ (page components)
+      - auth/ (Login, Register, OrganizationSetup)
+      - projects/ (project pages)
+      - features/ (feature management)
+      - insights/ (insights page)
+      - triage/ (triage page)
+    - src/components/ (reusable components)
+      - ui/ (shadcn/ui components)
+      - dialogs/ (modal dialogs)
+      - issue/ (issue-related components)
+    - src/hooks/ (custom React hooks)
+    - src/context/ (React context providers)
+    - src/lib/ (utility functions)
+    - package.json (JavaScript dependencies)
+
+api_endpoints:
+  authentication:
+    - POST /api/v1/auth/register
+    - POST /api/v1/auth/login
+    - GET /api/v1/auth/me
+
+  issues:
+    - GET /api/v1/issues
+    - POST /api/v1/issues
+    - GET /api/v1/issues/my-issues
+    - GET /api/v1/issues/inbox
+    - GET /api/v1/issues/{issue_id}
+    - PATCH /api/v1/issues/{issue_id}
+    - DELETE /api/v1/issues/{issue_id}
+    - POST /api/v1/issues/{issue_id}/comments
+    - GET /api/v1/issues/{issue_id}/comments
+    - GET /api/v1/issues/{issue_id}/activities
+
+  projects:
+    - GET /api/v1/projects
+    - POST /api/v1/projects
+    - GET /api/v1/projects/{project_id}
+    - PATCH /api/v1/projects/{project_id}
+    - DELETE /api/v1/projects/{project_id}
+    - POST /api/v1/projects/{project_id}/updates
+    - DELETE /api/v1/projects/{project_id}/updates/{update_id}
+    - POST /api/v1/projects/{project_id}/resources
+    - DELETE /api/v1/projects/{project_id}/resources/{resource_id}
+    - POST /api/v1/projects/{project_id}/updates/{update_id}/comments
+    - DELETE /api/v1/projects/{project_id}/updates/{update_id}/comments/{comment_id}
+    - POST /api/v1/projects/{project_id}/updates/{update_id}/reactions
+    - POST /api/v1/projects/{project_id}/updates/{update_id}/comments/{comment_id}/reactions
+
+  organizations:
+    - POST /api/v1/organizations
+    - POST /api/v1/organizations/join
+    - GET /api/v1/organizations/me
+    - GET /api/v1/organizations/me/members
+    - POST /api/v1/organizations/invite-codes
+
+  teams:
+    - GET /api/v1/teams
+    - POST /api/v1/teams
+    - GET /api/v1/teams/{team_id}
+    - PATCH /api/v1/teams/{team_id}
+    - DELETE /api/v1/teams/{team_id}
+
+  features:
+    - GET /api/v1/features
+    - POST /api/v1/features
+    - GET /api/v1/features/{feature_id}
+    - PATCH /api/v1/features/{feature_id}
+    - DELETE /api/v1/features/{feature_id}
+    - POST /api/v1/features/{feature_id}/milestones
+    - PATCH /api/v1/features/{feature_id}/milestones/{milestone_id}
+    - DELETE /api/v1/features/{feature_id}/milestones/{milestone_id}
+
+  ai:
+    - POST /api/v1/ai/idea/{idea_id}/blueprint/node/{node_id}/issues
+    - POST /api/v1/ai/idea/{idea_id}/validate/approve
+    - GET /api/v1/ai/ideas/{project_id}
+    - GET /api/v1/ai/project/{project_id}/ideas
+    - GET /api/v1/ai/idea/{idea_id}/progress
+    - POST /api/v1/ai/idea/{idea_id}/doc/upload
+    - POST /api/v1/ai/idea/{idea_id}/blueprint/sync
+    - POST /api/v1/ai/idea/submit
+    - POST /api/v1/ai/idea/{idea_id}/suggest/{question_index}
+    - POST /api/v1/ai/idea/{idea_id}/answer
+    - POST /api/v1/ai/idea/{idea_id}/validate
+    - PUT /api/v1/ai/idea/{idea_id}/validate
+    - POST /api/v1/ai/idea/{idea_id}/validate/regenerate-field
+    - POST /api/v1/ai/idea/{idea_id}/validate/accept-improvements
+    - POST /api/v1/ai/idea/{idea_id}/blueprint
+    - PUT /api/v1/ai/idea/{idea_id}/blueprint
+    - GET /api/v1/ai/idea/{idea_id}/doc/{doc_type}/questions
+    - POST /api/v1/ai/idea/{idea_id}/doc/{doc_type}
+    - POST /api/v1/ai/idea/{idea_id}/doc/{doc_type}/chat
+    - POST /api/v1/ai/idea/{idea_id}/doc/{doc_type}/regenerate-section
+    - GET /api/v1/ai/idea/{idea_id}/doc/{doc_type}/download
+    - GET /api/v1/ai/idea/{idea_id}/blueprint/node/{node_id}/details
+    - POST /api/v1/ai/idea/{idea_id}/blueprint/node/{node_id}/link-issue
+    - POST /api/v1/ai/idea/{idea_id}/blueprint/node/{node_id}/unlink-issue
+    - GET /api/v1/ai/idea/{idea_id}
+    - POST /api/v1/ai/idea/{idea_id}/convert
+    - GET /api/v1/ai/doc-order
+    - GET /api/v1/ai/pillars
+    - POST /api/v1/ai/idea/{idea_id}/project-md/regenerate
+    - GET /api/v1/ai/idea/{idea_id}/project-md
+    - GET /api/v1/ai/idea/{idea_id}/doc/{doc_type}/analysis
+    - POST /api/v1/ai/idea/{idea_id}/doc/{doc_type}/enhance
+    - POST /api/v1/ai/idea/{idea_id}/doc/{doc_type}/accept-enhancement
+    - POST /api/v1/ai/idea/{idea_id}/doc/{doc_type}/decline-enhancement
+
+  notifications:
+    - GET /api/v1/notifications
+    - PATCH /api/v1/notifications/{notification_id}/read
+    - POST /api/v1/notifications/read-all
+
+  default:
+    - GET /
+    - GET /health
+
+feature_areas:
+  - User Authentication and Authorization (JWT-based)
+  - Organization and Team Management
+  - Project Management with Updates and Resources
+  - Issue Tracking with Comments and Activities
+  - Feature Management with Milestones
+  - AI-powered Idea Generation and Blueprint Creation
+  - Document Generation and Management (docx, markdown)
+  - Notifications System
+  - Triage System for Issues
+
+local_ports:
+  backend: 8000
+  frontend: 8080

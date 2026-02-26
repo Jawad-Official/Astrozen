@@ -426,7 +426,7 @@ const BlueprintCanvas = ({
 
   return (
     <div 
-      className={cn("relative w-full h-full bg-[#050505] overflow-hidden rounded-xl border border-white/10 group cursor-grab active:cursor-grabbing shadow-inner", className)}
+      className={cn("relative w-full h-full bg-card overflow-hidden rounded-xl border border-border group cursor-grab active:cursor-grabbing shadow-inner", className)}
       ref={containerRef}
       onWheel={handleWheel}
       style={{
@@ -502,7 +502,7 @@ const BlueprintCanvas = ({
             <div
               key={node.id}
               className={cn(
-                  "absolute w-[240px] bg-[#0A0A0A]/90 backdrop-blur-md border border-white/10 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.5)] overflow-hidden hover:border-primary/30 hover:shadow-primary/5 will-change-transform",
+                  "absolute w-[240px] bg-background/90 backdrop-blur-md border border-border rounded-xl shadow-xl overflow-hidden hover:border-primary/30 hover:shadow-primary/5 will-change-transform",
                   draggingNodeId === node.id ? "z-[100] border-primary/50 shadow-2xl scale-[1.02] cursor-grabbing" : "z-10 cursor-grab transition-all duration-200"
               )}
               style={{ 
@@ -1281,40 +1281,40 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
     return (
       <div className="space-y-0">
         {/* Header with Score */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 sm:p-6 bg-gradient-to-r from-emerald-500/5 via-transparent to-blue-500/5 rounded-t-2xl border border-white/5 border-b-0">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 sm:p-6 bg-gradient-to-r from-emerald-500/10 via-transparent to-blue-500/10 rounded-t-2xl border border-border border-b-0">
            <div className="flex items-center gap-4">
-             <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/10 border border-emerald-500/20">
+             <div className="h-12 w-12 rounded-2xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/10 border border-emerald-500/20">
                <ShieldCheck size={24} weight="duotone" />
              </div>
              <div>
-                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">AI Validation Report</h2>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">AI Validation Report</h2>
                 {isAccepted ? (
-                  <p className="text-xs text-emerald-400/80 font-medium flex items-center gap-1">
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400/80 font-medium flex items-center gap-1">
                     <CheckCircle size={12} weight="fill" /> Analysis approved
                   </p>
                 ) : (
-                  <p className="text-[10px] sm:text-xs text-white/40 font-medium uppercase tracking-wider">Market feasibility analysis</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">Market feasibility analysis</p>
                 )}
              </div>
            </div>
            
-           <div className="flex items-center gap-6 bg-white/5 px-4 py-3 rounded-xl border border-white/5">
+           <div className="flex items-center gap-6 bg-muted/50 px-4 py-3 rounded-xl border border-border">
               <div className="text-right">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-white/30">Overall Score</div>
+                  <div className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40">Overall Score</div>
                   <div className={cn(
                       "text-3xl font-black leading-tight",
-                      score >= 80 ? "text-emerald-400" : score >= 60 ? "text-yellow-400" : "text-red-400"
+                      score >= 80 ? "text-emerald-600 dark:text-emerald-400" : score >= 60 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400"
                   )}>
-                      {scoreOutOf10}<span className="text-sm text-white/20 font-bold">/10</span>
+                      {scoreOutOf10}<span className="text-sm text-muted-foreground/40 font-bold">/10</span>
                   </div>
               </div>
               <div className="h-12 w-12 relative">
                   <svg className="h-full w-full -rotate-90">
-                      <circle cx="50%" cy="50%" r="45%" fill="none" stroke="currentColor" strokeWidth="5" className="text-white/10" />
-                      <circle cx="50%" cy="50%" r="45%" fill="none" stroke="currentColor" strokeWidth="5" className={cn(score >= 80 ? "text-emerald-400" : score >= 60 ? "text-yellow-400" : "text-red-400")} strokeDasharray="283" strokeDashoffset={283 - (283 * score / 10)} strokeLinecap="round" />
+                      <circle cx="50%" cy="50%" r="45%" fill="none" stroke="currentColor" strokeWidth="5" className="text-muted/10" />
+                      <circle cx="50%" cy="50%" r="45%" fill="none" stroke="currentColor" strokeWidth="5" className={cn(score >= 80 ? "text-emerald-600 dark:text-emerald-400" : score >= 60 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400")} strokeDasharray="283" strokeDashoffset={283 - (283 * score / 10)} strokeLinecap="round" />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <TrendUp size={16} className={cn(score >= 60 ? "text-emerald-400" : "text-red-400")} />
+                    <TrendUp size={16} className={cn(score >= 60 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400")} />
                   </div>
               </div>
            </div>
@@ -1322,7 +1322,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
 
         {/* Tabs Navigation */}
         {!isAccepted && (
-          <div className="flex overflow-x-auto gap-1 p-2 bg-white/[0.02] border-x border-white/5 scrollbar-hide">
+          <div className="flex overflow-x-auto gap-1 p-2 bg-muted/20 border-x border-border scrollbar-hide">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -1330,8 +1330,8 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                 className={cn(
                   "flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap",
                   validationTab === tab.id 
-                    ? "bg-white/10 text-white shadow-lg border border-white/10" 
-                    : "text-white/40 hover:text-white/70 hover:bg-white/5"
+                    ? "bg-accent text-foreground shadow-lg border border-border" 
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
                 )}
               >
                 <tab.icon size={14} weight={validationTab === tab.id ? "duotone" : "regular"} />
@@ -1339,7 +1339,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                 {tab.count !== null && (
                   <span className={cn(
                     "ml-1 px-1.5 py-0.5 rounded text-[9px]",
-                    validationTab === tab.id ? "bg-white/20 text-white" : "bg-white/5 text-white/40"
+                    validationTab === tab.id ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground/60"
                   )}>
                     {tab.count}
                   </span>
@@ -1350,7 +1350,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
         )}
 
         {/* Tab Content */}
-        <div className={cn("p-4 sm:p-6 bg-black/20 border border-white/5 rounded-b-2xl", isAccepted && "opacity-60")}>
+        <div className={cn("p-4 sm:p-6 bg-background/50 border border-border rounded-b-2xl shadow-xl", isAccepted && "opacity-60")}>
           
           {/* OVERVIEW TAB */}
           {(validationTab === 'overview' || isAccepted) && (
@@ -1359,22 +1359,22 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                   const pillarScore = pillar.status === 'Strong' ? 9 : pillar.status === 'Moderate' ? 7 : pillar.status === 'Weak' ? 4 : 2;
                   const scoreColor = pillarScore >= 8 ? "emerald" : pillarScore >= 6 ? "yellow" : "red";
                   return (
-                  <Card key={pillar.name} className="border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all group overflow-hidden">
-                    <CardHeader className="py-3 px-4 border-b border-white/5">
+                  <Card key={pillar.name} className="border-border bg-card hover:bg-accent/5 transition-all group overflow-hidden shadow-md">
+                    <CardHeader className="py-3 px-4 border-b border-border">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-white/40">{pillar.name}</span>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground/60">{pillar.name}</span>
                         <Badge variant="secondary" className={cn(
                           "h-5 text-[9px] px-2 font-bold",
-                          pillar.status === 'Strong' ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" :
-                          pillar.status === 'Moderate' ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30" :
-                          "bg-red-500/20 text-red-400 border border-red-500/30"
+                          pillar.status === 'Strong' ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" :
+                          pillar.status === 'Moderate' ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/20" :
+                          "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
                         )}>{pillar.status}</Badge>
                       </div>
                     </CardHeader>
-                    <CardContent className="p-4 text-xs text-white/50 leading-relaxed min-h-[80px]">
+                    <CardContent className="p-4 text-xs text-muted-foreground leading-relaxed min-h-[80px]">
                       {pillar.reason}
                     </CardContent>
-                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/5">
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-muted">
                         <div className={cn("h-full transition-all duration-500", 
                           scoreColor === "emerald" ? "bg-emerald-500" : scoreColor === "yellow" ? "bg-yellow-500" : "bg-red-500"
                         )} style={{ width: `${pillarScore * 10}%` }} />
@@ -1382,7 +1382,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                     <div className="absolute top-3 right-12">
                       <span className={cn(
                           "text-sm font-black",
-                          scoreColor === "emerald" ? "text-emerald-400" : scoreColor === "yellow" ? "text-yellow-400" : "text-red-400"
+                          scoreColor === "emerald" ? "text-emerald-600 dark:text-emerald-400" : scoreColor === "yellow" ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400"
                       )}>{pillarScore}</span>
                     </div>
                   </Card>
@@ -1395,13 +1395,13 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <CheckSquare size={18} className="text-blue-400" weight="duotone" />
-                  <h3 className="text-base font-bold text-white/90">Project Core Features</h3>
+                  <CheckSquare size={18} className="text-blue-600 dark:text-blue-400" weight="duotone" />
+                  <h3 className="text-base font-bold text-foreground">Project Core Features</h3>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 text-[10px] uppercase font-bold tracking-widest border-white/10 hover:bg-white/5 text-primary"
+                  className="h-8 text-[10px] uppercase font-bold tracking-widest border-border hover:bg-accent text-primary"
                   onClick={() => {
                     const newFeatures = [...(validationReport.core_features || []), { name: 'New Feature', description: 'Description', type: 'Core' }];
                     const updatedReport = {...validationReport, core_features: newFeatures};
@@ -1414,8 +1414,8 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {(validationReport.core_features || []).map((feature, idx) => (
-                  <div key={idx} className="p-4 rounded-2xl bg-white/[0.02] border border-white/10 group relative flex items-start gap-4 hover:border-white/20 transition-all">
-                    <div className="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <div key={idx} className="p-4 rounded-2xl bg-card border border-border group relative flex items-start gap-4 hover:border-primary/20 transition-all shadow-sm">
+                    <div className="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
                       <CheckSquare size={16} weight="bold" />
                     </div>
                     <div className="flex-1 min-w-0 space-y-1">
@@ -1428,7 +1428,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                           setValidationReport(updatedReport);
                           handleValidationEdit(updatedReport);
                         }}
-                        className="h-7 text-sm font-bold bg-transparent border-none p-0 focus-visible:ring-0 text-white/90"
+                        className="h-7 text-sm font-bold bg-transparent border-none p-0 focus-visible:ring-0 text-foreground"
                         placeholder="Feature Name"
                       />
                       <Textarea
@@ -1440,14 +1440,14 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                           setValidationReport(updatedReport);
                           handleValidationEdit(updatedReport);
                         }}
-                        className="text-[11px] text-white/40 bg-transparent border-none p-0 focus-visible:ring-0 resize-none min-h-[40px] leading-relaxed"
+                        className="text-[11px] text-muted-foreground bg-transparent border-none p-0 focus-visible:ring-0 resize-none min-h-[40px] leading-relaxed"
                         placeholder="Describe the feature purpose..."
                       />
                     </div>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-full"
+                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/30 hover:text-red-500 hover:bg-red-500/10 rounded-full"
                       onClick={() => {
                         const newFeatures = (validationReport.core_features || []).filter((_, i) => i !== idx);
                         const updatedReport = {...validationReport, core_features: newFeatures};
@@ -1461,9 +1461,9 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                 ))}
                 
                 {validationReport.core_features?.length === 0 && (
-                  <div className="col-span-full py-12 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-3xl opacity-40">
+                  <div className="col-span-full py-12 flex flex-col items-center justify-center border-2 border-dashed border-border rounded-3xl opacity-40">
                     <CheckSquare size={48} weight="thin" />
-                    <p className="mt-4 text-xs font-bold uppercase tracking-widest text-white">No features defined</p>
+                    <p className="mt-4 text-xs font-bold uppercase tracking-widest text-foreground">No features defined</p>
                     <Button 
                       variant="link" 
                       onClick={() => {
@@ -1487,18 +1487,18 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Stack size={18} className="text-green-400" weight="duotone" />
-                  <h3 className="text-base font-bold text-white/90">Technology Stack</h3>
+                  <Stack size={18} className="text-emerald-600 dark:text-green-400" weight="duotone" />
+                  <h3 className="text-base font-bold text-foreground">Technology Stack</h3>
                 </div>
               </div>
 
-              <div className="p-6 rounded-[2rem] bg-[#080808] border border-white/10 relative overflow-hidden">
+              <div className="p-6 rounded-[2rem] bg-card border border-border relative overflow-hidden shadow-xl">
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-cyan-500/5" />
                 
                 <div className="relative z-10">
                   <div className="flex items-center gap-2 mb-6">
-                    <Circuitry size={14} className="text-white/40" weight="duotone" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Architecture Overview</span>
+                    <Circuitry size={14} className="text-muted-foreground/40" weight="duotone" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">Architecture Overview</span>
                   </div>
 
                   <div className="flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-8 py-4">
@@ -1510,25 +1510,20 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                     >
                       <div className="relative group">
                         <div className="absolute -inset-3 bg-purple-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
-                        <div className="relative h-20 w-20 rounded-2xl bg-gradient-to-br from-purple-500/20 to-purple-500/5 border border-purple-500/30 flex items-center justify-center shadow-lg shadow-purple-500/10 group-hover:scale-110 transition-transform">
-                          <Layout size={32} weight="duotone" className="text-purple-400" />
+                        <div className="relative h-20 w-20 rounded-2xl bg-gradient-to-br from-purple-500/10 to-purple-500/5 border border-purple-500/20 flex items-center justify-center shadow-lg shadow-purple-500/5 group-hover:scale-110 transition-transform">
+                          <Layout size={32} weight="duotone" className="text-purple-600 dark:text-purple-400" />
                         </div>
                       </div>
                       <div className="text-center">
-                        <div className="text-xs font-black uppercase tracking-wider text-white/80">Frontend</div>
-                        <div className="text-[9px] text-white/30 mt-0.5">Client Side</div>
+                        <div className="text-xs font-black uppercase tracking-wider text-foreground/80">Frontend</div>
+                        <div className="text-[9px] text-muted-foreground/40 mt-0.5">Client Side</div>
                       </div>
                       <div className="flex flex-wrap justify-center gap-1.5 max-w-[160px]">
                         {(validationReport.tech_stack.frontend || []).slice(0, 3).map((tech: string, i: number) => (
-                          <span key={i} className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-purple-500/15 text-purple-400 border border-purple-500/20">
+                          <span key={i} className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
                             {tech}
                           </span>
                         ))}
-                        {(validationReport.tech_stack.frontend || []).length > 3 && (
-                          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-purple-500/10 text-purple-400/60">
-                            +{(validationReport.tech_stack.frontend || []).length - 3}
-                          </span>
-                        )}
                       </div>
                     </motion.div>
 
@@ -1539,20 +1534,10 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                       className="hidden lg:flex items-center"
                     >
                       <div className="flex items-center gap-1">
-                        <div className="h-px w-8 bg-gradient-to-r from-purple-500/50 to-transparent" />
-                        <ArrowRight size={16} className="text-white/20" />
-                        <div className="h-px w-8 bg-gradient-to-l from-orange-500/50 to-transparent" />
+                        <div className="h-px w-8 bg-gradient-to-r from-purple-500/30 to-transparent" />
+                        <ArrowRight size={16} className="text-muted-foreground/20" />
+                        <div className="h-px w-8 bg-gradient-to-l from-orange-500/30 to-transparent" />
                       </div>
-                    </motion.div>
-                    <motion.div 
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.2 }}
-                      className="lg:hidden flex items-center"
-                    >
-                      <div className="w-px h-6 bg-gradient-to-b from-purple-500/50 to-transparent" />
-                      <ArrowRight size={16} className="text-white/20 rotate-90 -ml-1.5" />
-                      <div className="w-px h-6 bg-gradient-to-t from-orange-500/50 to-transparent" />
                     </motion.div>
 
                     <motion.div 
@@ -1563,25 +1548,20 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                     >
                       <div className="relative group">
                         <div className="absolute -inset-3 bg-orange-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
-                        <div className="relative h-20 w-20 rounded-2xl bg-gradient-to-br from-orange-500/20 to-orange-500/5 border border-orange-500/30 flex items-center justify-center shadow-lg shadow-orange-500/10 group-hover:scale-110 transition-transform">
-                          <Circuitry size={32} weight="duotone" className="text-orange-400" />
+                        <div className="relative h-20 w-20 rounded-2xl bg-gradient-to-br from-orange-500/10 to-orange-500/5 border border-orange-500/20 flex items-center justify-center shadow-lg shadow-orange-500/5 group-hover:scale-110 transition-transform">
+                          <Circuitry size={32} weight="duotone" className="text-orange-600 dark:text-orange-400" />
                         </div>
                       </div>
                       <div className="text-center">
-                        <div className="text-xs font-black uppercase tracking-wider text-white/80">Backend</div>
-                        <div className="text-[9px] text-white/30 mt-0.5">Server Logic</div>
+                        <div className="text-xs font-black uppercase tracking-wider text-foreground/80">Backend</div>
+                        <div className="text-[9px] text-muted-foreground/40 mt-0.5">Server Logic</div>
                       </div>
                       <div className="flex flex-wrap justify-center gap-1.5 max-w-[160px]">
                         {(validationReport.tech_stack.backend || []).slice(0, 3).map((tech: string, i: number) => (
-                          <span key={i} className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-orange-500/15 text-orange-400 border border-orange-500/20">
+                          <span key={i} className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20">
                             {tech}
                           </span>
                         ))}
-                        {(validationReport.tech_stack.backend || []).length > 3 && (
-                          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-orange-500/10 text-orange-400/60">
-                            +{(validationReport.tech_stack.backend || []).length - 3}
-                          </span>
-                        )}
                       </div>
                     </motion.div>
 
@@ -1592,20 +1572,10 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                       className="hidden lg:flex items-center"
                     >
                       <div className="flex items-center gap-1">
-                        <div className="h-px w-8 bg-gradient-to-r from-orange-500/50 to-transparent" />
-                        <ArrowRight size={16} className="text-white/20" />
-                        <div className="h-px w-8 bg-gradient-to-l from-cyan-500/50 to-transparent" />
+                        <div className="h-px w-8 bg-gradient-to-r from-orange-500/30 to-transparent" />
+                        <ArrowRight size={16} className="text-muted-foreground/20" />
+                        <div className="h-px w-8 bg-gradient-to-l from-cyan-500/30 to-transparent" />
                       </div>
-                    </motion.div>
-                    <motion.div 
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.4 }}
-                      className="lg:hidden flex items-center"
-                    >
-                      <div className="w-px h-6 bg-gradient-to-b from-orange-500/50 to-transparent" />
-                      <ArrowRight size={16} className="text-white/20 rotate-90 -ml-1.5" />
-                      <div className="w-px h-6 bg-gradient-to-t from-cyan-500/50 to-transparent" />
                     </motion.div>
 
                     <motion.div 
@@ -1616,25 +1586,20 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                     >
                       <div className="relative group">
                         <div className="absolute -inset-3 bg-cyan-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
-                        <div className="relative h-20 w-20 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 border border-cyan-500/30 flex items-center justify-center shadow-lg shadow-cyan-500/10 group-hover:scale-110 transition-transform">
-                          <Database size={32} weight="duotone" className="text-cyan-400" />
+                        <div className="relative h-20 w-20 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-cyan-500/5 border border-cyan-500/20 flex items-center justify-center shadow-lg shadow-cyan-500/5 group-hover:scale-110 transition-transform">
+                          <Database size={32} weight="duotone" className="text-cyan-600 dark:text-cyan-400" />
                         </div>
                       </div>
                       <div className="text-center">
-                        <div className="text-xs font-black uppercase tracking-wider text-white/80">Database</div>
-                        <div className="text-[9px] text-white/30 mt-0.5">Storage & Cache</div>
+                        <div className="text-xs font-black uppercase tracking-wider text-foreground/80">Database</div>
+                        <div className="text-[9px] text-muted-foreground/40 mt-0.5">Storage & Cache</div>
                       </div>
                       <div className="flex flex-wrap justify-center gap-1.5 max-w-[160px]">
                         {(validationReport.tech_stack.database || []).slice(0, 3).map((tech: string, i: number) => (
-                          <span key={i} className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
+                          <span key={i} className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
                             {tech}
                           </span>
                         ))}
-                        {(validationReport.tech_stack.database || []).length > 3 && (
-                          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-cyan-500/10 text-cyan-400/60">
-                            +{(validationReport.tech_stack.database || []).length - 3}
-                          </span>
-                        )}
                       </div>
                     </motion.div>
                   </div>
@@ -1643,24 +1608,21 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.6 }}
-                    className="mt-6 pt-6 border-t border-white/5"
+                    className="mt-6 pt-6 border-t border-border"
                   >
                     <div className="flex items-center justify-center gap-2 mb-4">
-                      <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                      <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
                       <div className="flex items-center gap-2 px-4">
-                        <Rocket size={12} className="text-green-400/60" weight="duotone" />
-                        <span className="text-[9px] font-black uppercase tracking-[0.15em] text-white/30">Infrastructure Layer</span>
+                        <Rocket size={12} className="text-emerald-600/60 dark:text-green-400/60" weight="duotone" />
+                        <span className="text-[9px] font-black uppercase tracking-[0.15em] text-muted-foreground/40">Infrastructure Layer</span>
                       </div>
-                      <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                      <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
                     </div>
                     <div className="flex flex-wrap justify-center gap-2">
                       {(validationReport.tech_stack.infrastructure || []).map((tech: string, i: number) => (
                         <motion.span 
                           key={i}
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: 0.7 + i * 0.05 }}
-                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors"
+                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-green-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
                         >
                           {tech}
                         </motion.span>
@@ -1686,7 +1648,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                     layout
                     key={cat.id} 
                     className={cn(
-                      "p-6 rounded-[2rem] bg-[#0A0A0A] border transition-all duration-300 relative overflow-hidden group shadow-[0_15px_35px_rgba(0,0,0,0.6)]",
+                      "p-6 rounded-[2rem] bg-card border transition-all duration-300 relative overflow-hidden group shadow-xl",
                       cat.color === 'purple' ? "hover:border-purple-500/30" :
                       cat.color === 'orange' ? "hover:border-orange-500/30" :
                       cat.color === 'cyan' ? "hover:border-cyan-500/30" :
@@ -2281,7 +2243,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
   };
 
   return (
-    <div className="flex flex-col min-h-full bg-[#090909]">
+    <div className="flex flex-col min-h-full bg-background">
       <input 
         type="file" 
         ref={fileInputRef} 
@@ -2307,7 +2269,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                          <Textarea 
                             value={aiSuggestion || ''} 
                             onChange={e => setAiSuggestion(e.target.value)} 
-                            className="bg-black/20 text-sm sm:text-base min-h-[120px]"
+                            className="bg-muted/20 text-sm sm:text-base min-h-[120px]"
                             placeholder="Your answer..."
                          />
                          <div className="flex flex-col sm:flex-row gap-3 sm:justify-between">
@@ -2317,21 +2279,21 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                       </CardContent>
                    </Card>
                 ) : (
-                   <Card className="border-white/5 bg-white/5">
+                   <Card className="border-border bg-card shadow-lg">
                       <CardHeader className="p-4 sm:p-6">
-                         <CardTitle className="text-lg sm:text-xl">Describe your Idea</CardTitle>
-                         <CardDescription className="text-xs sm:text-sm">Start by describing what you want to build.</CardDescription>
+                         <CardTitle className="text-lg sm:text-xl text-foreground">Describe your Idea</CardTitle>
+                         <CardDescription className="text-xs sm:text-sm text-muted-foreground">Start by describing what you want to build.</CardDescription>
                       </CardHeader>
                       <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
                          <Textarea 
                             value={rawInput} 
                             onChange={e => setRawInput(e.target.value)} 
-                            className="min-h-[150px] sm:min-h-[200px] bg-black/20 text-base sm:text-lg"
+                            className="min-h-[150px] sm:min-h-[200px] bg-muted/20 text-base sm:text-lg text-foreground"
                             placeholder="E.g., A marketplace for vintage watches..."
                          />
                       </CardContent>
                       <CardFooter className="p-4 sm:p-6">
-                         <Button onClick={handleSubmitIdea} disabled={loading || !rawInput.trim()} className="w-full bg-primary font-bold h-10 sm:h-12">
+                         <Button onClick={handleSubmitIdea} disabled={loading || !rawInput.trim()} className="w-full bg-primary font-bold h-10 sm:h-12 text-primary-foreground">
                             {loading ? <ArrowClockwise className="animate-spin mr-2" /> : <MagicWand className="mr-2" />}
                             Start Project Architecture
                          </Button>
@@ -2347,15 +2309,15 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
           {/* 3. Blueprint Section (Middle) */}
           {blueprint && (
             <div className="space-y-6 animate-in fade-in duration-700 pt-4 sm:pt-0">
-               <div className="flex flex-row items-center justify-between border-b border-white/5 pb-4">
+               <div className="flex flex-row items-center justify-between border-b border-border pb-4">
                  <div className="flex items-center gap-3 sm:gap-4">
-                   <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center shadow-lg shadow-blue-500/10 shrink-0">
+                   <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-lg shadow-blue-500/10 shrink-0 border border-blue-500/20">
                      <Layout size={18} weight="bold" className="sm:hidden" />
                      <Layout size={20} weight="bold" className="hidden sm:block" />
                    </div>
                    <div>
-                      <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white/90">Visual Blueprint</h2>
-                      <p className="text-[10px] sm:text-xs text-white/40 font-medium">Interactive architecture map</p>
+                      <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground/90">Visual Blueprint</h2>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Interactive architecture map</p>
                    </div>
                  </div>
                  <TooltipProvider delayDuration={0}>
@@ -2364,7 +2326,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                             <Button 
                                 variant="ghost" 
                                 size="sm" 
-                                className="h-8 gap-2 text-white/40 hover:text-white hover:bg-white/5"
+                                className="h-8 gap-2 text-muted-foreground/60 hover:text-foreground hover:bg-accent"
                                 onClick={handleGenerateBlueprint}
                                 disabled={loading}
                             >
@@ -2372,7 +2334,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                                 <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest hidden sm:inline">Regenerate</span>
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent side="left" className="bg-zinc-900 border-white/10 text-[10px] font-bold uppercase tracking-widest">
+                        <TooltipContent side="left" className="bg-popover border-border text-[10px] font-bold uppercase tracking-widest">
                             Redo blueprint generation
                         </TooltipContent>
                     </Tooltip>
@@ -2397,9 +2359,9 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                {/* Kanban Preview */}
                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6">
                  {blueprint.kanban_features.slice(0, 4).map((f, i) => (
-                    <div key={i} className="p-3 sm:p-4 rounded-lg bg-white/5 border border-white/5 flex flex-col justify-between gap-2">
-                       <div className="text-[11px] sm:text-xs font-bold text-white/60 line-clamp-2">{f.title}</div>
-                       <Badge variant="secondary" className="text-[8px] sm:text-[9px] w-fit">{f.status}</Badge>
+                    <div key={i} className="p-3 sm:p-4 rounded-lg bg-card border border-border flex flex-col justify-between gap-2 shadow-sm">
+                       <div className="text-[11px] sm:text-xs font-bold text-foreground/70 line-clamp-2">{f.title}</div>
+                       <Badge variant="secondary" className="text-[8px] sm:text-[9px] w-fit bg-muted text-muted-foreground border-none">{f.status}</Badge>
                     </div>
                  ))}
                </div>
@@ -2408,16 +2370,16 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
 
           {/* 4. Documentation Section (Bottom) */}
           {(validationReport || blueprint) && (
-            <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-700 pt-8 sm:pt-12 border-t border-white/5">
+            <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-700 pt-8 sm:pt-12 border-t border-border">
                <div className="flex items-center justify-between">
                    <div className="flex items-center gap-3 sm:gap-4">
-                     <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center shadow-lg shadow-purple-500/10 shrink-0">
+                     <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center shadow-lg shadow-purple-500/10 shrink-0 border border-purple-500/20">
                        <FileText size={18} weight="bold" className="sm:hidden" />
                        <FileText size={20} weight="bold" className="hidden sm:block" />
                      </div>
                      <div>
-                        <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white/90">Documentation</h2>
-                        <p className="text-[10px] sm:text-xs text-white/40 font-medium">Technical specifications and guides</p>
+                        <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground/90">Documentation</h2>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Technical specifications and guides</p>
                      </div>
                    </div>
                </div>
@@ -2431,10 +2393,10 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                          <Card 
                            key={id} 
                            className={cn(
-                             "cursor-pointer hover:border-white/20 transition-all group overflow-hidden flex flex-col",
+                             "cursor-pointer hover:border-primary/30 transition-all group overflow-hidden flex flex-col shadow-sm",
                              hasAnalysis && analysisSeverity === 'critical' ? "bg-red-500/5 border-red-500/20" :
                              hasAnalysis && analysisSeverity === 'warning' ? "bg-yellow-500/5 border-yellow-500/20" :
-                             isGenerated ? "bg-emerald-500/5 border-emerald-500/20" : "bg-white/5 border-white/5"
+                             isGenerated ? "bg-emerald-500/5 border-emerald-500/20" : "bg-card border-border"
                            )}
                            onClick={(e) => {
                                if ((e.target as HTMLElement).closest('.action-btn')) return;
@@ -2447,21 +2409,21 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                          >
                             <CardHeader className="pb-2 sm:pb-3 p-4 sm:p-6">
                                <div className="flex justify-between items-start">
-                                  <info.icon className={isGenerated ? "text-emerald-400" : "text-white/40"} size={24} />
+                                  <info.icon className={isGenerated ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/40"} size={24} />
                                   {hasAnalysis && analysisSeverity === 'critical' && (
-                                    <Warning className="text-red-400" weight="fill" />
+                                    <Warning className="text-red-600 dark:text-red-400" weight="fill" />
                                   )}
                                   {hasAnalysis && analysisSeverity === 'warning' && (
-                                    <Lightbulb className="text-yellow-400" weight="fill" />
+                                    <Lightbulb className="text-yellow-600 dark:text-yellow-400" weight="fill" />
                                   )}
-                                  {isGenerated && !hasAnalysis && <CheckCircle className="text-emerald-400" weight="fill" />}
+                                  {isGenerated && !hasAnalysis && <CheckCircle className="text-emerald-600 dark:text-emerald-400" weight="fill" />}
                                </div>
                                <CardTitle className="text-sm sm:text-base mt-2 sm:mt-3">{info.label}</CardTitle>
                             </CardHeader>
                             <CardContent className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0">
-                               <p className="text-[11px] sm:text-xs text-white/40 line-clamp-2 sm:line-clamp-none sm:min-h-[40px]">{info.summary}</p>
+                               <p className="text-[11px] sm:text-xs text-muted-foreground/80 line-clamp-2 sm:line-clamp-none sm:min-h-[40px]">{info.summary}</p>
                                {hasAnalysis && (
-                                 <p className="text-[10px] mt-2 text-white/60">
+                                 <p className="text-[10px] mt-2 text-muted-foreground/60 font-medium">
                                    Quality: {hasAnalysis.quality_score}% - Click to review
                                  </p>
                                )}
@@ -2472,7 +2434,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                                     <Button 
                                         variant="outline" 
                                         size="sm" 
-                                        className="action-btn h-7 text-[9px] sm:text-[10px] w-full border-white/10 hover:bg-white/5"
+                                        className="action-btn h-7 text-[9px] sm:text-[10px] w-full border-border hover:bg-accent"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             handleUploadClick(id);
@@ -2482,7 +2444,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                                     </Button>
                                     <Button 
                                         size="sm" 
-                                        className="action-btn h-7 text-[9px] sm:text-[10px] w-full bg-white/10 hover:bg-white/20 text-white"
+                                        className="action-btn h-7 text-[9px] sm:text-[10px] w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             handleGenerateDocFlow(id);
@@ -2493,7 +2455,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                                 </>
                               ) : (
                                 <span 
-                                    className="text-[10px] sm:text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1 group-hover:translate-x-1 transition-transform"
+                                    className="text-[10px] sm:text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1 group-hover:translate-x-1 transition-transform"
                                 >
                                     {isGenerated.content.startsWith('http') ? 'Open in Docs' : 'Download'} <ArrowRight size={12} />
                                 </span>
@@ -2512,7 +2474,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
       {/* Blueprint Full-Page Modal */}
       <Dialog open={blueprintModalOpen} onOpenChange={setBlueprintModalOpen}>
         <DialogContent 
-          className="!max-w-none bg-[#0A0A0A] border-white/10 w-[98vw] md:w-[95vw] h-[98vh] md:h-[90vh] p-0 overflow-hidden flex flex-col" 
+          className="!max-w-none bg-background border-border w-[98vw] md:w-[95vw] h-[98vh] md:h-[90vh] p-0 overflow-hidden flex flex-col" 
           key={blueprintModalOpen ? 'open' : 'closed'}
         >
           <VisuallyHidden>
@@ -2537,7 +2499,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
               <Button
                 size="icon"
                 variant="ghost"
-                className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/80 hover:bg-black text-white/60 hover:text-white z-[60]"
+                className="absolute top-3 right-3 h-8 w-8 rounded-full bg-background/80 backdrop-blur-md hover:bg-muted text-muted-foreground hover:text-foreground z-[60] border border-border"
                 onClick={() => {
                   setBlueprintModalOpen(false);
                   setSelectedNode(null);
@@ -2549,7 +2511,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
 
             {/* Sidebar / Bottom Sheet */}
             <div className={cn(
-                "w-full md:w-[350px] lg:w-[400px] border-t md:border-t-0 md:border-l border-white/10 bg-[#050505] p-4 md:p-6 overflow-y-auto flex-shrink-0 transition-all duration-300",
+                "w-full md:w-[350px] lg:w-[400px] border-t md:border-t-0 md:border-l border-border bg-card p-4 md:p-6 overflow-y-auto flex-shrink-0 transition-all duration-300 shadow-xl",
                 "h-1/2 md:h-full", // Takes more space on mobile if node is selected
                 !selectedNode && "hidden md:flex" // Hide on mobile if no node selected
             )}>
@@ -2560,27 +2522,27 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                     <div className="flex items-center gap-3 mb-0 md:mb-4">
                       <div className={cn(
                         "h-10 w-10 rounded-lg flex items-center justify-center bg-gradient-to-br shrink-0",
-                        selectedNode.type === 'entry' ? "from-purple-500/20 to-purple-500/5 text-purple-400" :
-                        selectedNode.type === 'action' ? "from-blue-500/20 to-blue-500/5 text-blue-400" :
-                        selectedNode.type === 'service' ? "from-cyan-500/20 to-cyan-500/5 text-cyan-400" :
-                        selectedNode.type === 'database' ? "from-amber-500/20 to-amber-500/5 text-amber-400" :
-                        selectedNode.type === 'external' ? "from-pink-500/20 to-pink-500/5 text-pink-400" :
-                        "from-emerald-500/20 to-emerald-500/5 text-emerald-400"
+                        selectedNode.type === 'entry' ? "from-purple-500/20 to-purple-500/5 text-purple-600 dark:text-purple-400" :
+                        selectedNode.type === 'action' ? "from-blue-500/20 to-blue-500/5 text-blue-600 dark:text-blue-400" :
+                        selectedNode.type === 'service' ? "from-cyan-500/20 to-cyan-500/5 text-cyan-600 dark:text-cyan-400" :
+                        selectedNode.type === 'database' ? "from-amber-500/20 to-amber-500/5 text-amber-600 dark:text-amber-400" :
+                        selectedNode.type === 'external' ? "from-pink-500/20 to-pink-500/5 text-pink-600 dark:text-pink-400" :
+                        "from-emerald-500/20 to-emerald-500/5 text-emerald-600 dark:text-emerald-400"
                       )}>
                         {selectedNode.type === 'database' ? <Database size={20} weight="duotone" /> : 
                          selectedNode.type === 'external' ? <ArrowSquareOut size={20} weight="duotone" /> :
                          <Layout size={20} weight="duotone" />}
                       </div>
                       <div className="min-w-0">
-                        <h3 className="text-base sm:text-lg font-bold text-white truncate">{selectedNode.label}</h3>
-                        <p className="text-[10px] text-white/40 uppercase tracking-wider font-bold">{selectedNode.type}</p>
+                        <h3 className="text-base sm:text-lg font-bold text-foreground truncate">{selectedNode.label}</h3>
+                        <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-bold">{selectedNode.type}</p>
                       </div>
                     </div>
                     
                     <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="md:hidden h-8 w-8 text-white/20"
+                        className="md:hidden h-8 w-8 text-muted-foreground/40"
                         onClick={() => setSelectedNode(null)}
                     >
                         <XCircle size={20} />
@@ -2589,11 +2551,11 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
 
                   {/* Completion */}
                   <div className="space-y-2">
-                    <div className="flex justify-between text-[10px] sm:text-xs font-bold text-white/40">
+                    <div className="flex justify-between text-[10px] sm:text-xs font-bold text-muted-foreground/60">
                       <span>COMPLETION</span>
                       <span>{(nodeDetails?.completion ?? selectedNode.completion) || 0}%</span>
                     </div>
-                    <div className="h-1.5 sm:h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-1.5 sm:h-2 w-full bg-muted rounded-full overflow-hidden">
                       <div 
                         className={cn(
                           "h-full rounded-full transition-all duration-1000",
@@ -2606,7 +2568,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                       />
                     </div>
                     {nodeDetails?.stats && (
-                      <p className="text-[9px] sm:text-[10px] text-white/30 text-right font-medium">
+                      <p className="text-[9px] sm:text-[10px] text-muted-foreground/40 text-right font-medium">
                         {nodeDetails.stats.done_issues} / {nodeDetails.stats.total_issues} issues completed
                       </p>
                     )}
@@ -2615,7 +2577,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                   {/* Issues Section */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white/40">Linked Issues</h4>
+                      <h4 className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground/60">Linked Issues</h4>
                       <Button 
                         variant="ghost" 
                         size="sm" 
@@ -2635,12 +2597,12 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                           exit={{ height: 0, opacity: 0 }}
                           className="overflow-hidden"
                         >
-                          <div className="p-2 sm:p-3 rounded-lg bg-white/5 border border-white/10 space-y-3">
+                          <div className="p-2 sm:p-3 rounded-lg bg-muted/30 border border-border space-y-3">
                             <Input 
                               placeholder="Search project issues..."
                               value={issueSearchQuery}
                               onChange={(e) => setIssueSearchQuery(e.target.value)}
-                              className="h-8 text-xs bg-black/40 border-white/5"
+                              className="h-8 text-xs bg-background/50 border-border"
                             />
                             <div className="max-h-[150px] sm:max-h-[200px] overflow-y-auto space-y-1 pr-1 custom-scrollbar">
                               {projectIssues
@@ -2649,17 +2611,17 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                                 .map(issue => (
                                   <div 
                                     key={issue.id} 
-                                    className="flex items-center justify-between p-2 rounded-md hover:bg-white/5 group cursor-pointer transition-colors"
+                                    className="flex items-center justify-between p-2 rounded-md hover:bg-accent group cursor-pointer transition-colors"
                                     onClick={() => handleLinkIssue(issue.id)}
                                   >
                                     <div className="flex flex-col min-w-0">
-                                      <span className="text-[9px] font-mono text-white/40">{issue.identifier}</span>
-                                      <span className="text-[11px] text-white/70 truncate">{issue.title}</span>
+                                      <span className="text-[9px] font-mono text-muted-foreground/40">{issue.identifier}</span>
+                                      <span className="text-[11px] text-foreground/70 truncate">{issue.title}</span>
                                     </div>
-                                    <Plus size={12} className="text-white/20 group-hover:text-primary transition-colors shrink-0" />
+                                    <Plus size={12} className="text-muted-foreground/20 group-hover:text-primary transition-colors shrink-0" />
                                   </div>
                                 ))}
-                              {projectIssues.length === 0 && <p className="text-[10px] text-white/20 text-center py-4">No other issues found</p>}
+                              {projectIssues.length === 0 && <p className="text-[10px] text-muted-foreground/40 text-center py-4">No other issues found</p>}
                             </div>
                           </div>
                         </motion.div>
@@ -2670,25 +2632,25 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                     <div className="space-y-2">
                       {nodeDetails?.issues && nodeDetails.issues.length > 0 ? (
                         nodeDetails.issues.map((issue: any) => (
-                          <div key={issue.id} className="group flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-all">
+                          <div key={issue.id} className="group flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-card border border-border hover:border-primary/20 transition-all shadow-sm">
                             <div className="flex flex-col min-w-0">
                               <div className="flex items-center gap-2 mb-1">
-                                <span className="text-[9px] font-mono text-white/30">{issue.identifier}</span>
+                                <span className="text-[9px] font-mono text-muted-foreground/40">{issue.identifier}</span>
                                 <Badge variant="outline" className={cn(
                                   "text-[7px] h-3.5 px-1 uppercase font-black",
-                                  issue.status === 'done' ? "text-emerald-400 border-emerald-500/20 bg-emerald-500/5" :
-                                  issue.status === 'in_progress' ? "text-blue-400 border-blue-500/20 bg-blue-500/5" :
-                                  "text-white/30 border-white/5 bg-white/5"
+                                  issue.status === 'done' ? "text-emerald-600 dark:text-emerald-400 border-emerald-500/20 bg-emerald-500/5" :
+                                  issue.status === 'in_progress' ? "text-blue-600 dark:text-blue-400 border-blue-500/20 bg-blue-500/5" :
+                                  "text-muted-foreground/40 border-border bg-muted"
                                 )}>
                                   {issue.status.replace('_', ' ')}
                                 </Badge>
                               </div>
-                              <span className="text-[11px] sm:text-xs font-medium text-white/80 truncate">{issue.title}</span>
+                              <span className="text-[11px] sm:text-xs font-medium text-foreground/80 truncate">{issue.title}</span>
                             </div>
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="h-7 w-7 text-white/10 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="h-7 w-7 text-muted-foreground/20 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
                               onClick={() => handleUnlinkIssue(issue.id)}
                             >
                               <Trash size={14} />
@@ -2697,15 +2659,15 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                         ))
                       ) : !isLinkingIssue && (
                         <div className="py-6 sm:py-8 text-center space-y-2">
-                          <p className="text-[11px] text-white/20">No issues linked to this component.</p>
-                          <p className="text-[9px] text-white/10 italic">Generate issues or link existing ones to track progress.</p>
+                          <p className="text-[11px] text-muted-foreground/40">No issues linked to this component.</p>
+                          <p className="text-[9px] text-muted-foreground/20 italic">Generate issues or link existing ones to track progress.</p>
                         </div>
                       )}
                     </div>
                   </div>
 
                   {/* Generate Issues Button */}
-                  <div className="pt-4 border-t border-white/5">
+                  <div className="pt-4 border-t border-border">
                     <Button
                       onClick={async () => {
                         if (!ideaId || !selectedNode) return;
@@ -2738,13 +2700,13 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                         </>
                       )}
                     </Button>
-                    <p className="text-[10px] text-white/30 mt-2 text-center">
+                    <p className="text-[10px] text-muted-foreground/40 mt-2 text-center font-medium">
                       AI will create tasks, features, and milestones
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-white/20">
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground/20">
                   <Layout size={40} weight="thin" className="mb-4 opacity-50" />
                   <p className="text-xs uppercase tracking-widest font-black">Select a node</p>
                 </div>
@@ -2756,7 +2718,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
 
       {/* Doc Questions Dialog */}
       <Dialog open={docQuestionsOpen} onOpenChange={setDocQuestionsOpen}>
-        <DialogContent className="bg-[#0A0A0A] border-white/10 w-[95vw] sm:max-w-[500px] p-4 sm:p-6 rounded-2xl">
+        <DialogContent className="bg-popover border-border w-[95vw] sm:max-w-[500px] p-4 sm:p-6 rounded-2xl shadow-2xl">
           <DialogHeader>
              <DialogTitle className="text-lg sm:text-xl">Clarification Needed</DialogTitle>
              <DialogDescription className="text-xs sm:text-sm">
@@ -2764,15 +2726,15 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
              </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2 sm:py-4">
-             <p className="text-base sm:text-lg font-medium leading-relaxed">{docQuestions[docQuestionIndex]?.question}</p>
+             <p className="text-base sm:text-lg font-medium leading-relaxed text-foreground/80">{docQuestions[docQuestionIndex]?.question}</p>
              <Textarea 
                 value={docAiSuggestion || ''}
                 onChange={e => setDocAiSuggestion(e.target.value)}
                 placeholder="Your answer..."
-                className="bg-white/5 min-h-[100px] text-sm sm:text-base"
+                className="bg-muted/30 border-border min-h-[100px] text-sm sm:text-base text-foreground"
              />
              <div className="flex flex-col sm:flex-row justify-between gap-3 pt-2 sm:pt-4">
-                <Button variant="ghost" size="sm" onClick={() => setDocAiSuggestion(docQuestions[docQuestionIndex].suggestion || '')} className="text-[10px] sm:text-xs order-3 sm:order-1 w-full sm:w-auto">
+                <Button variant="ghost" size="sm" onClick={() => setDocAiSuggestion(docQuestions[docQuestionIndex].suggestion || '')} className="text-[10px] sm:text-xs order-3 sm:order-1 w-full sm:w-auto hover:bg-accent">
                    <Lightbulb className="mr-2" /> Use Suggestion
                 </Button>
                 <div className="flex gap-2 order-1 sm:order-2 w-full sm:w-auto">
@@ -2785,7 +2747,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
        </Dialog>
 
       <Dialog open={showAnalysisModal} onOpenChange={setShowAnalysisModal}>
-        <DialogContent className="bg-[#0A0A0A] border-white/10 w-[95vw] sm:max-w-[600px] p-4 sm:p-6 rounded-2xl">
+        <DialogContent className="bg-popover border-border w-[95vw] sm:max-w-[600px] p-4 sm:p-6 rounded-2xl shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg sm:text-xl flex items-center gap-2">
               {docAnalysis[analysisDocType]?.severity === 'critical' && (

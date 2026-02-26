@@ -22,9 +22,9 @@ const badgeVariants = cva(
         info:
           "bg-info/10 text-info border border-info/20",
         ghost:
-          "bg-white/5 text-white/60 border border-white/10",
+          "bg-muted text-muted-foreground border border-border",
         surface:
-          "bg-white/[0.03] text-white/50 border border-white/5",
+          "bg-muted/50 text-muted-foreground/80 border border-border/50",
       },
       size: {
         default: "px-2.5 py-0.5 text-xs",

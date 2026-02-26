@@ -66,7 +66,7 @@ const healthConfig: Record<ProjectHealth, { label: string; className: string; ic
   on_track: { label: 'On track', className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', icon: <Check className="h-3 w-3" /> },
   at_risk: { label: 'At risk', className: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20', icon: <WarningCircle className="h-3 w-3" /> },
   off_track: { label: 'Off track', className: 'bg-red-500/10 text-red-400 border-red-500/20', icon: <WarningCircle className="h-3 w-3" /> },
-  no_updates: { label: 'No updates', className: 'bg-white/5 text-white/40 border-white/10', icon: <Square className="h-3 w-3" /> },
+  no_updates: { label: 'No updates', className: 'bg-muted text-muted-foreground border-border', icon: <Square className="h-3 w-3" /> },
 };
 
 const priorityBars: Record<ProjectPriority, number> = {
@@ -141,21 +141,21 @@ export const ProjectBar = {
     return (
       <div 
         className={cn(
-          "group relative flex items-center gap-4 px-4 py-3 cursor-pointer transition-all duration-300 border-b border-white/[0.02] last:border-none bg-white/[0.03] hover:bg-white/5 first:rounded-t-xl last:rounded-b-xl hover:z-10 hover:scale-[1.01] select-none tracking-tight"
+          "group relative flex items-center gap-4 px-4 py-3 cursor-pointer transition-all duration-300 border-b border-border/50 last:border-none bg-secondary/20 hover:bg-secondary/40 first:rounded-t-xl last:rounded-b-xl hover:z-10 hover:scale-[1.01] select-none tracking-tight"
         )} 
         onClick={onClick}
       >
         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none transition-opacity duration-500 rounded-xl" />
-        <div className="flex items-center gap-3 flex-1 min-w-0 z-10"><span className="text-xl group-hover:scale-110 transition-transform duration-300">{project.icon}</span><span className="font-semibold text-sm text-white/90 group-hover:text-white transition-colors truncate">{project.name}</span></div>
+        <div className="flex items-center gap-3 flex-1 min-w-0 z-10"><span className="text-xl group-hover:scale-110 transition-transform duration-300">{project.icon}</span><span className="font-semibold text-sm text-foreground/90 group-hover:text-foreground transition-colors truncate">{project.name}</span></div>
         <div className="w-32 z-10"><ProjectBar.HealthBadge health={project.health} /></div>
-                <div className="w-32 flex items-center gap-2 z-10">{leadDisplayName ? (<><div className="h-6 w-6 rounded-full border border-white/10 bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-[10px] font-bold text-white">{leadDisplayName.split(' ').map((n: string) => n[0]).join('').toUpperCase()}</div><span className="text-xs text-white/40 truncate">{leadDisplayName}</span></>) : (<span className="text-xs text-white/20">Assign</span>)}</div>
+                <div className="w-32 flex items-center gap-2 z-10">{leadDisplayName ? (<><div className="h-6 w-6 rounded-full border border-border bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-[10px] font-bold text-white">{leadDisplayName.split(' ').map((n: string) => n[0]).join('').toUpperCase()}</div><span className="text-xs text-muted-foreground/60 truncate">{leadDisplayName}</span></>) : (<span className="text-xs text-muted-foreground/40">Assign</span>)}</div>
                 <div className="w-16 z-10 flex justify-center">
-                  <Badge variant="outline" className={cn("h-5 px-1.5 text-[9px] font-bold uppercase tracking-wider border-white/5 bg-white/5 transition-colors hover:bg-white/10", project.priority === 'none' ? 'text-muted-foreground' : 'text-foreground')}>
+                  <Badge variant="outline" className={cn("h-5 px-1.5 text-[9px] font-bold uppercase tracking-wider border-border bg-muted/50 transition-colors hover:bg-muted", project.priority === 'none' ? 'text-muted-foreground' : 'text-foreground')}>
                     {project.priority}
                   </Badge>
                 </div>
                 <div className="w-24 z-10 flex items-center gap-3">
-        <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-primary/60" style={{ width: `${progress}%` }} /></div><span className="text-[10px] font-bold text-white/40">{progress}%</span></div>
+        <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden"><div className="h-full bg-primary/60" style={{ width: `${progress}%` }} /></div><span className="text-[10px] font-bold text-muted-foreground/60">{progress}%</span></div>
         <div className="w-8 flex justify-end z-20">
           {canManage && (
             <DropdownMenu>
@@ -164,7 +164,7 @@ export const ProjectBar = {
                   <DotsThree className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-zinc-900 border-white/10">
+              <DropdownMenuContent align="end" className="bg-popover border-border">
                 <DropdownMenuItem className="text-red-400" onClick={(e) => handleDelete(e)}>
                   Delete
                 </DropdownMenuItem>
@@ -302,25 +302,25 @@ export const ProjectBar = {
 
     const renderComment = (comment: UpdateComment, isReply = false) => (
       <div key={comment.id} className={cn("flex gap-3", isReply && "ml-9 mt-3")}>
-        <div className={cn("rounded-full bg-zinc-800 flex items-center justify-center font-bold text-zinc-400 shrink-0", isReply ? "h-5 w-5 text-[7px]" : "h-7 w-7 text-[8px]")}>
+        <div className={cn("rounded-full bg-muted flex items-center justify-center font-bold text-muted-foreground/60 shrink-0", isReply ? "h-5 w-5 text-[7px]" : "h-7 w-7 text-[8px]")}>
           {(comment.authorName || comment.author || '??').split(' ').map(n => n[0]).join('').toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-white/80">{comment.authorName || comment.author}</span>
+            <span className="text-xs font-semibold text-foreground/80">{comment.authorName || comment.author}</span>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-white/30">{format(new Date(comment.createdAt), 'MMM d')}</span>
+              <span className="text-[10px] text-muted-foreground/40">{format(new Date(comment.createdAt), 'MMM d')}</span>
               {comment.author === currentUser && (
                 <button 
                   onClick={() => handleDeleteComment(comment.id)}
-                  className="text-white/20 hover:text-red-400 transition-colors"
+                  className="text-muted-foreground/40 hover:text-destructive transition-colors"
                 >
                   <Trash className="h-3 w-3" />
                 </button>
               )}
             </div>
           </div>
-          <p className="text-xs text-white/60 leading-relaxed mt-0.5">{comment.content}</p>
+          <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">{comment.content}</p>
           
           <div className="flex items-center gap-3 mt-1.5">
             <div className="flex items-center gap-1.5">
@@ -332,7 +332,7 @@ export const ProjectBar = {
                     "px-1.5 py-0.5 rounded text-[9px] border transition-colors",
                     reaction.users.includes(currentUser)
                       ? "bg-primary/20 border-primary/40 text-primary"
-                      : "bg-white/5 border-white/10 text-white/40 hover:border-white/20"
+                      : "bg-muted border-border text-muted-foreground hover:border-muted-foreground/30"
                   )}
                 >
                   {reaction.emoji} {reaction.users.length}
@@ -341,17 +341,17 @@ export const ProjectBar = {
               
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="text-[10px] text-white/30 hover:text-white flex items-center gap-1">
+                  <button className="text-[10px] text-muted-foreground/40 hover:text-foreground flex items-center gap-1">
                     <Smiley className="h-3 w-3" />
                   </button>
                 </PopoverTrigger>
-                <PopoverContent side="top" align="start" className="w-auto p-1 bg-zinc-900 border-white/10">
+                <PopoverContent side="top" align="start" className="w-auto p-1 bg-popover border-border">
                   <div className="flex gap-0.5">
                     {commonEmojis.map(emoji => (
                       <button
                         key={emoji}
                         onClick={() => handleToggleCommentReaction(comment.id, emoji)}
-                        className="h-7 w-7 flex items-center justify-center rounded hover:bg-white/10 text-base"
+                        className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-base"
                       >
                         {emoji}
                       </button>
@@ -364,7 +364,7 @@ export const ProjectBar = {
             {!isReply && (
               <button 
                 onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
-                className="text-[10px] font-bold text-white/20 hover:text-white uppercase tracking-wider"
+                className="text-[10px] font-bold text-muted-foreground/40 hover:text-foreground uppercase tracking-wider"
               >
                 Reply
               </button>
@@ -380,7 +380,7 @@ export const ProjectBar = {
                 value={replyContent}
                 onChange={(e) => setReplyContent(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSubmitComment(comment.id)}
-                className="h-7 text-[11px] bg-white/5 border-white/10"
+                className="h-7 text-[11px] bg-muted/50 border-border"
                 autoFocus
               />
               <Button 
@@ -398,25 +398,25 @@ export const ProjectBar = {
     );
 
     return (
-      <div className="bg-white/[0.02] backdrop-blur-md rounded-xl border border-white/5 p-5 group shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300 hover:border-white/10 hover:bg-white/[0.04]">
+      <div className="bg-secondary/20 backdrop-blur-md rounded-xl border border-border p-5 group shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300 hover:border-border hover:bg-secondary/40">
         <div className="flex items-center gap-4 mb-4">
           <div className={cn('px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.15em] rounded border', health.className)}>
             {health.label}
           </div>
           <div className="flex items-center gap-3 text-sm flex-1">
-            <div className="h-7 w-7 rounded-full border border-white/10 bg-gradient-to-br from-indigo-500/50 to-purple-500/50 flex items-center justify-center text-[10px] font-bold text-white shadow-inner">
+            <div className="h-7 w-7 rounded-full border border-border bg-gradient-to-br from-indigo-500/50 to-purple-500/50 flex items-center justify-center text-[10px] font-bold text-white shadow-inner">
               {(authorDisplayName || '').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
             </div>
-            <span className="font-semibold text-white/90 tracking-tight">{authorDisplayName}</span>
-            <span className="text-white/20">·</span>
-            <span className="text-[11px] font-medium text-white/30">{format(new Date(update.createdAt), 'MMM d, yyyy')}</span>
+            <span className="font-semibold text-foreground/90 tracking-tight">{authorDisplayName}</span>
+            <span className="text-muted-foreground/40">·</span>
+            <span className="text-[11px] font-medium text-muted-foreground/60">{format(new Date(update.createdAt), 'MMM d, yyyy')}</span>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 text-white/30 hover:text-red-400" onClick={onDelete}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 text-muted-foreground/40 hover:text-destructive" onClick={onDelete}>
             <Trash className="h-3.5 w-3.5" />
           </Button>
         </div>
         
-        <p className="text-sm leading-relaxed text-white/70 whitespace-pre-wrap mb-4 tracking-tight font-medium">
+        <p className="text-sm leading-relaxed text-foreground/70 whitespace-pre-wrap mb-4 tracking-tight font-medium">
           {update.content}
         </p>
 
@@ -430,7 +430,7 @@ export const ProjectBar = {
                 "px-2 py-1 rounded-md text-xs border transition-colors",
                 reaction.users.includes(currentUser)
                   ? "bg-primary/20 border-primary/40 text-primary"
-                  : "bg-white/5 border-white/10 text-white/50 hover:border-white/20"
+                  : "bg-muted border-border text-muted-foreground/60 hover:border-muted-foreground/30"
               )}
             >
               {reaction.emoji} {reaction.users.length}
@@ -439,17 +439,17 @@ export const ProjectBar = {
           
           <Popover>
             <PopoverTrigger asChild>
-              <button className="h-7 w-7 flex items-center justify-center rounded-md bg-white/5 border border-white/10 text-white/30 hover:text-white transition-colors">
+              <button className="h-7 w-7 flex items-center justify-center rounded-md bg-muted border border-border text-muted-foreground/40 hover:text-foreground transition-colors">
                 <Smiley className="h-3.5 w-3.5" />
               </button>
             </PopoverTrigger>
-            <PopoverContent side="top" className="w-auto p-1 bg-zinc-900 border-white/10">
+            <PopoverContent side="top" className="w-auto p-1 bg-popover border-border">
               <div className="flex gap-1">
                 {commonEmojis.map(emoji => (
                   <button
                     key={emoji}
                     onClick={() => handleToggleReaction(emoji)}
-                    className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-white/10 text-lg"
+                    className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted text-lg"
                   >
                     {emoji}
                   </button>
@@ -459,10 +459,10 @@ export const ProjectBar = {
           </Popover>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap pt-4 border-t border-white/5">
+        <div className="flex items-center gap-2 flex-wrap pt-4 border-t border-border">
           <button 
             onClick={() => setShowComments(!showComments)} 
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all duration-200 ml-auto uppercase tracking-wider bg-white/[0.03] border-white/5 text-white/30 hover:text-white"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all duration-200 ml-auto uppercase tracking-wider bg-muted border-border text-muted-foreground/60 hover:text-foreground"
           >
             <ChatTeardrop className="h-3.5 w-3.5" />
             {update.comments?.length || 0} Comments
@@ -475,13 +475,13 @@ export const ProjectBar = {
               {topLevelComments.map(comment => renderComment(comment))}
             </div>
 
-            <div className="flex gap-2 pt-2 border-t border-white/5">
+            <div className="flex gap-2 pt-2 border-t border-border">
               <Input
                 placeholder="Add a comment..."
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSubmitComment()}
-                className="h-8 text-xs bg-white/5 border-white/10"
+                className="h-8 text-xs bg-muted/50 border-border"
               />
               <Button 
                 size="sm" 
@@ -507,7 +507,7 @@ export const ProjectBar = {
         <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">Status</span><Badge variant="outline">{project.status}</Badge></div>
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">Priority</span>
-          <Badge variant="outline" className={cn("h-5 px-1.5 text-[9px] font-bold uppercase border-white/5 bg-white/5", project.priority === 'none' ? 'text-muted-foreground' : 'text-foreground')}>
+          <Badge variant="outline" className={cn("h-5 px-1.5 text-[9px] font-bold uppercase border-border bg-muted/50", project.priority === 'none' ? 'text-muted-foreground' : 'text-foreground')}>
             {project.priority}
           </Badge>
         </div>

@@ -1,0 +1,1833 @@
+[
+  {
+    "id": "TC001",
+    "title": "All issues list: filter by status and priority, search, and open an issue",
+    "description": "Verifies that a user can filter and search the issues list and open an issue detail view from the results.",
+    "category": "Issues Management",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Filter issues by status (open, in_progress, done, etc.)"
+      },
+      {
+        "type": "action",
+        "description": "Filter issues by priority (high, medium, low)"
+      },
+      {
+        "type": "action",
+        "description": "Search issues by keyword"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "All issues list: open issue details from the filtered results",
+    "description": "Verifies that clicking an issue card from the list opens its details view.",
+    "category": "Issues Management",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click on issue card to view details"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Issue details\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Create issue: successful creation shows new issue in list",
+    "description": "Verifies a user can create a new issue via the create dialog and see it appear in the all issues list.",
+    "category": "Issues Management",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click create issue button to open dialog"
+      },
+      {
+        "type": "action",
+        "description": "Fill issue details (title, description, status, priority)"
+      },
+      {
+        "type": "action",
+        "description": "Submit issue form"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Issue details: add a comment and see it in activity history",
+    "description": "Verifies a user can add a comment on an issue and see it appear in the issue activity history.",
+    "category": "Issues Management",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click on issue card to view details"
+      },
+      {
+        "type": "action",
+        "description": "Add comments to issues"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Issue activity history\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Issue details: comment is visible after posting",
+    "description": "Verifies that a newly added comment is visible in the activity/history feed on the issue details view.",
+    "category": "Issues Management",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click on issue card to view details"
+      },
+      {
+        "type": "action",
+        "description": "Add comments to issues"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"comment\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Create issue: validation error when title is omitted",
+    "description": "Verifies the create issue form enforces required fields and shows validation errors when title is missing.",
+    "category": "Issues Management",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click create issue button to open dialog"
+      },
+      {
+        "type": "action",
+        "description": "Fill issue details (title omitted)"
+      },
+      {
+        "type": "action",
+        "description": "Submit issue form"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Create issue: validation message is shown and issue is not created",
+    "description": "Verifies that submission without a title shows a visible validation message and does not add a new issue to the list.",
+    "category": "Issues Management",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click create issue button to open dialog"
+      },
+      {
+        "type": "action",
+        "description": "Submit issue form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Title\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Create issue: show error message on create failure and do not create issue",
+    "description": "Verifies that if issue creation fails, a visible error message is shown and the issue is not added to the list.",
+    "category": "Issues Management",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click create issue button to open dialog"
+      },
+      {
+        "type": "action",
+        "description": "Fill issue details (title, description, status, priority)"
+      },
+      {
+        "type": "action",
+        "description": "Submit issue form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"error\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Issue details: update status and priority from issue view",
+    "description": "Verifies a user can update an issue's status and priority from the issue details view and see the updated values displayed.",
+    "category": "Issues Management",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click on issue card to view details"
+      },
+      {
+        "type": "action",
+        "description": "Update issue status and priority"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Issue activity history\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Create a new project from Projects list and verify it appears",
+    "description": "Creates a project via the create dialog and confirms the new project is visible in the projects list.",
+    "category": "Projects Management",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Projects\" item in the main navigation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/projects\""
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Create project\" button to open the dialog"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"E2E Project Alpha\" into the project name field"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"Project created by automated UI test\" into the project description field"
+      },
+      {
+        "type": "action",
+        "description": "Select a team from the team dropdown"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Create\" or \"Submit\" button in the dialog"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"E2E Project Alpha\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Filter projects by team and verify only matching projects are shown",
+    "description": "Uses the team filter to narrow the projects list and verifies the filter state is reflected on the page.",
+    "category": "Projects Management",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Projects\" item in the main navigation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/projects\""
+      },
+      {
+        "type": "action",
+        "description": "Select a team from the team filter dropdown"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the selected team name is visible in the team filter control"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Open a project details page from a project card",
+    "description": "Navigates from the projects list into a specific project details page by clicking a project card.",
+    "category": "Projects Management",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Projects\" item in the main navigation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/projects\""
+      },
+      {
+        "type": "action",
+        "description": "Click on the first visible project card"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/projects/\""
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Switch between project tabs (Features, Updates, Resources)",
+    "description": "Verifies the project detail view supports switching between major tabs and each tab displays its content area.",
+    "category": "Projects Management",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Projects\" item in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Click on the first visible project card"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/projects/\""
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Features\" tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Features\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Updates\" tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Updates\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Resources\" tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Resources\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Create a project update with a health status",
+    "description": "Adds a new update on a project and verifies the update appears in the Updates tab.",
+    "category": "Projects Management",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Projects\" item in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Click on the first visible project card"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Updates\" tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Updates\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Create update\" or \"New update\" button"
+      },
+      {
+        "type": "action",
+        "description": "Select \"Green\" from the health status dropdown"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"Weekly status update from E2E test\" into the update text field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Post\" or \"Save\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Weekly status update from E2E test\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Add a comment to an existing project update",
+    "description": "Adds a comment to a project update and verifies the comment is displayed under the update.",
+    "category": "Projects Management",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Projects\" item in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Click on the first visible project card"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Updates\" tab"
+      },
+      {
+        "type": "action",
+        "description": "Scroll to the first visible update"
+      },
+      {
+        "type": "action",
+        "description": "Click the comment input field for the first visible update"
+      },
+      {
+        "type": "action",
+        "description": "Type \"Comment added by E2E test\" into the comment input field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Post comment\" or \"Send\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Comment added by E2E test\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "Create project validation error when name is missing",
+    "description": "Attempts to create a project without a name and verifies a visible validation error is shown and the project is not created.",
+    "category": "Projects Management",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Projects\" item in the main navigation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/projects\""
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Create project\" button to open the dialog"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"\" into the project name field"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"Missing name should fail\" into the project description field"
+      },
+      {
+        "type": "action",
+        "description": "Select a team from the team dropdown"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Create\" or \"Submit\" button in the dialog"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Name\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "Attempt to access project settings without permission and verify access denied behavior",
+    "description": "From a project detail view, attempts to open project settings and verifies an access denied message or redirection occurs.",
+    "category": "Projects Management",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Projects\" item in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Click on the first visible project card"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/projects/\""
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Settings\" button or \"Project settings\" option if visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Access denied\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "View Features Kanban board after login",
+    "description": "Verifies an authenticated user can open the Features page and see the kanban board columns by status.",
+    "category": "Features Kanban",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "action",
+        "description": "Click \"Features\" in the main navigation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/features\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Kanban board\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Backlog\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC019",
+    "title": "Open a feature and update status and priority",
+    "description": "Verifies a user can open feature details and update status and priority, and the card appears in the expected column.",
+    "category": "Features Kanban",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "action",
+        "description": "Click \"Features\" in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Click on a feature card in the kanban board"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Feature details\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Select \"In Progress\" from the \"Status\" dropdown"
+      }
+    ]
+  },
+  {
+    "id": "TC020",
+    "title": "Update priority in feature details and see it reflected",
+    "description": "Verifies changing a feature's priority from its details persists visually in the feature window or card.",
+    "category": "Features Kanban",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "action",
+        "description": "Click \"Features\" in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Click on a feature card in the kanban board"
+      },
+      {
+        "type": "action",
+        "description": "Select \"High\" from the \"Priority\" dropdown"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Priority\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC021",
+    "title": "Create a new feature and verify it appears in Backlog",
+    "description": "Verifies a user can create a new feature via the feature form and see it added to the backlog column.",
+    "category": "Features Kanban",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "action",
+        "description": "Click \"Features\" in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Create new feature\" button"
+      },
+      {
+        "type": "action",
+        "description": "Type \"E2E Test Feature\" into the \"Title\" field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Create\" or \"Submit\" button"
+      }
+    ]
+  },
+  {
+    "id": "TC022",
+    "title": "View linked issues from a feature details window",
+    "description": "Verifies a user can open a feature and see a linked issues section with visible issue entries (if present).",
+    "category": "Features Kanban",
+    "priority": "Low",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "action",
+        "description": "Click \"Features\" in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Click on a feature card in the kanban board"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Linked issues\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Linked issues list\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC023",
+    "title": "Create a milestone for a feature and verify it appears",
+    "description": "Verifies a user can add a milestone to a feature and see it listed in the feature details.",
+    "category": "Features Kanban",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "action",
+        "description": "Click \"Features\" in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Click on a feature card in the kanban board"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Add milestone\" button"
+      },
+      {
+        "type": "action",
+        "description": "Type \"Milestone 1\" into the \"Milestone\" name field"
+      }
+    ]
+  },
+  {
+    "id": "TC024",
+    "title": "Generate blueprint and view recommended features from a new idea",
+    "description": "Verifies a user can submit an idea, receive AI suggestions, generate a blueprint, and see recommended features.",
+    "category": "AI Generator (AI Project Planning & Documentation)",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"AI Generator\" in the main navigation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/ai-generator\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"AI Generator\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC025",
+    "title": "Submit idea with name and description and receive AI suggestions",
+    "description": "Verifies idea submission captures required fields and returns AI suggestions on the AI Generator page.",
+    "category": "AI Generator (AI Project Planning & Documentation)",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"AI Generator\" in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Type \"Smart Habit Tracker\" into the idea name field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"An app that helps users build habits using reminders, streaks, and AI-generated coaching.\" into the idea description field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Submit\" or \"Generate\" button for the idea"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Suggestions\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC026",
+    "title": "Answer validation questions before generating project documents",
+    "description": "Verifies validation questions can be answered and then project documents (e.g., PRD, App Flow) are generated and visible for editing.",
+    "category": "AI Generator (AI Project Planning & Documentation)",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"AI Generator\" in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Type \"Team Meeting Notes Summarizer\" into the idea name field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"A web app that summarizes meeting notes and extracts action items for teams.\" into the idea description field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Submit\" or \"Generate\" button for the idea"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Validation\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Click an answer option for the first visible validation question"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Continue\" or \"Next\" button"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Generate Documents\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"PRD\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"App Flow\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC027",
+    "title": "Generate PRD and open it for editing",
+    "description": "Verifies generated documents list includes PRD and it can be opened into an editor view.",
+    "category": "AI Generator (AI Project Planning & Documentation)",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"AI Generator\" in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Type \"Personal Finance Coach\" into the idea name field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"An app that helps users budget, forecast expenses, and get personalized recommendations.\" into the idea description field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Submit\" or \"Generate\" button for the idea"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Generate Documents\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"PRD\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"PRD\" document item"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Edit\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC028",
+    "title": "Upload documents for analysis shows supported upload UI (without performing OS file dialog)",
+    "description": "Verifies the AI Generator provides a visible entry point to upload documents for analysis (without interacting with native file pickers).",
+    "category": "AI Generator (AI Project Planning & Documentation)",
+    "priority": "Low",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"AI Generator\" in the main navigation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/ai-generator\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Upload\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC029",
+    "title": "Sync blueprint from documents section displays linked blueprint area",
+    "description": "Verifies the documents analysis flow exposes an option to sync blueprint from docs and shows a linked blueprint section once sync is initiated.",
+    "category": "AI Generator (AI Project Planning & Documentation)",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"AI Generator\" in the main navigation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/ai-generator\""
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Upload documents\" or \"Documents\" section tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Analyze\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sync blueprint\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Blueprint\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC030",
+    "title": "Generate project documents from synced blueprint shows artifacts list",
+    "description": "Verifies that after initiating blueprint sync from docs, the user can generate project documents and see generated artifacts listed.",
+    "category": "AI Generator (AI Project Planning & Documentation)",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"AI Generator\" in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Upload documents\" or \"Documents\" section tab"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sync blueprint\" button"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Generate Documents\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Generated\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"PRD\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC031",
+    "title": "Required fields validation for idea submission",
+    "description": "Verifies the idea submission form blocks submission and shows validation messaging when required fields are missing.",
+    "category": "AI Generator (AI Project Planning & Documentation)",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"AI Generator\" in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Submit\" or \"Generate\" button for the idea"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"required\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC032",
+    "title": "Sidebar navigation from All Issues to Inbox",
+    "description": "Verifies the app redirects to All Issues after landing on root and that the sidebar can navigate to Inbox.",
+    "category": "Navigation & Global UI",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click \"Inbox\" in the sidebar menu"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/inbox\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify page title contains \"Inbox\""
+      }
+    ]
+  },
+  {
+    "id": "TC033",
+    "title": "User menu opens from global header and shows logout option",
+    "description": "Verifies the global user menu dropdown can be opened and contains a visible logout action.",
+    "category": "Navigation & Global UI",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click the user avatar/name in the header"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Logout\" is visible in the user menu"
+      }
+    ]
+  },
+  {
+    "id": "TC034",
+    "title": "Logout from user menu redirects to login",
+    "description": "Verifies logging out from the global user menu returns the user to the login page.",
+    "category": "Navigation & Global UI",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click the user avatar/name in the header"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Logout\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/login\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify page title contains \"Login\""
+      }
+    ]
+  },
+  {
+    "id": "TC035",
+    "title": "Navigate from All Issues to My Issues via sidebar",
+    "description": "Verifies a second sidebar route change works end-to-end and the destination page renders.",
+    "category": "Navigation & Global UI",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click \"My Issues\" in the sidebar menu"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/my-issues\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify page title contains \"My Issues\""
+      }
+    ]
+  },
+  {
+    "id": "TC036",
+    "title": "Navigate to Settings via sidebar and confirm page loads",
+    "description": "Verifies the sidebar can navigate to Settings and the Settings page is visible.",
+    "category": "Navigation & Global UI",
+    "priority": "Low",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click \"Settings\" in the sidebar menu"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/settings\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify page title contains \"Settings\""
+      }
+    ]
+  },
+  {
+    "id": "TC037",
+    "title": "Update user profile from Profile tab and see success confirmation",
+    "description": "Verifies a logged-in user can update profile name and email from Settings and sees a visible success confirmation with updated values shown.",
+    "category": "Settings",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Settings\" in the main navigation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/settings\""
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Profile\" tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Profile\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"Updated Test User\" into the Name field"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"updated.user@example.com\" into the Email field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Save\" or \"Submit\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Saved\" or \"Success\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC038",
+    "title": "Switch between Profile and Organization tabs in Settings",
+    "description": "Verifies Settings tabs are navigable and each tab shows its expected visible content area.",
+    "category": "Settings",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Settings\" in the main navigation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/settings\""
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Organization\" tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Organization\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Profile\" tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Profile\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC039",
+    "title": "View organization details in Settings Organization tab",
+    "description": "Verifies the organization details section is visible and populated on the Organization tab.",
+    "category": "Settings",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/all-issues\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Settings\" in the main navigation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/settings\""
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Organization\" tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Organization\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an element \"Organization details\" is visible"
+      }
+    ]
+  }
+]
