@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     
     # CORS
-    BACKEND_CORS_ORIGINS: List[str] = ["*"]
+    BACKEND_CORS_ORIGINS: List[str] = ["*", "http://localhost:8080/", "https://astrozen.up.railway.app/"]
     
     @field_validator('BACKEND_CORS_ORIGINS', mode='before')
     @classmethod
