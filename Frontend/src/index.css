@@ -1,0 +1,525 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   ASTROZEN DESIGN SYSTEM
+   ============================================ */
+
+@layer base {
+  :root {
+    /* ============================================
+       PRIMITIVE TOKENS (Shared across themes)
+       ============================================ */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-2xl: 20px;
+    --radius-full: 9999px;
+    --radius: var(--radius-md);
+
+    --space-0: 0;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --space-12: 48px;
+    --space-16: 64px;
+
+    /* Semantic colors for priority/status (can be overridden per theme if needed) */
+    --priority-urgent: 0 84% 60%;
+    --priority-high: 25 95% 53%;
+    --priority-medium: 48 96% 53%;
+    --priority-low: 220 9% 46%;
+    --priority-none: 220 9% 36%;
+
+    --status-backlog: 270 76% 53%;
+    --status-todo: 220 9% 76%;
+    --status-in-progress: 187 100% 42%;
+    --status-done: 142 71% 45%;
+    --status-cancelled: 0 84% 60%;
+  }
+
+  /* ============================================
+     THEME DEFINITIONS
+     ============================================ */
+
+  /* Default (Dark) Theme */
+  :root, .theme-dark, .dark {
+    --background: 0 0% 3.5%;
+    --foreground: 220 9% 94%;
+    --card: 220 13% 13%;
+    --card-foreground: 220 9% 94%;
+    --popover: 220 13% 12%;
+    --popover-foreground: 220 9% 94%;
+    --primary: 142 76% 36%;
+    --primary-foreground: 220 13% 10%;
+    --secondary: 220 13% 18%;
+    --secondary-foreground: 220 9% 94%;
+    --muted: 220 13% 18%;
+    --muted-foreground: 220 9% 65%;
+    --accent: 220 13% 22%;
+    --accent-foreground: 220 9% 94%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 220 9% 94%;
+    --border: 220 13% 20%;
+    --input: 220 13% 20%;
+    --ring: 142 76% 36%;
+    --sidebar-background: 0 0% 2%;
+    --sidebar-foreground: 220 9% 94%;
+    --sidebar-primary: 142 76% 36%;
+    --sidebar-border: 220 13% 16%;
+  }
+
+  /* Light Theme - Use both .theme-light and .light for maximum compatibility */
+  :root.theme-light, :root.light, .theme-light, .light {
+    --background: 0 0% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 142 76% 36%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 142 76% 36%;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 142 76% 36%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+  }
+
+  .theme-midnight {
+    --background: 222 47% 4%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 7%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 6%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 4%;
+    --secondary: 217 32% 12%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 32% 12%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 32% 18%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 32% 15%;
+    --input: 217 32% 15%;
+    --ring: 217 91% 60%;
+    --sidebar-background: 222 47% 2%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-border: 217 32% 12%;
+  }
+
+  .theme-forest {
+    --background: 142 30% 4%;
+    --foreground: 142 20% 95%;
+    --card: 142 30% 7%;
+    --card-foreground: 142 20% 95%;
+    --popover: 142 30% 6%;
+    --popover-foreground: 142 20% 95%;
+    --primary: 142 72% 29%;
+    --primary-foreground: 142 30% 4%;
+    --secondary: 142 20% 12%;
+    --secondary-foreground: 142 20% 95%;
+    --muted: 142 20% 12%;
+    --muted-foreground: 142 10% 60%;
+    --accent: 142 20% 18%;
+    --accent-foreground: 142 20% 95%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 142 20% 95%;
+    --border: 142 20% 15%;
+    --input: 142 20% 15%;
+    --ring: 142 72% 29%;
+    --sidebar-background: 142 30% 2%;
+    --sidebar-foreground: 142 20% 95%;
+    --sidebar-primary: 142 72% 29%;
+    --sidebar-border: 142 20% 12%;
+  }
+
+  .theme-ocean {
+    --background: 200 40% 4%;
+    --foreground: 200 20% 95%;
+    --card: 200 40% 7%;
+    --card-foreground: 200 20% 95%;
+    --popover: 200 40% 6%;
+    --popover-foreground: 200 20% 95%;
+    --primary: 199 89% 48%;
+    --primary-foreground: 200 40% 4%;
+    --secondary: 200 20% 12%;
+    --secondary-foreground: 200 20% 95%;
+    --muted: 200 20% 12%;
+    --muted-foreground: 200 10% 60%;
+    --accent: 200 20% 18%;
+    --accent-foreground: 200 20% 95%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 200 20% 95%;
+    --border: 200 20% 15%;
+    --input: 200 20% 15%;
+    --ring: 199 89% 48%;
+    --sidebar-background: 200 40% 2%;
+    --sidebar-foreground: 200 20% 95%;
+    --sidebar-primary: 199 89% 48%;
+    --sidebar-border: 200 20% 12%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* ============================================
+     ACCESSIBLE FOCUS STYLES
+     ============================================ */
+  
+  /* Default focus for all interactive elements */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+  
+  /* Button focus */
+  button:focus-visible,
+  [role="button"]:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+  
+  /* Link focus */
+  a:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background rounded;
+  }
+  
+  /* Input focus */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+  
+  /* Remove focus for mouse users */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* ============================================
+     GLOBAL SCROLLBAR STYLES
+     ============================================ */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: var(--radius-full);
+    border: 1px solid transparent;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  }
+}
+
+/* ============================================
+   COMPONENT LAYER
+   ============================================ */
+
+@layer components {
+  /* Surface utilities for consistent backgrounds */
+  .surface-1 { background-color: rgb(255 255 255 / var(--surface-1)); }
+  .surface-2 { background-color: rgb(255 255 255 / var(--surface-2)); }
+  .surface-3 { background-color: rgb(255 255 255 / var(--surface-3)); }
+  .surface-4 { background-color: rgb(255 255 255 / var(--surface-4)); }
+  .surface-5 { background-color: rgb(255 255 255 / var(--surface-5)); }
+  
+  /* Text opacity utilities */
+  .text-primary-opacity { opacity: var(--text-primary); }
+  .text-secondary-opacity { opacity: var(--text-secondary); }
+  .text-tertiary-opacity { opacity: var(--text-tertiary); }
+  .text-muted-opacity { opacity: var(--text-muted); }
+  
+  /* Interactive element base */
+  .interactive {
+    @apply cursor-pointer transition-all duration-200;
+  }
+  
+  .interactive:hover {
+    @apply bg-foreground/5;
+  }
+  
+  .interactive:active {
+    @apply scale-[0.98];
+  }
+  
+  /* Card variants */
+  .card-elevated {
+    @apply bg-card/50 backdrop-blur-xl border border-border shadow-lg;
+  }
+  
+  .card-surface {
+    @apply bg-card border border-border rounded-xl;
+  }
+  
+  /* Glass effect */
+  .glass {
+    @apply bg-background/50 backdrop-blur-xl border border-border;
+  }
+  
+  .glass-subtle {
+    @apply bg-background/20 backdrop-blur-md border border-border/50;
+  }
+  
+  /* Focus ring utility */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+  
+  /* Button base styles */
+  .btn-base {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40;
+  }
+  
+  /* Input base styles */
+  .input-base {
+    @apply flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-all duration-200 file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  
+  /* Badge base styles */
+  .badge-base {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors;
+  }
+  
+  /* Section label */
+  .section-label {
+    @apply text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60;
+  }
+  
+  /* Divider */
+  .divider {
+    @apply h-px w-full bg-gradient-to-r from-transparent via-border to-transparent;
+  }
+  
+  .divider-vertical {
+    @apply w-px h-full bg-gradient-to-b from-transparent via-border to-transparent;
+  }
+}
+
+/* ============================================
+   UTILITY LAYER
+   ============================================ */
+
+@layer utilities {
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  
+  /* Animation utilities */
+  .animate-in {
+    animation: fadeIn var(--transition-normal) var(--easing-default);
+  }
+  
+  .animate-slide-up {
+    animation: slideUp var(--transition-normal) var(--easing-default);
+  }
+  
+  .animate-slide-down {
+    animation: slideDown var(--transition-normal) var(--easing-default);
+  }
+  
+  .animate-scale-in {
+    animation: scaleIn var(--transition-fast) var(--easing-bounce);
+  }
+  
+  /* Shimmer loading effect */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted) / 0.1) 25%,
+      hsl(var(--muted) / 0.3) 50%,
+      hsl(var(--muted) / 0.1) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+  
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary/80 to-primary/60;
+  }
+  
+  /* Glow effect */
+  .glow {
+    box-shadow: var(--shadow-glow);
+  }
+  
+  .glow-primary {
+    box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.5);
+  }
+  
+  /* Pressed state */
+  .pressed {
+    @apply scale-[0.98];
+  }
+  
+  /* Truncate with ellipsis */
+  .truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  .truncate-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  /* Safe area insets for mobile */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  
+  .safe-right {
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* ============================================
+   KEYFRAME ANIMATIONS
+   ============================================ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes bounce-subtle {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
