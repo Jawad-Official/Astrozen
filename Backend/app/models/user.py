@@ -1,7 +1,6 @@
 import uuid
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Index, UUID
 from sqlalchemy.orm import relationship
-from datetime import datetime
 from app.core.time import utc_now
 from app.core.database import Base
 
@@ -15,7 +14,7 @@ class User(Base):
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     job_title = Column(String, nullable=True)
-    hashed_password = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     role = Column(String, default="member", nullable=False)
     organization_id = Column(
@@ -27,7 +26,10 @@ class User(Base):
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     deleted_at = Column(DateTime, nullable=True)
 
-    # Google OAuth Tokens
+    # OAuth provider (e.g. "google", "github") - None means password-based auth
+    oauth_provider = Column(String, nullable=True)
+
+    # Google OAuth Tokens (encrypted at rest when ENCRYPTION_KEY is set)
     google_access_token = Column(String, nullable=True)
     google_refresh_token = Column(String, nullable=True)
     google_token_expires_at = Column(DateTime, nullable=True)

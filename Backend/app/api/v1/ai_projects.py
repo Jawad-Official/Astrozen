@@ -595,6 +595,8 @@ async def upload_document(
     Manual Upload - Uploads a .md or .docx file and saves it as an asset.
     Also analyzes document quality and notifies user if improvements are needed.
     """
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
     idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
     if not idea:
         raise HTTPException(status_code=404, detail="Idea not found")
@@ -602,14 +604,36 @@ async def upload_document(
     content = ""
     filename = file.filename.lower() if file.filename else ""
 
+    # Validate file size before reading
+    file_size = 0
+    chunk_size = 8192
+    chunks = []
+    while True:
+        chunk = await file.read(chunk_size)
+        if not chunk:
+            break
+        file_size += len(chunk)
+        if file_size > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=400, detail="File too large. Maximum size is 10 MB."
+            )
+        chunks.append(chunk)
+
     if filename.endswith(".md"):
-        content = (await file.read()).decode("utf-8")
+        content = b"".join(chunks).decode("utf-8")
     elif filename.endswith(".docx"):
+        import io
+        file.file = io.BytesIO(b"".join(chunks))
         result = mammoth.convert_to_markdown(file.file)
         content = result.value
     else:
         raise HTTPException(
             status_code=400, detail="Only .md and .docx files supported"
+        )
+
+    if not content.strip():
+        raise HTTPException(
+            status_code=400, detail="Uploaded file is empty."
         )
 
     r2_key = f"projects/{idea_id}/docs/{doc_type.value}_manual_{filename}.md"

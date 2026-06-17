@@ -100,8 +100,8 @@ export function CreateTeamDialog({ open, onOpenChange, onCreateTeam, teams }: Cr
           transition={{ duration: 0.2, ease: "easeOut" }}
           className="flex flex-col"
         >
-          <div className="px-6 py-3 border-b border-white/[0.03] flex items-center gap-2 text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] bg-white/[0.01]">
-            <span className="hover:text-white/40 cursor-default transition-colors">Organization</span>
+          <div className="px-6 py-3 border-b border-border/50 flex items-center gap-2 text-[10px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em] bg-muted/5">
+            <span className="hover:text-foreground cursor-default transition-colors">Organization</span>
             <span className="opacity-30">/</span>
             <span className="text-primary/60">New Team</span>
           </div>
@@ -114,7 +114,7 @@ export function CreateTeamDialog({ open, onOpenChange, onCreateTeam, teams }: Cr
                     placeholder="Team name (e.g. Engineering)" 
                     value={name} 
                     onChange={handleNameChange} 
-                    className="w-full text-3xl font-semibold bg-transparent border-none p-0 focus:outline-none placeholder:text-white/5 text-white/90 selection:bg-primary/30 tracking-tight" 
+                    className="w-full text-3xl font-semibold bg-transparent border-none p-0 focus:outline-none placeholder:text-muted-foreground/20 text-foreground selection:bg-primary/30 tracking-tight"
                     autoFocus 
                   />
                   <div className="h-px w-full bg-gradient-to-r from-primary/30 via-primary/5 to-transparent mt-1" />
@@ -123,36 +123,36 @@ export function CreateTeamDialog({ open, onOpenChange, onCreateTeam, teams }: Cr
                 <div className="grid grid-cols-2 gap-8">
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 px-1">
-                      <IdentificationCard className="h-3.5 w-3.5 text-white/20" />
-                      <h3 className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">Identifier</h3>
+                      <IdentificationCard className="h-3.5 w-3.5 text-muted-foreground/40" />
+                      <h3 className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em]">Identifier</h3>
                     </div>
                     <input 
                       value={identifier}
                       onChange={handleIdentifierChange}
                       placeholder="ENG"
                       maxLength={5}
-                      className="w-full bg-white/[0.03] border border-white/[0.05] rounded-xl px-4 py-3 text-white/80 focus:outline-none focus:border-primary/30 transition-colors font-mono uppercase tracking-widest"
+                      className="w-full bg-muted border-border rounded-xl px-4 py-3 text-foreground/80 focus:outline-none focus:border-primary/30 transition-colors font-mono uppercase tracking-widest"
                     />
-                    <p className="text-[10px] text-white/20 leading-relaxed px-1 italic">
+                    <p className="text-[10px] text-muted-foreground/40 leading-relaxed px-1 italic">
                       Prefix for issue IDs (e.g. ENG-123).
                     </p>
                   </div>
 
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 px-1">
-                      <ShieldCheck className="h-3.5 w-3.5 text-white/20" />
-                      <h3 className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">Team Leader</h3>
+                      <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground/40" />
+                      <h3 className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em]">Team Leader</h3>
                     </div>
                     <Select value={leaderId} onValueChange={setLeaderId}>
-                      <SelectTrigger className="h-12 bg-white/[0.03] border-white/[0.05] hover:bg-white/[0.05] rounded-xl px-4 transition-all focus:ring-1 focus:ring-primary/20">
+                      <SelectTrigger className="h-12 bg-muted border-border hover:bg-accent rounded-xl px-4 transition-all focus:ring-1 focus:ring-primary/20">
                         <SelectValue placeholder="Select leader" />
                       </SelectTrigger>
-                      <SelectContent className="bg-[#0C0C0C] border-white/10 max-h-[250px]">
+                      <SelectContent className="bg-popover border-border/60 max-h-[250px]">
                         {members.map((member) => (
-                          <SelectItem key={member.id} value={member.id} className="text-xs focus:bg-white/5 py-2.5">
+                          <SelectItem key={member.id} value={member.id} className="text-xs focus:bg-accent py-2.5">
                             <div className="flex flex-col gap-0.5">
-                              <span className="font-semibold text-white/80">{member.full_name}</span>
-                              <span className="text-[10px] text-white/30">{member.email}</span>
+                              <span className="font-semibold text-foreground">{member.full_name}</span>
+                              <span className="text-[10px] text-muted-foreground/60">{member.email}</span>
                             </div>
                           </SelectItem>
                         ))}
@@ -161,42 +161,42 @@ export function CreateTeamDialog({ open, onOpenChange, onCreateTeam, teams }: Cr
                   </div>
                 </div>
 
-                <div className="space-y-4 pt-4 border-t border-white/[0.03]">
+                <div className="space-y-4 pt-4 border-t border-border/50">
                   <div className="flex items-center gap-2 px-1">
-                    <Database className="h-3.5 w-3.5 text-white/20" />
-                    <h3 className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">Import Data (Optional)</h3>
+                    <Database className="h-3.5 w-3.5 text-muted-foreground/40" />
+                    <h3 className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em]">Import Data (Optional)</h3>
                   </div>
                   <Select value={importFromTeamId} onValueChange={setImportFromTeamId}>
-                    <SelectTrigger className="h-12 bg-white/[0.03] border-white/[0.05] hover:bg-white/[0.05] rounded-xl px-4 transition-all focus:ring-1 focus:ring-primary/20">
+                    <SelectTrigger className="h-12 bg-muted border-border hover:bg-accent rounded-xl px-4 transition-all focus:ring-1 focus:ring-primary/20">
                       <SelectValue placeholder="No import" />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#0C0C0C] border-white/10">
-                      <SelectItem value="none" className="text-xs focus:bg-white/5 py-2.5 text-white/40">No Import</SelectItem>
+                    <SelectContent className="bg-popover border-border/60">
+                      <SelectItem value="none" className="text-xs focus:bg-accent py-2.5 text-muted-foreground/60">No Import</SelectItem>
                       {teams.map((team) => (
-                        <SelectItem key={team.id} value={team.id} className="text-xs focus:bg-white/5 py-2.5">
+                        <SelectItem key={team.id} value={team.id} className="text-xs focus:bg-accent py-2.5">
                           <div className="flex items-center gap-2">
-                            <Users className="h-3 w-3 opacity-40" />
+                            <Users className="h-3 w-3 text-muted-foreground/60" />
                             <span className="font-semibold">{team.name}</span>
-                            <span className="text-[10px] text-white/30 ml-auto font-mono">({team.identifier})</span>
+                            <span className="text-[10px] text-muted-foreground/60 ml-auto font-mono">({team.identifier})</span>
                           </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-[10px] text-white/20 leading-relaxed px-1 italic">
+                  <p className="text-[10px] text-muted-foreground/40 leading-relaxed px-1 italic">
                     Imports all existing issues and projects from the selected team.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="px-6 py-5 border-t border-white/[0.03] flex items-center justify-between bg-black/40">
-              <div className="flex items-center gap-4 text-white/10 select-none">
+            <div className="px-6 py-5 border-t border-border/50 flex items-center justify-between bg-muted/20">
+              <div className="flex items-center gap-4 text-muted-foreground/20 select-none">
                 <div className="flex items-center gap-1.5 opacity-50">
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.02]">
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-border/60 bg-muted/5">
                     <span className="text-[9px] font-black">⌘</span>
                   </div>
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.02]">
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-border/60 bg-muted/5">
                     <span className="text-[9px] font-black">ENTER</span>
                   </div>
                 </div>

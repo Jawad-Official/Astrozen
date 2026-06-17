@@ -104,15 +104,15 @@ export function CreateSubFeatureDialog({
         >
           <form onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="flex flex-col h-full">
             {/* Context Breadcrumbs */}
-            <div className="px-6 py-4 border-b border-white/[0.03] flex items-center gap-2 text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] bg-white/[0.01]">
-              <span className="hover:text-white/40 cursor-default transition-colors truncate max-w-[200px]">{parentFeature.name}</span>
+            <div className="px-6 py-4 border-b border-border/50 flex items-center gap-2 text-[10px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em] bg-muted/5">
+              <span className="hover:text-foreground cursor-default transition-colors truncate max-w-[200px]">{parentFeature.name}</span>
               <span className="opacity-30">/</span>
               <span className="text-primary/60">New Sub-feature</span>
             </div>
 
             <div className="flex flex-col md:flex-row h-full overflow-hidden">
               {/* Left Column: Visuals/Summary */}
-              <div className="hidden md:flex w-1/4 border-r border-white/[0.03] p-8 flex-col items-center justify-start space-y-8 bg-white/[0.01]">
+              <div className="hidden md:flex w-1/4 border-r border-border/50 p-8 flex-col items-center justify-start space-y-8 bg-muted/5">
                 <div className="relative group">
                   <div className="h-24 w-24 rounded-2xl bg-primary/5 border border-primary/20 flex items-center justify-center text-4xl shadow-2xl transition-all duration-500 group-hover:scale-105 group-hover:bg-primary/10">
                     {FEATURE_TYPE_CONFIG[type].icon}
@@ -122,27 +122,27 @@ export function CreateSubFeatureDialog({
                 
                 <div className="space-y-6 w-full">
                   <div className="space-y-2">
-                    <h3 className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] text-center">Type</h3>
+                    <h3 className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-[0.2em] text-center">Type</h3>
                     <div className="flex flex-col gap-1">
-                      <div className="h-8 flex items-center justify-center px-3 py-2 rounded-md border border-white/5 bg-white/5 text-xs text-white/60">
+                      <div className="h-8 flex items-center justify-center px-3 py-2 rounded-md border border-border/50 bg-muted/20 text-xs text-muted-foreground">
                         {FEATURE_TYPE_CONFIG[type].label}
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <h3 className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] text-center">Priority</h3>
+                    <h3 className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-[0.2em] text-center">Priority</h3>
                     <div className="flex flex-col items-center gap-1">
-                      <div className="h-8 flex items-center justify-center px-3 py-2 rounded-md border border-white/5 bg-white/5">
+                      <div className="h-8 flex items-center justify-center px-3 py-2 rounded-md border border-border/50 bg-muted/20">
                         <IssuePriorityIcon priority={priority} />
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <h3 className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] text-center">Phase</h3>
+                    <h3 className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-[0.2em] text-center">Phase</h3>
                     <div className="flex flex-col items-center gap-1">
-                      <div className="h-8 flex items-center justify-center px-3 py-2 rounded-md border border-white/5 bg-white/5">
+                      <div className="h-8 flex items-center justify-center px-3 py-2 rounded-md border border-border/50 bg-muted/20">
                         <FeatureWindow.StatusIcon status={status} />
                       </div>
                     </div>
@@ -158,11 +158,11 @@ export function CreateSubFeatureDialog({
                       placeholder="Sub-feature name" 
                       value={name} 
                       onChange={(e) => setName(e.target.value)} 
-                      className="w-full text-3xl font-semibold bg-transparent border-none p-0 focus:outline-none placeholder:text-white/[0.03] text-white/90 selection:bg-primary/30 tracking-tight" 
+                      className="w-full text-3xl font-semibold bg-transparent border-none p-0 focus:outline-none placeholder:text-muted-foreground/20 text-foreground selection:bg-primary/30 tracking-tight" 
                       autoFocus 
                     />
                     <div className="flex items-center gap-2 mt-1 px-0.5">
-                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Sub-feature of</span>
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">Sub-feature of</span>
                       <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-primary/5 border border-primary/10">
                         <Package className="h-3 w-3 text-primary/40" />
                         <span className="text-[10px] font-bold text-primary/60 uppercase tracking-wider">{parentFeature.name}</span>
@@ -173,17 +173,17 @@ export function CreateSubFeatureDialog({
                 </div>
 
                 {/* Property Selector Bar */}
-                <div className="px-6 py-4 border-t border-white/[0.03] bg-white/[0.01] flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-1.5 p-1 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+                <div className="px-6 py-4 border-t border-border/50 bg-muted/5 flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-1.5 p-1 rounded-lg bg-muted/10 border border-border">
                     {/* Type Selector */}
                     <Select value={type} onValueChange={(v) => setType(v as FeatureType)}>
-                      <SelectTrigger className="h-8 w-auto min-w-[140px] border-none bg-transparent hover:bg-white/5 transition-all text-[11px] rounded-md px-2 gap-2 focus:ring-0">
+                      <SelectTrigger className="h-8 w-auto min-w-[140px] border-none bg-transparent hover:bg-accent transition-all text-[11px] rounded-md px-2 gap-2 focus:ring-0">
                         <span className="text-xl">{FEATURE_TYPE_CONFIG[type].icon}</span>
-                        <span className="font-bold text-white/60 uppercase tracking-wider">{FEATURE_TYPE_CONFIG[type].label}</span>
+                        <span className="font-bold text-muted-foreground uppercase tracking-wider">{FEATURE_TYPE_CONFIG[type].label}</span>
                       </SelectTrigger>
-                      <SelectContent className="bg-[#0C0C0C] border-white/10 shadow-2xl">
+                      <SelectContent className="bg-popover border-border/60 shadow-2xl">
                         {Object.entries(FEATURE_TYPE_CONFIG).map(([key, config]) => (
-                          <SelectItem key={key} value={key} className="text-xs focus:bg-white/5">
+                          <SelectItem key={key} value={key} className="text-xs focus:bg-accent">
                             <div className="flex items-center gap-2">
                               <span className="text-lg">{config.icon}</span>
                               <span>{config.label}</span>
@@ -193,11 +193,11 @@ export function CreateSubFeatureDialog({
                       </SelectContent>
                     </Select>
 
-                    <div className="w-px h-3 bg-white/5" />
+                    <div className="w-px h-3 bg-muted/20" />
 
                     {/* Priority Selector */}
                     <Select value={priority} onValueChange={(v) => setPriority(v as IssuePriority)}>
-                      <SelectTrigger className="h-8 w-auto min-w-[100px] border-none bg-transparent hover:bg-white/5 transition-all text-[11px] rounded-md px-2 gap-2 focus:ring-0">
+                      <SelectTrigger className="h-8 w-auto min-w-[100px] border-none bg-transparent hover:bg-accent transition-all text-[11px] rounded-md px-2 gap-2 focus:ring-0">
                         <div className="flex items-center gap-2">
                           <IssuePriorityIcon priority={priority} />
                           <span className={cn("text-[10px] font-bold uppercase", PRIORITY_CONFIG[priority].color)}>
@@ -205,9 +205,9 @@ export function CreateSubFeatureDialog({
                           </span>
                         </div>
                       </SelectTrigger>
-                      <SelectContent className="bg-[#0C0C0C] border-white/10">
+                      <SelectContent className="bg-popover border-border/60">
                         {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
-                          <SelectItem key={key} value={key} className="text-xs focus:bg-white/5">
+                          <SelectItem key={key} value={key} className="text-xs focus:bg-accent">
                             <div className="flex items-center gap-2">
                               <IssuePriorityIcon priority={key as IssuePriority} />
                               <span className={cn("text-[10px] font-bold uppercase", config.color)}>{config.label}</span>
@@ -217,11 +217,11 @@ export function CreateSubFeatureDialog({
                       </SelectContent>
                     </Select>
 
-                    <div className="w-px h-3 bg-white/5" />
+                    <div className="w-px h-3 bg-muted/20" />
 
                     {/* Status (Phase) Selector */}
                     <Select value={status} onValueChange={(v) => setStatus(v as FeatureStatus)}>
-                      <SelectTrigger className="h-8 w-auto min-w-[120px] border-none bg-transparent hover:bg-white/5 transition-all text-[11px] rounded-md px-2 gap-2 focus:ring-0">
+                      <SelectTrigger className="h-8 w-auto min-w-[120px] border-none bg-transparent hover:bg-accent transition-all text-[11px] rounded-md px-2 gap-2 focus:ring-0">
                         <div className="flex items-center gap-2">
                           <FeatureWindow.StatusIcon status={status} />
                           <span className={cn("text-[10px] font-bold uppercase", FEATURE_STATUS_CONFIG[status].color)}>
@@ -229,9 +229,9 @@ export function CreateSubFeatureDialog({
                           </span>
                         </div>
                       </SelectTrigger>
-                      <SelectContent className="bg-[#0C0C0C] border-white/10">
+                      <SelectContent className="bg-popover border-border/60">
                         {Object.entries(FEATURE_STATUS_CONFIG).map(([key, config]) => (
-                          <SelectItem key={key} value={key} className="text-xs focus:bg-white/5">
+                          <SelectItem key={key} value={key} className="text-xs focus:bg-accent">
                             <div className="flex items-center gap-2">
                               <FeatureWindow.StatusIcon status={key as FeatureStatus} />
                               <span className={cn("text-[10px] font-bold uppercase", config.color)}>{config.label}</span>
@@ -241,11 +241,11 @@ export function CreateSubFeatureDialog({
                       </SelectContent>
                     </Select>
 
-                    <div className="w-px h-3 bg-white/5" />
+                    <div className="w-px h-3 bg-muted/20" />
 
                     {/* Health Selector */}
                     <Select value={health} onValueChange={(v) => setHealth(v as FeatureHealth)}>
-                      <SelectTrigger className="h-8 w-auto min-w-[120px] border-none bg-transparent hover:bg-white/5 transition-all text-[11px] rounded-md px-2 gap-2 focus:ring-0">
+                      <SelectTrigger className="h-8 w-auto min-w-[120px] border-none bg-transparent hover:bg-accent transition-all text-[11px] rounded-md px-2 gap-2 focus:ring-0">
                         <div className="flex items-center gap-2">
                           <FeatureWindow.HealthIcon health={health} />
                           <span className={cn("text-[10px] font-bold uppercase", FEATURE_HEALTH_CONFIG[health].color)}>
@@ -253,9 +253,9 @@ export function CreateSubFeatureDialog({
                           </span>
                         </div>
                       </SelectTrigger>
-                      <SelectContent className="bg-[#0C0C0C] border-white/10">
+                      <SelectContent className="bg-popover border-border/60">
                         {Object.entries(FEATURE_HEALTH_CONFIG).map(([key, config]) => (
-                          <SelectItem key={key} value={key} className="text-xs focus:bg-white/5">
+                          <SelectItem key={key} value={key} className="text-xs focus:bg-accent">
                             <div className="flex items-center gap-2">
                               <FeatureWindow.HealthIcon health={key as FeatureHealth} />
                               <span className={cn("text-[10px] font-bold uppercase", config.color)}>{config.label}</span>
@@ -270,7 +270,7 @@ export function CreateSubFeatureDialog({
             </div>
 
             {/* Action Bar */}
-            <div className="px-6 py-5 border-t border-white/[0.03] flex items-center justify-between bg-black/40">
+            <div className="px-6 py-5 border-t border-border/50 flex items-center justify-between bg-muted/20">
               <div className="flex items-center gap-8">
                 <motion.div 
                   whileHover={{ scale: 1.02 }}
@@ -279,20 +279,20 @@ export function CreateSubFeatureDialog({
                   onClick={() => setCreateMore(!createMore)}
                 >
                   <div className={cn(
-                    "h-4 w-4 rounded-[4px] border border-white/10 flex items-center justify-center transition-all duration-300",
-                    createMore ? "bg-primary border-primary shadow-[0_0_15px_rgba(var(--primary-rgb),0.4)]" : "group-hover:border-white/30"
+                    "h-4 w-4 rounded-[4px] border border-border/60 flex items-center justify-center transition-all duration-300",
+                    createMore ? "bg-primary border-primary shadow-[0_0_15px_rgba(var(--primary),0.4)]" : "group-hover:border-foreground/30"
                   )}>
                     {createMore && <Check className="h-3 w-3 text-primary-foreground" weight="bold" />}
                   </div>
-                  <span className="text-[11px] font-bold text-white/30 group-hover:text-white/50 transition-colors uppercase tracking-wider">Create more</span>
+                  <span className="text-[11px] font-bold text-muted-foreground/60 group-hover:text-foreground transition-colors uppercase tracking-wider">Create more</span>
                 </motion.div>
 
-                <div className="flex items-center gap-4 text-white/10 select-none">
+                <div className="flex items-center gap-4 text-muted-foreground/20 select-none">
                   <div className="flex items-center gap-1.5 opacity-50">
-                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.02]">
+                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-border/60 bg-muted/5">
                       <span className="text-[9px] font-black">⌘</span>
                     </div>
-                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.02]">
+                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-border/60 bg-muted/5">
                       <span className="text-[9px] font-black">ENTER</span>
                     </div>
                   </div>
@@ -305,7 +305,7 @@ export function CreateSubFeatureDialog({
                   type="button" 
                   variant="ghost" 
                   onClick={() => onOpenChange(false)}
-                  className="h-9 text-[11px] font-bold px-5 uppercase tracking-wider text-white/40 hover:text-white hover:bg-white/5"
+                  className="h-9 text-[11px] font-bold px-5 uppercase tracking-wider text-muted-foreground/60 hover:text-foreground hover:bg-accent"
                 >
                   Cancel
                 </Button>

@@ -52,6 +52,10 @@ export const themes: Record<Exclude<ThemeName, 'system'>, ThemeColors> = {
     'sidebar-foreground': '220 9% 94%',
     'sidebar-primary': '142 76% 36%',
     'sidebar-border': '220 13% 16%',
+    card: '0 0% 6%',
+    'card-foreground': '220 9% 94%',
+    popover: '0 0% 5%',
+    'popover-foreground': '220 9% 94%',
   },
   light: {
     background: '0 0% 98%',
@@ -94,6 +98,10 @@ export const themes: Record<Exclude<ThemeName, 'system'>, ThemeColors> = {
     'sidebar-foreground': '210 40% 98%',
     'sidebar-primary': '217 91% 60%',
     'sidebar-border': '217 32% 12%',
+    card: '222 47% 5.5%',
+    'card-foreground': '210 40% 98%',
+    popover: '222 47% 5%',
+    'popover-foreground': '210 40% 98%',
   },
   forest: {
     background: '142 30% 4%',
@@ -115,6 +123,10 @@ export const themes: Record<Exclude<ThemeName, 'system'>, ThemeColors> = {
     'sidebar-foreground': '142 20% 95%',
     'sidebar-primary': '142 72% 29%',
     'sidebar-border': '142 20% 12%',
+    card: '142 30% 5.5%',
+    'card-foreground': '142 20% 95%',
+    popover: '142 30% 5%',
+    'popover-foreground': '142 20% 95%',
   },
   ocean: {
     background: '200 40% 4%',
@@ -136,5 +148,9 @@ export const themes: Record<Exclude<ThemeName, 'system'>, ThemeColors> = {
     'sidebar-foreground': '200 20% 95%',
     'sidebar-primary': '199 89% 48%',
     'sidebar-border': '200 20% 12%',
+    card: '200 40% 5.5%',
+    'card-foreground': '200 20% 95%',
+    popover: '200 40% 5%',
+    'popover-foreground': '200 20% 95%',
   }
 };

@@ -5,6 +5,7 @@ from urllib.parse import urlencode
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.services.auth_service import AuthService
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -85,25 +86,27 @@ class GoogleAuthService:
         user = crud_user.get_by_email(db, email=email)
         
         if not user:
-            placeholder_pw = "google_oauth_placeholder"
-            user_in = UserCreate(
+            user = User(
                 email=email,
                 first_name=full_name.split()[0] if full_name else "",
                 last_name=" ".join(full_name.split()[1:]) if full_name else "",
-                job_title="",
                 role="member",
-                password=placeholder_pw,
+                is_active=True,
+                oauth_provider="google",
+                hashed_password=None,
             )
-            user = auth_srv.register_user(db, user_in=user_in)
+            db.add(user)
+            db.flush()
         
         if tokens:
-            user.google_access_token = tokens.get("access_token")
+            from app.core.encryption import encrypt_token
+            user.google_access_token = encrypt_token(tokens.get("access_token"))
             if tokens.get("refresh_token"):
-                user.google_refresh_token = tokens.get("refresh_token")
-            
+                user.google_refresh_token = encrypt_token(tokens.get("refresh_token"))
+
             if tokens.get("expires_in"):
                 user.google_token_expires_at = utc_now() + timedelta(seconds=tokens["expires_in"])
-            
+
             db.add(user)
             db.commit()
             db.refresh(user)

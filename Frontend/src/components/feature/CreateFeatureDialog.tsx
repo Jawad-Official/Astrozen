@@ -344,7 +344,7 @@ export function CreateFeatureDialog({
                         "h-8 w-auto min-w-[110px] border-none bg-transparent hover:bg-accent transition-all text-[11px] rounded-md px-2 gap-2 focus:ring-0",
                         !projectId && "text-muted-foreground/40"
                       )}>
-                        <FolderSimple className={cn("h-3.5 w-3.5", projectId ? "text-blue-600/60 dark:text-blue-400/60" : "text-muted-foreground/20")} />
+                        <FolderSimple className={cn("h-3.5 w-3.5", projectId ? "text-primary/60" : "text-muted-foreground/20")} />
                         <span className="font-bold uppercase tracking-wider truncate max-w-[120px]">
                           {currentProject?.name || 'Project'}
                         </span>

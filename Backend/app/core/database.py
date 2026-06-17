@@ -32,18 +32,30 @@ def ensure_runtime_schema() -> None:
     if not settings.DATABASE_URL.startswith("sqlite"):
         return
 
-    required_user_columns = {
-        "username": "VARCHAR",
-        "google_access_token": "VARCHAR",
-        "google_refresh_token": "VARCHAR",
-        "google_token_expires_at": "DATETIME",
+    required_columns = {
+        "users": {
+            "username": "VARCHAR",
+            "google_access_token": "VARCHAR",
+            "google_refresh_token": "VARCHAR",
+            "google_token_expires_at": "DATETIME",
+            "oauth_provider": "VARCHAR",
+        },
+        "documents": {
+            "idea_id": "UUID",
+        },
     }
 
     with engine.begin() as connection:
-        existing_columns = {
-            column["name"] for column in inspect(connection).get_columns("users")
-        }
-        for column_name, column_type in required_user_columns.items():
-            if column_name in existing_columns:
+        tables = inspect(connection).get_table_names()
+        for table_name, columns in required_columns.items():
+            if table_name not in tables:
                 continue
-            connection.execute(text(f"ALTER TABLE users ADD COLUMN {column_name} {column_type}"))
+            existing_columns = {
+                col["name"] for col in inspect(connection).get_columns(table_name)
+            }
+            for col_name, col_type in columns.items():
+                if col_name in existing_columns:
+                    continue
+                connection.execute(
+                    text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type}")
+                )

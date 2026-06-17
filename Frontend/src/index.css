@@ -44,6 +44,14 @@
     --status-in-progress: 187 100% 42%;
     --status-done: 142 71% 45%;
     --status-cancelled: 0 84% 60%;
+
+    --label-red: 0 84% 60%;
+    --label-orange: 25 95% 53%;
+    --label-yellow: 48 96% 53%;
+    --label-green: 142 71% 45%;
+    --label-blue: 217 91% 60%;
+    --label-purple: 270 76% 53%;
+    --label-pink: 330 86% 60%;
   }
 
   /* ============================================
@@ -54,9 +62,9 @@
   :root, .theme-dark, .dark {
     --background: 0 0% 3.5%;
     --foreground: 220 9% 94%;
-    --card: 220 13% 13%;
+    --card: 0 0% 6%;
     --card-foreground: 220 9% 94%;
-    --popover: 220 13% 12%;
+    --popover: 0 0% 5%;
     --popover-foreground: 220 9% 94%;
     --primary: 142 76% 36%;
     --primary-foreground: 220 13% 10%;
@@ -107,9 +115,9 @@
   .theme-midnight {
     --background: 222 47% 4%;
     --foreground: 210 40% 98%;
-    --card: 222 47% 7%;
+    --card: 222 47% 5.5%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 47% 6%;
+    --popover: 222 47% 5%;
     --popover-foreground: 210 40% 98%;
     --primary: 217 91% 60%;
     --primary-foreground: 222 47% 4%;
@@ -133,9 +141,9 @@
   .theme-forest {
     --background: 142 30% 4%;
     --foreground: 142 20% 95%;
-    --card: 142 30% 7%;
+    --card: 142 30% 5.5%;
     --card-foreground: 142 20% 95%;
-    --popover: 142 30% 6%;
+    --popover: 142 30% 5%;
     --popover-foreground: 142 20% 95%;
     --primary: 142 72% 29%;
     --primary-foreground: 142 30% 4%;
@@ -159,9 +167,9 @@
   .theme-ocean {
     --background: 200 40% 4%;
     --foreground: 200 20% 95%;
-    --card: 200 40% 7%;
+    --card: 200 40% 5.5%;
     --card-foreground: 200 20% 95%;
-    --popover: 200 40% 6%;
+    --popover: 200 40% 5%;
     --popover-foreground: 200 20% 95%;
     --primary: 199 89% 48%;
     --primary-foreground: 200 40% 4%;

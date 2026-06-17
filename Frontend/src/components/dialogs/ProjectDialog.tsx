@@ -114,9 +114,9 @@ export function ProjectDialog({ open, onOpenChange, project, onSave, onPlanWithA
           className="flex flex-col"
         >
           {/* Header */}
-          <div className="px-6 py-4 border-b border-white/[0.03] flex items-center justify-between bg-white/[0.01]">
-            <div className="flex items-center gap-2 text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">
-              <span className="hover:text-white/40 cursor-default transition-colors">Workspace</span>
+          <div className="px-6 py-4 border-b border-border/50 flex items-center justify-between bg-muted/5">
+            <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em]">
+              <span className="hover:text-foreground cursor-default transition-colors">Workspace</span>
               <span className="opacity-30">/</span>
               <span className="text-primary/60">{project ? 'Edit Project' : 'New Project'}</span>
             </div>
@@ -137,19 +137,19 @@ export function ProjectDialog({ open, onOpenChange, project, onSave, onPlanWithA
 
           <div className="flex flex-col md:flex-row h-full min-h-[450px]" onKeyDown={handleKeyDown}>
             {/* Left Column: Visuals */}
-            <div className="w-full md:w-1/3 border-r border-white/[0.03] p-8 flex flex-col items-center space-y-8 bg-white/[0.01]">
+            <div className="w-full md:w-1/3 border-r border-border/50 p-8 flex flex-col items-center space-y-8 bg-muted/5">
               <div className="relative group">
                 <div className={cn(
                   "h-32 w-32 rounded-3xl flex items-center justify-center text-6xl shadow-2xl transition-all duration-500",
                   LABEL_COLORS[color],
                   "bg-opacity-20 border-2 border-opacity-30",
-                  color === 'red' && "border-red-500/30 text-red-400 shadow-red-500/10",
-                  color === 'orange' && "border-orange-500/30 text-orange-400 shadow-orange-500/10",
-                  color === 'yellow' && "border-yellow-500/30 text-yellow-400 shadow-yellow-500/10",
-                  color === 'green' && "border-green-500/30 text-green-400 shadow-green-500/10",
-                  color === 'blue' && "border-blue-500/30 text-blue-400 shadow-blue-500/10",
-                  color === 'purple' && "border-purple-500/30 text-purple-400 shadow-purple-500/10",
-                  color === 'pink' && "border-pink-500/30 text-pink-400 shadow-pink-500/10",
+                  color === 'red' && "border-[hsl(var(--label-red)/0.3)] text-[hsl(var(--label-red))] shadow-[hsl(var(--label-red)/0.15)]",
+                  color === 'orange' && "border-[hsl(var(--label-orange)/0.3)] text-[hsl(var(--label-orange))] shadow-[hsl(var(--label-orange)/0.15)]",
+                  color === 'yellow' && "border-[hsl(var(--label-yellow)/0.3)] text-[hsl(var(--label-yellow))] shadow-[hsl(var(--label-yellow)/0.15)]",
+                  color === 'green' && "border-[hsl(var(--label-green)/0.3)] text-[hsl(var(--label-green))] shadow-[hsl(var(--label-green)/0.15)]",
+                  color === 'blue' && "border-[hsl(var(--label-blue)/0.3)] text-[hsl(var(--label-blue))] shadow-[hsl(var(--label-blue)/0.15)]",
+                  color === 'purple' && "border-[hsl(var(--label-purple)/0.3)] text-[hsl(var(--label-purple))] shadow-[hsl(var(--label-purple)/0.15)]",
+                  color === 'pink' && "border-[hsl(var(--label-pink)/0.3)] text-[hsl(var(--label-pink))] shadow-[hsl(var(--label-pink)/0.15)]",
                 )}>
                   {icon}
                 </div>
@@ -158,7 +158,7 @@ export function ProjectDialog({ open, onOpenChange, project, onSave, onPlanWithA
 
               <div className="space-y-6 w-full">
                 <div className="space-y-3">
-                  <h3 className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] text-center">Color</h3>
+                  <h3 className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em] text-center">Color</h3>
                   <div className="flex flex-wrap justify-center gap-2">
                     {LABEL_COLOR_OPTIONS.map((c) => (
                       <button
@@ -167,7 +167,7 @@ export function ProjectDialog({ open, onOpenChange, project, onSave, onPlanWithA
                         className={cn(
                           "h-6 w-6 rounded-full border-2 transition-all",
                           LABEL_COLORS[c],
-                          color === c ? "border-white scale-110 shadow-lg" : "border-transparent hover:scale-105"
+                          color === c ? "border-border scale-110 shadow-lg" : "border-transparent hover:scale-105"
                         )}
                       />
                     ))}
@@ -175,7 +175,7 @@ export function ProjectDialog({ open, onOpenChange, project, onSave, onPlanWithA
                 </div>
 
                 <div className="space-y-3">
-                  <h3 className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] text-center">Icon</h3>
+                  <h3 className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em] text-center">Icon</h3>
                   <div className="grid grid-cols-5 gap-2">
                     {PROJECT_ICONS.map((i) => (
                       <button
@@ -183,7 +183,7 @@ export function ProjectDialog({ open, onOpenChange, project, onSave, onPlanWithA
                         onClick={() => setIcon(i)}
                         className={cn(
                           "h-8 w-8 flex items-center justify-center rounded-lg text-lg transition-all",
-                          icon === i ? "bg-white/10 text-white" : "text-white/40 hover:bg-white/5 hover:text-white/60"
+                          icon === i ? "bg-accent text-foreground" : "text-muted-foreground/60 hover:bg-accent hover:text-foreground"
                         )}
                       >
                         {i}
@@ -202,26 +202,26 @@ export function ProjectDialog({ open, onOpenChange, project, onSave, onPlanWithA
                     placeholder="Project name" 
                     value={name} 
                     onChange={(e) => setName(e.target.value)} 
-                    className="w-full text-3xl font-semibold bg-transparent border-none p-0 focus:outline-none placeholder:text-white/[0.03] text-white/90 selection:bg-primary/30 tracking-tight" 
+                    className="w-full text-3xl font-semibold bg-transparent border-none p-0 focus:outline-none placeholder:text-muted-foreground/20 text-foreground selection:bg-primary/30 tracking-tight" 
                     autoFocus 
                   />
-                  <div className="h-px w-full bg-gradient-to-r from-white/10 via-white/5 to-transparent" />
+                  <div className="h-px w-full bg-gradient-to-r from-muted/20 via-muted/20 to-transparent" />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">Description</label>
+                  <label className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em]">Description</label>
                   <textarea 
                     placeholder="Add a brief description of this initiative..." 
                     value={description} 
                     onChange={(e) => setDescription(e.target.value)} 
-                    className="w-full min-h-[100px] text-sm bg-transparent border-none p-0 focus:outline-none placeholder:text-white/10 text-white/60 leading-relaxed resize-none" 
+                    className="w-full min-h-[100px] text-sm bg-transparent border-none p-0 focus:outline-none placeholder:text-muted-foreground/20 text-muted-foreground leading-relaxed resize-none" 
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-8 pt-4 border-t border-white/[0.03]">
+              <div className="grid grid-cols-2 gap-8 pt-4 border-t border-border/50">
                 <div className="space-y-3">
-                  <label className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">Status</label>
+                  <label className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em]">Status</label>
                   <div className="flex flex-wrap gap-2">
                     {(Object.keys(PROJECT_STATUS_CONFIG) as ProjectStatus[]).map((s) => (
                       <button
@@ -230,8 +230,8 @@ export function ProjectDialog({ open, onOpenChange, project, onSave, onPlanWithA
                         className={cn(
                           "px-3 py-1.5 rounded-full text-[11px] font-medium transition-all border",
                           status === s 
-                            ? "bg-white/10 border-white/20 text-white" 
-                            : "bg-transparent border-white/5 text-white/30 hover:border-white/10 hover:text-white/50"
+                            ? "bg-accent border-border text-foreground" 
+                            : "bg-transparent border-border text-muted-foreground/60 hover:border-foreground/30 hover:text-foreground"
                         )}
                       >
                         {PROJECT_STATUS_CONFIG[s].label}
@@ -241,7 +241,7 @@ export function ProjectDialog({ open, onOpenChange, project, onSave, onPlanWithA
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">Priority</label>
+                  <label className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em]">Priority</label>
                   <div className="space-y-2">
                     {PROJECT_PRIORITY_OPTIONS.filter(o => o.value !== 'none' || priority === 'none').slice(0, 4).map((p) => (
                       <button
@@ -250,8 +250,8 @@ export function ProjectDialog({ open, onOpenChange, project, onSave, onPlanWithA
                         className={cn(
                           "w-full px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex items-center justify-between border",
                           priority === p.value 
-                            ? "bg-white/5 border-white/10 text-white" 
-                            : "bg-transparent border-transparent text-white/30 hover:bg-white/[0.02] hover:text-white/50"
+                            ? "bg-muted/20 border-border text-foreground" 
+                            : "bg-transparent border-transparent text-muted-foreground/60 hover:bg-muted/5 hover:text-foreground"
                         )}
                       >
                         <span className="flex items-center gap-2">
@@ -268,13 +268,13 @@ export function ProjectDialog({ open, onOpenChange, project, onSave, onPlanWithA
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-5 border-t border-white/[0.03] flex items-center justify-between bg-black/40">
-            <div className="flex items-center gap-4 text-white/10 select-none">
+          <div className="px-6 py-5 border-t border-border/50 flex items-center justify-between bg-muted/20">
+            <div className="flex items-center gap-4 text-muted-foreground/20 select-none">
               <div className="flex items-center gap-1.5 opacity-50">
-                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.02]">
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-border/60 bg-muted/5">
                   <span className="text-[9px] font-black">⌘</span>
                 </div>
-                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.02]">
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-border/60 bg-muted/5">
                   <span className="text-[9px] font-black">ENTER</span>
                 </div>
               </div>
@@ -286,7 +286,7 @@ export function ProjectDialog({ open, onOpenChange, project, onSave, onPlanWithA
                 type="button" 
                 variant="ghost" 
                 onClick={() => onOpenChange(false)}
-                className="h-9 text-[11px] font-bold px-5 transition-all uppercase tracking-wider text-white/40 hover:text-white hover:bg-white/5"
+                className="h-9 text-[11px] font-bold px-5 transition-all uppercase tracking-wider text-muted-foreground/60 hover:text-foreground hover:bg-accent"
               >
                 Cancel
               </Button>

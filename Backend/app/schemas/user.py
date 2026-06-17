@@ -1,6 +1,7 @@
-from pydantic import BaseModel, EmailStr, UUID4, model_validator, ConfigDict
+from pydantic import BaseModel, EmailStr, UUID4, model_validator, field_validator, ConfigDict
 from typing import Optional
 from datetime import datetime
+import re
 
 
 # Base schemas
@@ -17,6 +18,19 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, v):
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not re.search(r"\d", v):
+            raise ValueError("Password must contain at least one digit")
+        return v
 
     @model_validator(mode="after")
     def normalize_names(self):
@@ -53,7 +67,7 @@ class UserInDB(UserBase):
     organization_id: Optional[UUID4] = None
     created_at: datetime
     updated_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 

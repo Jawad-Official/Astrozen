@@ -95,22 +95,22 @@ export function MilestoneDialog({
             </div>
           </div>
 
-          <div className="h-px w-full bg-gradient-to-r from-transparent via-white/[0.05] to-transparent shrink-0" />
+          <div className="h-px w-full bg-gradient-to-r from-transparent via-border to-transparent shrink-0" />
 
           {/* Form Content - Scrollable */}
-          <div className="flex-1 overflow-y-auto px-8 py-8 space-y-10 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/5 hover:scrollbar-thumb-white/10 transition-colors" onKeyDown={handleKeyDown}>
+          <div className="flex-1 overflow-y-auto px-8 py-8 space-y-10 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border hover:scrollbar-thumb-foreground/20 transition-colors" onKeyDown={handleKeyDown}>
             {/* Name Input */}
             <div className="space-y-4">
               <div className="flex items-center justify-between px-1">
-                <h4 className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em]">Title</h4>
-                <div className="h-px flex-1 mx-4 bg-white/[0.03]" />
+                <h4 className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em]">Title</h4>
+                <div className="h-px flex-1 mx-4 bg-muted/10" />
               </div>
               <div className="group relative">
                 <input 
                   placeholder="e.g. Design System Foundation" 
                   value={name} 
                   onChange={(e) => setName(e.target.value)} 
-                  className="w-full text-2xl font-bold bg-transparent border-none p-0 focus:outline-none placeholder:text-white/[0.02] text-white/90 selection:bg-primary/30 tracking-tight transition-all" 
+                  className="w-full text-2xl font-bold bg-transparent border-none p-0 focus:outline-none placeholder:text-muted-foreground/20 text-foreground selection:bg-primary/30 tracking-tight transition-all" 
                   autoFocus 
                 />
                 <motion.div 
@@ -124,16 +124,16 @@ export function MilestoneDialog({
             {/* Description Textarea */}
             <div className="space-y-4">
               <div className="flex items-center justify-between px-1">
-                <h4 className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em]">Description</h4>
-                <div className="h-px flex-1 mx-4 bg-white/[0.03]" />
+                <h4 className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em]">Description</h4>
+                <div className="h-px flex-1 mx-4 bg-muted/10" />
               </div>
               <div className="relative group">
-                <div className="absolute inset-0 bg-white/[0.01] rounded-2xl group-focus-within:bg-white/[0.03] transition-colors pointer-events-none" />
+                <div className="absolute inset-0 bg-muted/5 rounded-2xl group-focus-within:bg-muted/10 transition-colors pointer-events-none" />
                 <textarea 
                   value={description} 
                   onChange={(e) => setDescription(e.target.value)} 
                   placeholder="What does success look like for this phase?"
-                  className="w-full min-h-[160px] bg-transparent border border-white/[0.04] group-focus-within:border-primary/20 rounded-2xl px-5 py-4 text-sm text-white/60 focus:outline-none transition-all resize-none leading-relaxed placeholder:text-white/5 relative z-10"
+                  className="w-full min-h-[160px] bg-transparent border border-border group-focus-within:border-primary/20 rounded-2xl px-5 py-4 text-sm text-muted-foreground focus:outline-none transition-all resize-none leading-relaxed placeholder:text-muted-foreground/20 relative z-10"
                 />
                 <div className="absolute bottom-4 right-5 flex items-center gap-1.5 opacity-20 pointer-events-none z-10">
                   <ChatTeardropText size={14} weight="bold" />
@@ -150,7 +150,7 @@ export function MilestoneDialog({
                 type="button" 
                 variant="ghost" 
                 onClick={() => onOpenChange(false)}
-                className="flex-1 h-11 text-[10px] font-black transition-all uppercase tracking-[0.2em] text-white/30 hover:text-white hover:bg-white/5 rounded-xl border border-white/[0.03]"
+                className="flex-1 h-11 text-[10px] font-black transition-all uppercase tracking-[0.2em] text-muted-foreground/60 hover:text-foreground hover:bg-accent rounded-xl border border-border/50"
               >
                 Cancel
               </Button>
@@ -160,16 +160,16 @@ export function MilestoneDialog({
                 disabled={!name.trim()}
                 className="flex-[1.8] h-11 px-8 text-[10px] font-black transition-all disabled:opacity-10 disabled:scale-[0.98] uppercase tracking-[0.2em] rounded-xl shadow-[0_8px_30px_rgba(var(--primary-rgb),0.15)] relative overflow-hidden group"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer" />
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-muted-foreground/20 to-transparent -translate-x-full group-hover:animate-shimmer" />
                 <span className="relative z-10">{isEditing ? 'Save Changes' : 'Create Milestone'}</span>
               </Button>
             </div>
             
             <div className="mt-4 flex justify-center">
-              <p className="text-[9px] text-white/10 font-bold uppercase tracking-[0.1em] flex items-center gap-2">
-                <span className="w-1 h-1 rounded-full bg-white/10" />
-                Press <span className="text-white/30">⌘+Enter</span> to quick save
-                <span className="w-1 h-1 rounded-full bg-white/10" />
+              <p className="text-[9px] text-muted-foreground/20 font-bold uppercase tracking-[0.1em] flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-muted-foreground/20" />
+                Press <span className="text-muted-foreground/60">⌘+Enter</span> to quick save
+                <span className="w-1 h-1 rounded-full bg-muted-foreground/20" />
               </p>
             </div>
           </div>
@@ -178,4 +178,3 @@ export function MilestoneDialog({
     </Dialog>
   );
 }
-

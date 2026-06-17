@@ -7,6 +7,7 @@ export const apiClient = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: true,
 });
 
 apiClient.interceptors.request.use(
@@ -25,7 +26,6 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Only redirect to login if we're not already on the login page
     if (
       error.response?.status === 401 &&
       window.location.pathname !== "/login"

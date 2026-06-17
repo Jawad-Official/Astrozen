@@ -1,33 +1,56 @@
-from typing import Generator
-from fastapi import Depends, HTTPException, status
+from typing import Generator, Optional
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import decode_access_token
 from app.models.user import User
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
+
+
+def get_token_from_request(request: Request) -> Optional[str]:
+    """Extract JWT from Authorization header or HTTP-only cookie."""
+    # Try Authorization header first
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return auth_header[7:]
+
+    # Fall back to HTTP-only cookie
+    token = request.cookies.get("auth_token")
+    if token:
+        return token
+
+    return None
 
 
 def get_current_user(
+    request: Request,
     db: Session = Depends(get_db),
-    token: str = Depends(oauth2_scheme)
+    token: Optional[str] = Depends(oauth2_scheme),
 ) -> User:
-    """Get current authenticated user"""
+    """Get current authenticated user from token or cookie"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
+    # If no token from OAuth2 scheme, try cookie
+    if not token:
+        token = get_token_from_request(request)
+
+    if not token:
+        raise credentials_exception
+
     payload = decode_access_token(token)
     if payload is None:
         raise credentials_exception
-    
+
     user_id: str = payload.get("sub")
     if user_id is None:
         raise credentials_exception
-    
+
     try:
         from uuid import UUID as pyUUID
         user_uuid = pyUUID(user_id)
@@ -37,7 +60,7 @@ def get_current_user(
     user = db.query(User).filter(User.id == user_uuid).first()
     if user is None:
         raise credentials_exception
-    
+
     return user
 
 
@@ -81,12 +104,12 @@ def check_can_manage_project(user: User, project_id: UUID, db: Session) -> bool:
     """
     if check_is_admin(user):
         return True
-        
+
     from app.models.project import Project
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         return False
-        
+
     # Check if project lead
     if project.lead_id == user.id:
         return True
@@ -94,12 +117,12 @@ def check_can_manage_project(user: User, project_id: UUID, db: Session) -> bool:
     # Check primary team leadership
     if check_is_team_leader(user, project.team_id):
         return True
-        
+
     # Check contributing teams leadership
     for team in project.teams:
         if check_is_team_leader(user, team.id):
             return True
-            
+
     return False
 
 
@@ -112,20 +135,20 @@ def check_can_edit_issue(user: User, issue_id: UUID, db: Session) -> bool:
     """
     if check_is_admin(user):
         return True
-        
+
     from app.models.issue import Issue
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue:
         return False
-        
+
     # Check team leadership
     if check_is_team_leader(user, issue.team_id):
         return True
-        
+
     # Check if assignee
     if issue.assignee_id == user.id:
         return True
-        
+
     return False
 
 
@@ -138,15 +161,15 @@ def check_can_edit_feature(user: User, feature_id: UUID, db: Session) -> bool:
     """
     if check_is_admin(user):
         return True
-        
+
     from app.models.feature import Feature
     feature = db.query(Feature).filter(Feature.id == feature_id).first()
     if not feature:
         return False
-        
+
     # Check ownership
     if feature.owner_id == user.id:
         return True
-        
+
     # Check project management permissions
     return check_can_manage_project(user, feature.project_id, db)

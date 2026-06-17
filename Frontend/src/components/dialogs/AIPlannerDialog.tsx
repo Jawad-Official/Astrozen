@@ -84,14 +84,14 @@ export function AIPlannerDialog({ open, onOpenChange, projectId, initialIdeaId, 
                 </div>
                 <div>
                   <h2 className="text-xl font-bold tracking-tight">Plan with AI</h2>
-                  <p className="text-white/40 text-xs font-medium">Describe your vision and let the AI handle the architecture.</p>
+                  <p className="text-muted-foreground/60 text-xs font-medium">Describe your vision and let the AI handle the architecture.</p>
                 </div>
             </div>
 
             <div className="space-y-4">
               <Textarea
                 placeholder="What are you building? e.g. A real-time dashboard for crypto traders with social features..."
-                className="min-h-[250px] bg-white/[0.03] border-white/10 text-lg selection:bg-primary/30 leading-relaxed rounded-xl p-4 focus:border-primary/30 transition-all"
+                className="min-h-[250px] bg-muted/5 border-border/40 text-lg selection:bg-primary/30 leading-relaxed rounded-xl p-4 focus:border-primary/30 transition-all"
                 value={rawInput}
                 onChange={(e) => setRawInput(e.target.value)}
                 autoFocus

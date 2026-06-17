@@ -126,7 +126,7 @@ def get_issue(
         raise HTTPException(status_code=404, detail="Issue not found")
 
     # If org member, can see all issues in org
-    if issue.team.organization_id != current_user.organization_id:
+    if not issue.team or issue.team.organization_id != current_user.organization_id:
         raise HTTPException(status_code=403, detail="Not authorized to view this issue")
 
     return issue

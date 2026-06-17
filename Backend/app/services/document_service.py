@@ -68,13 +68,20 @@ class DocumentService:
             'role': role,
             'emailAddress': email
         }
-        
+
         self.drive_service.permissions().create(
             fileId=drive_file_id,
             body=user_permission,
             fields='id',
             sendNotificationEmail=False
         ).execute()
+
+    def _decrypt_user_tokens(self, user) -> tuple:
+        """Decrypt Google tokens for a user. Returns (access_token, refresh_token)."""
+        from app.core.encryption import decrypt_token
+        access_token = decrypt_token(user.google_access_token)
+        refresh_token = decrypt_token(user.google_refresh_token)
+        return access_token, refresh_token
 
     async def get_doc_content_as_markdown(self, drive_file_id: str) -> str:
         """Exports a Google Doc to Markdown."""
