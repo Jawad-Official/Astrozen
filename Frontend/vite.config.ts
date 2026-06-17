@@ -11,14 +11,15 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
     watch: {
-      ignored: ["**/vite.config.*", "**/vitest.config.*"],
+      ignored: [
+        "**/vite.config.*",
+        "**/vitest.config.*",
+        "**/.env",
+        "**/.env.*",
+      ],
     },
   },
   plugins: [react()].filter(Boolean),
-  optimizeDeps: {
-    noDiscovery: true,
-    include: [],
-  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
