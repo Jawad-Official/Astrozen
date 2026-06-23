@@ -47,3 +47,8 @@ dooo.md
 Frontend/docs
 .docs/
 *docs/
+
+*.env.example
+Backend/.env.example
+
+.gitingore
