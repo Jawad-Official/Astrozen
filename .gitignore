@@ -51,4 +51,4 @@ Frontend/docs
 *.env.example
 Backend/.env.example
 
-.gitingore
+.gitignore
