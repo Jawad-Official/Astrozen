@@ -4,11 +4,23 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: 3.11
+      - key: ENVIRONMENT
+        value: production
+      - key: PROJECT_NAME
+        value: Astrozen API
+      - key: VERSION
+        value: 1.0.0
+      - key: API_V1_PREFIX
+        value: /api/v1
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 60
       - key: DATABASE_URL
         fromDatabase:
           name: astrozen-db
@@ -22,6 +34,8 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_INFO
         sync: false
       - key: BACKEND_CORS_ORIGINS
         sync: false

@@ -94,11 +94,13 @@ class Settings(BaseSettings):
     R2_ACCESS_KEY_ID: str | None = None
     R2_SECRET_ACCESS_KEY: str | None = None
     R2_BUCKET_NAME: str | None = None
+    R2_ENDPOINT: str | None = None
 
     # Google OAuth
     GOOGLE_CLIENT_ID: str | None = None
     GOOGLE_CLIENT_SECRET: str | None = None
     GOOGLE_REDIRECT_URI: str | None = None
+    GOOGLE_SERVICE_ACCOUNT_INFO: str | None = None
 
     # JWT RS256 support (optional, for asymmetric signing)
     JWT_PRIVATE_KEY: str | None = None

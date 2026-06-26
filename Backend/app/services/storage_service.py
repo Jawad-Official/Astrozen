@@ -7,10 +7,19 @@ logger = logging.getLogger(__name__)
 
 class StorageService:
     def __init__(self):
-        if all([settings.R2_ACCOUNT_ID, settings.R2_ACCESS_KEY_ID, settings.R2_SECRET_ACCESS_KEY]):
+        if all([
+            settings.R2_ACCOUNT_ID,
+            settings.R2_ACCESS_KEY_ID,
+            settings.R2_SECRET_ACCESS_KEY,
+            settings.R2_BUCKET_NAME,
+        ]):
+            endpoint_url = settings.R2_ENDPOINT
+            if not endpoint_url:
+                endpoint_url = f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+
             self.s3_client = boto3.client(
                 's3',
-                endpoint_url=f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com",
+                endpoint_url=endpoint_url,
                 aws_access_key_id=settings.R2_ACCESS_KEY_ID,
                 aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
                 region_name="auto"
