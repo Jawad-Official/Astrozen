@@ -1,7 +1,7 @@
+from typing import List
+
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List, Union
-from pydantic import field_validator, model_validator
-import os
 import json
 
 
@@ -9,9 +9,18 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str
     # Security
-    SECRET_KEY: str
-    ALGORITHM: str
-    ACCESS_TOKEN_EXPIRE_MINUTES: int
+    SECRET_KEY: str = Field(
+        validation_alias=AliasChoices("SECRET_KEY", "JWT_SECRET")
+    )
+    ALGORITHM: str = Field(
+        validation_alias=AliasChoices("ALGORITHM", "JWT_ALGORITHM")
+    )
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        validation_alias=AliasChoices(
+            "ACCESS_TOKEN_EXPIRE_MINUTES",
+            "JWT_ACCESS_TOKEN_EXPIRE_MINUTES",
+        )
+    )
 
     # Environment
     ENVIRONMENT: str = "development"
