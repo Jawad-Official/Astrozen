@@ -3,7 +3,7 @@
 **Date:** 2026-08-30 · **Scope:** Backend + Frontend, per `AUDIT_PLAN.md` Phase 2 checklist
 **Method:** Live `alembic check` against a throwaway SQLite DB built from `alembic upgrade head`, full-file reads of every service touching I/O, and a full-file frontend correctness pass (Zustand stores, loading/error states, `useEffect` cleanup, route guards) run in parallel. Same evidence rules as Phase 1: every finding cites a file:line personally read; anything unconfirmed is marked "needs verification."
 
-Total: **2 High · 3 Medium (2 backend, 1 frontend) · 7 Low (3 backend, 4 frontend)**, plus 9 explicitly-verified clean items.
+Total: **2 High · 4 Medium (3 backend, 1 frontend) · 7 Low (3 backend, 4 frontend)**, plus 9 explicitly-verified clean items.
 
 ---
 

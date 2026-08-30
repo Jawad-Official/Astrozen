@@ -50,7 +50,7 @@ Repo-wide grep for `TODO`/`FIXME`/`HACK`/`XXX` across both `Backend/app` and `Fr
 
 ---
 
-## TypeScript strictness
+## CQ-6: TypeScript strictness
 
 **Configuration:** `Frontend/tsconfig.app.json:19-23` sets `strict: false`, `noUnusedLocals: false`, `noUnusedParameters: false`, `noImplicitAny: false`, `noFallthroughCasesInSwitch: false`. `Frontend/tsconfig.json:9-14` repeats several of the same relaxations for the root project reference. This means the compiler is doing close to the minimum possible checking — closer to "JavaScript with type annotations as documentation" than "TypeScript catching real bugs."
 
@@ -93,7 +93,7 @@ The `react-hooks/recommended` ruleset (dependency-array correctness, rules-of-ho
 
 ---
 
-## Frontend dependency diet
+## CQ-7: Frontend dependency diet
 
 **Real `npx depcheck` output, verified against source (not repeated blindly):**
 ```
