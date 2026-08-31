@@ -5,6 +5,7 @@ import { ArrowRight } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
+import { BrandMark } from "./BrandMark";
 
 const SECTIONS = [
   { label: "How it works", href: "#how-it-works" },
@@ -46,13 +47,8 @@ export function LandingNav() {
       )}
     >
       <nav className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5 sm:px-8">
-        <Link to="/" className="flex items-center gap-2 group">
-          <span className="flex h-7 w-7 items-center justify-center rounded bg-primary/20 ring-1 ring-primary/30 transition-all group-hover:bg-primary/30">
-            <span className="h-3 w-3 rounded-full bg-primary shadow-[0_0_12px_hsl(var(--primary))]" />
-          </span>
-          <span className="text-[15px] font-semibold tracking-tight text-foreground">
-            Astrozen
-          </span>
+        <Link to="/" className="group">
+          <BrandMark className="transition-opacity group-hover:opacity-80" />
         </Link>
 
         <div className="hidden items-center gap-1 md:flex">
@@ -65,6 +61,12 @@ export function LandingNav() {
               {section.label}
             </a>
           ))}
+          <Link
+            to="/contact"
+            className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Contact
+          </Link>
         </div>
 
         <div className="flex items-center gap-2">

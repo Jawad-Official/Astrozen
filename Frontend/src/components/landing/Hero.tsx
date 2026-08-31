@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, Sparkle } from "@phosphor-icons/react";
+import { ArrowRight } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { PixelGrid } from "./PixelGrid";
 
@@ -76,16 +76,6 @@ export function Hero() {
       <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-b from-transparent to-background" />
 
       <div className="mx-auto flex min-h-[100svh] w-full max-w-6xl flex-col items-center justify-center px-5 py-28 text-center sm:px-8">
-        <motion.div
-          initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3.5 py-1.5 text-xs font-medium text-primary"
-        >
-          <Sparkle className="h-3.5 w-3.5" weight="fill" />
-          Powered by Gemini 2.5 Flash
-        </motion.div>
-
         <motion.h1
           initial={reduceMotion ? false : { opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}

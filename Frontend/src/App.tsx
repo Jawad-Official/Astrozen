@@ -22,6 +22,7 @@ const FeaturesPage = lazy(() => import("@/pages/features/page"));
 const AIGeneratorPage = lazy(() => import("@/pages/ai-generator/page"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const LandingPage = lazy(() => import("@/pages/landing/page"));
+const ContactPage = lazy(() => import("@/pages/contact/page"));
 const Login = lazy(() => import("@/pages/auth/Login"));
 const Register = lazy(() => import("@/pages/auth/Register"));
 const OrganizationSetup = lazy(() => import("@/pages/auth/OrganizationSetup"));
@@ -52,6 +53,7 @@ const App = () => {
                   check - the landing page must paint immediately even while
                   a cold-starting backend is still answering /me. */}
               <Route path="/" element={<LandingPage />} />
+              <Route path="/contact" element={<ContactPage />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               

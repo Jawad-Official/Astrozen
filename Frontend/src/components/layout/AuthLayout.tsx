@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
+import { BrandMark } from '@/components/landing/BrandMark';
 
 interface AuthLayoutProps {
   children: ReactNode;
@@ -20,16 +21,8 @@ export function AuthLayout({ children, title, description, illustration }: AuthL
       <div className="flex-1 flex flex-col justify-center items-center p-8 lg:p-12 xl:p-24 relative overflow-hidden">
         {/* Way back to the public landing page, so the auth pages aren't a
             dead end for someone who just wanted to read about the product. */}
-        <Link
-          to="/"
-          className="absolute top-6 left-6 lg:top-8 lg:left-8 z-20 flex items-center gap-2 group"
-        >
-          <span className="flex h-7 w-7 items-center justify-center rounded bg-primary/20 ring-1 ring-primary/30 transition-all group-hover:bg-primary/30">
-            <span className="h-3 w-3 rounded-full bg-primary" />
-          </span>
-          <span className="text-[15px] font-semibold tracking-tight text-foreground">
-            Astrozen
-          </span>
+        <Link to="/" className="absolute top-6 left-6 lg:top-8 lg:left-8 z-20 group">
+          <BrandMark className="transition-opacity group-hover:opacity-80" />
         </Link>
 
         {/* Decorative background elements */}
