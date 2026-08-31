@@ -4,6 +4,8 @@
 
 **Still in progress.** Core flows are present; expect follow-up updates as features and docs evolve.
 
+Platform Site: https://astrozen.netlify.app/
+
 ![Projects overview](screenshots/projects.png)
 ![AI Generator](screenshots/ai-generator.png)
 ![Issues board](screenshots/issues.png)
