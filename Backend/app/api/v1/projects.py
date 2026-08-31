@@ -7,6 +7,7 @@ from app.api.deps import (
     check_is_admin,
     check_can_manage_project,
     check_is_team_member,
+    verify_project_in_org,
 )
 from app.models.user import User
 from app.schemas.project import (
@@ -306,6 +307,8 @@ def create_update_comment(
     current_user: User = Depends(get_current_active_user),
 ):
     """Create a new comment on a project update"""
+    verify_project_in_org(db, project_id, current_user)
+
     update = project_update.get(db, id=update_id)
     if not update or update.project_id != project_id:
         raise HTTPException(status_code=404, detail="Update not found")
@@ -327,6 +330,8 @@ def delete_update_comment(
     current_user: User = Depends(get_current_active_user),
 ):
     """Delete a comment on a project update"""
+    verify_project_in_org(db, project_id, current_user)
+
     comment = project_update_comment.get(db, id=comment_id)
     if not comment or comment.update_id != update_id:
         raise HTTPException(status_code=404, detail="Comment not found")
@@ -352,6 +357,8 @@ def toggle_update_reaction(
     current_user: User = Depends(get_current_active_user),
 ):
     """Toggle a reaction on a project update"""
+    verify_project_in_org(db, project_id, current_user)
+
     update = project_update.get(db, id=update_id)
     if not update or update.project_id != project_id:
         raise HTTPException(status_code=404, detail="Update not found")
@@ -374,6 +381,8 @@ def toggle_comment_reaction(
     current_user: User = Depends(get_current_active_user),
 ):
     """Toggle a reaction on a project update comment"""
+    verify_project_in_org(db, project_id, current_user)
+
     comment = project_update_comment.get(db, id=comment_id)
     if not comment or comment.update_id != update_id:
         raise HTTPException(status_code=404, detail="Comment not found")
