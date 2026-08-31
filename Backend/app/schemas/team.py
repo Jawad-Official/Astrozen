@@ -1,11 +1,18 @@
-from pydantic import BaseModel, UUID4, ConfigDict
+from pydantic import BaseModel, UUID4, ConfigDict, Field
 from typing import Optional, List
 from datetime import datetime
 
 
 class TeamBase(BaseModel):
     name: str
-    identifier: Optional[str] = None
+    # Matches the Team.identifier column (String(3)) - the DB migration
+    # that last touched this column set it to VARCHAR(3), and
+    # Team.generate_identifier() still truncates to 3 chars, so 3 is the
+    # real constraint; this was previously unenforced at the API layer,
+    # which meant a 4-5 char identifier passed validation here but raised
+    # a raw DB error on PostgreSQL (never on SQLite, which doesn't enforce
+    # VARCHAR length) - see BUG_FINDINGS.md BUG-1.
+    identifier: Optional[str] = Field(default=None, max_length=3)
 
 
 class TeamCreate(TeamBase):
@@ -17,7 +24,7 @@ class TeamCreate(TeamBase):
 
 class TeamUpdate(BaseModel):
     name: Optional[str] = None
-    identifier: Optional[str] = None
+    identifier: Optional[str] = Field(default=None, max_length=3)
     leader_ids: Optional[List[UUID4]] = None
     member_ids: Optional[List[UUID4]] = None
 
