@@ -680,7 +680,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
   };
 
   // Auto-save timer
-  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedDoc = docs.find(d => d.asset_type === selectedDocType);
 
   const fetchNodeDetails = useCallback(async (nodeId: string) => {

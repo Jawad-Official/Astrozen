@@ -12,6 +12,7 @@ from app.models.user import User
 from app.models.project import Project
 from app.models.document import Document
 from app.models.project_idea import ProjectIdea
+from app.models.feature import Feature
 
 
 def _make_org_with_admin_and_team(db_session, org_name, admin_email):
@@ -121,3 +122,45 @@ def test_sec2_cannot_read_another_users_idea(client, db_session):
         headers={"Authorization": f"Bearer {token_owner}"},
     )
     assert resp_ok.status_code == 200, resp_ok.text
+
+
+def test_sec5_milestone_create_and_update_require_feature_edit_permission(client, db_session):
+    """SEC-5: create_milestone/update_milestone must require the same
+    check_can_edit_feature permission delete_milestone already had - a
+    plain org member with no project-management role and no ownership of
+    the feature must not be able to create or rename milestones."""
+    org, team, _admin = _make_org_with_admin_and_team(db_session, "MilestoneOrg", "unused2@example.com")
+    plain_member = User(
+        email="plainmember@example.com", first_name="Plain", last_name="Member",
+        role="member", is_active=True, organization_id=org.id, hashed_password="x",
+    )
+    db_session.add(plain_member)
+    db_session.flush()
+
+    project = Project(name="Milestone Project", team_id=team.id, icon="x", color="#000")
+    db_session.add(project)
+    db_session.flush()
+    feature = Feature(project_id=project.id, name="A Feature", identifier=f"{team.identifier}-F1")
+    db_session.add(feature)
+    db_session.commit()
+
+    token = _token_for(plain_member)
+
+    create_resp = client.post(
+        f"/api/v1/features/{feature.id}/milestones",
+        json={"name": "Unauthorized milestone"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert create_resp.status_code == 403, create_resp.text
+
+    from app.models.feature import Milestone
+    existing_milestone = Milestone(feature_id=feature.id, name="Existing")
+    db_session.add(existing_milestone)
+    db_session.commit()
+
+    update_resp = client.patch(
+        f"/api/v1/features/{feature.id}/milestones/{existing_milestone.id}",
+        json={"name": "Renamed by attacker"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert update_resp.status_code == 403, update_resp.text

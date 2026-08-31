@@ -212,7 +212,7 @@ if not key:
 **Severity:** Medium — `mermaid` and `react-router`/`react-router-dom` are direct runtime `dependencies`, bundled into what Netlify serves.
 **File:** `Frontend/package.json:56,66`.
 **Evidence:** `mermaid` (moderate: prototype pollution, CSS-injection-to-sibling-elements, DoS) pulls in `dompurify <=3.4.12` (moderate: sanitizer bypass, IN_PLACE-hook XSS) — directly relevant to SEC-B1's `Mermaid.tsx:74` `innerHTML` sink, since Mermaid's own sanitizer is backed by this vulnerable dompurify range. `react-router`/`react-router-dom` (moderate: open redirect via backslash in `<Link>`/`useNavigate`) — this app is a client-rendered SPA (no SSR), so the SSR-hydration advisory in the same CVE family doesn't apply, but the open-redirect one does. The other 6 npm-audit advisories are build/lint/dev-server-only (traced via `npm ls`) and don't ship to production.
-**Fix:** `npm audit fix` resolves both without a major bump per the audit tool's own output. Effort: **S**.
+**Fix:** `npm audit fix` resolves the `mermaid`→`dompurify` chain without a major bump — done, see the corresponding commit. **Correction from initial write-up:** `react-router`/`react-router-dom` was assumed fixable the same way based on the `npm audit` read-only report's shape, but actually running `npm audit fix` shows it requires `--force` and a v6→v7 major bump (`react-router-dom@7.18.3`) — that assumption wasn't verified before being written down. Given `react-router-dom` is used throughout the app's routing (`App.tsx` and every page), a major version jump is a real migration, not a same-pass fix; deferred as its own deliberate upgrade decision rather than forced through here. Effort: **S** (done part) / **M** (deferred react-router major bump, if undertaken later).
 
 ---
 

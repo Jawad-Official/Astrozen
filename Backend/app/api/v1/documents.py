@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
@@ -12,6 +13,7 @@ from app.schemas import ai as schemas
 from app.services.document_service import document_service
 from app.services.storage_service import storage_service
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/", response_model=schemas.DocumentMeta)
@@ -44,13 +46,16 @@ async def create_document(
         # Add embed_url for response
         db_doc.embed_url = f"https://docs.google.com/document/d/{drive_file_id}/edit"
         return db_doc
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Failed to create document for project %s", project_id)
+        raise HTTPException(status_code=500, detail="Failed to create document")
 
 @router.get("/", response_model=List[schemas.DocumentMeta])
 async def list_documents(
     project_id: Optional[UUID] = None,
     idea_id: Optional[UUID] = None,
+    skip: int = 0,
+    limit: int = 100,
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ):
@@ -69,7 +74,7 @@ async def list_documents(
             raise HTTPException(status_code=404, detail="Idea not found")
         query = query.filter(Document.idea_id == idea_id)
 
-    docs = query.all()
+    docs = query.offset(skip).limit(limit).all()
     for doc in docs:
         doc.embed_url = f"https://docs.google.com/document/d/{doc.drive_file_id}/edit"
     return docs
@@ -94,8 +99,9 @@ async def delete_document(
         db.delete(doc)
         db.commit()
         return {"message": "Document deleted successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Failed to delete document %s", doc.id)
+        raise HTTPException(status_code=500, detail="Failed to delete document")
 
 @router.post("/doc/{doc_id}/sync")
 async def sync_document(
@@ -144,8 +150,9 @@ async def upload_document(
         
         doc.embed_url = f"https://docs.google.com/document/d/{doc.drive_file_id}/edit"
         return doc
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Failed to replace document %s from upload", doc.id)
+        raise HTTPException(status_code=500, detail="Failed to process uploaded document")
 
 @router.post("/doc/{doc_id}/apply-change")
 async def apply_change(
@@ -171,8 +178,9 @@ async def apply_change(
         await document_service.sync_doc_to_r2(doc.drive_file_id, doc.r2_path)
         
         return {"message": "Change applied successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Failed to apply change to document %s", doc.id)
+        raise HTTPException(status_code=500, detail="Failed to apply change")
 
 @router.post("/doc/{doc_id}/chat")
 async def chat_document(
@@ -202,5 +210,6 @@ async def chat_document(
         )
         
         return response
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Failed to chat about document %s", doc.id)
+        raise HTTPException(status_code=500, detail="Failed to process chat request")

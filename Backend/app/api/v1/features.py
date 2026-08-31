@@ -50,6 +50,8 @@ async def update_project_md_background(project_id: str):
 @router.get("", response_model=List[FeatureSchema])
 def list_features(
     project_id: Optional[UUID] = None,
+    skip: int = 0,
+    limit: int = 100,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -65,7 +67,7 @@ def list_features(
                 status_code=403, detail="Not authorized to view this project"
             )
 
-        return crud_feature.get_by_project(db, project_id=project_id)
+        return crud_feature.get_by_project(db, project_id=project_id, skip=skip, limit=limit)
 
     # Return all features in organization
     return crud_feature.get_multi_by_user_projects(
@@ -73,6 +75,8 @@ def list_features(
         user_id=current_user.id,
         user_team_ids=[],
         organization_id=current_user.organization_id,
+        skip=skip,
+        limit=limit,
     )
 
 
@@ -222,6 +226,12 @@ def create_milestone(
     if not feature:
         raise HTTPException(status_code=404, detail="Feature not found")
 
+    if not check_can_edit_feature(current_user, feature_id, db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only project managers or the feature owner can create milestones",
+        )
+
     milestone = crud_feature.create_milestone(
         db, feature_id=feature_id, obj_in=milestone_in
     )
@@ -240,6 +250,12 @@ def update_milestone(
     feature = crud_feature.get(db, id=feature_id)
     if not feature:
         raise HTTPException(status_code=404, detail="Feature not found")
+
+    if not check_can_edit_feature(current_user, feature_id, db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only project managers or the feature owner can update milestones",
+        )
 
     milestone = crud_feature.get_milestone(db, id=milestone_id)
     if not milestone or milestone.feature_id != feature_id:

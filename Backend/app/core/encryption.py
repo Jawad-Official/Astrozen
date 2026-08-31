@@ -35,12 +35,20 @@ def _get_fernet() -> Fernet | None:
 
 
 def encrypt_token(plaintext: str | None) -> str | None:
-    """Encrypt a token string. Returns None if input is None."""
+    """Encrypt a token string. Returns None if input is None, or if
+    encryption isn't configured (ENCRYPTION_KEY unset) - callers must
+    treat a None return as "don't store this token", not "store it
+    unencrypted anyway". Real Google OAuth credentials at rest in
+    plaintext is a Medium-severity finding on its own (see
+    SECURITY_FINDINGS.md SEC-10) - failing closed here means a missing
+    ENCRYPTION_KEY costs the (currently unused - see BUG_FINDINGS.md
+    BUG-7) captured token, not a plaintext secret in the database.
+    """
     if plaintext is None:
         return None
     f = _get_fernet()
     if f is None:
-        return plaintext
+        return None
     return f.encrypt(plaintext.encode("utf-8")).decode("utf-8")
 
 

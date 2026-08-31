@@ -45,8 +45,8 @@ ecdsa 0.19.2  PYSEC-2026-1325  Minerva timing attack on the P-256 curve via ecds
 
 | Package | Severity | Ships to production bundle? | Fix available |
 |---|---|---|---|
-| `mermaid` (→ `dompurify`) | Moderate | **Yes** — direct runtime dependency, feeds `Mermaid.tsx`'s `innerHTML` sink (compounds SEC-B1) | `npm audit fix`, no breaking change |
-| `react-router`/`react-router-dom` | Moderate | **Yes** — direct runtime dependency, app-wide routing | `npm audit fix`, no breaking change |
+| `mermaid` (→ `dompurify`) | Moderate | **Yes** — direct runtime dependency, feeds `Mermaid.tsx`'s `innerHTML` sink (compounds SEC-B1) | `npm audit fix`, no breaking change — **done** |
+| `react-router`/`react-router-dom` | Moderate | **Yes** — direct runtime dependency, app-wide routing | Actually requires `--force` + a v6→v7 major bump (correcting the initial assumption below) — **deferred**, see SEC-C4 |
 | `brace-expansion` | High | No — under `eslint`'s dependency tree, lint-time only | `npm audit fix` |
 | `js-yaml` | High | No — under `eslint`'s dependency tree | `npm audit fix` |
 | `nanoid` | High | No — under the `postcss`/`tailwindcss` build pipeline | `npm audit fix` |
@@ -54,7 +54,7 @@ ecdsa 0.19.2  PYSEC-2026-1325  Minerva timing attack on the P-256 curve via ecds
 | `esbuild` | Moderate | No — `vite@5.4.21`'s dev server only; the advisory ("any website can send requests to the dev server") doesn't apply to the static production build Netlify serves | Requires `vite@8.2.2` via `--force` (breaking) |
 | `dompurify` | Moderate | Bundled via `mermaid` (see above) | `npm audit fix` |
 
-**Fix:** run `npm audit fix` now (resolves `mermaid`, `react-router`/`react-router-dom`, `brace-expansion`, `js-yaml`, `nanoid`, `postcss`, `dompurify` — 7 of 10 — with no breaking changes, per the tool's own output). Leave the `vite`/`esbuild` major-version jump for a deliberate, separate upgrade decision rather than doing it as part of a routine audit fix — it's dev-server-only risk, not urgent. Effort: **S** for the `audit fix`, **M** if the `vite` v8 jump is later attempted (framer-motion, `@vitejs/plugin-react-swc`, and the manual-chunk config in `vite.config.ts` would all need re-verification against a major Vite version).
+**Fix — done:** ran `npm audit fix`, which resolved `mermaid`/`dompurify`, `brace-expansion`, `js-yaml`, `nanoid`, and `postcss` (6 of 10) with no breaking changes — verified via `eslint`, `tsc -b`, and a full production build afterward, all clean. **Correction:** `react-router`/`react-router-dom` turned out to require `--force` and a v6→v7 major bump (`react-router-dom@7.18.3`) once actually run — the original assumption that it would resolve the same way as the others wasn't verified before being written down. Left deferred as its own deliberate upgrade decision given `react-router-dom` is used throughout the app's routing. `vite`/`esbuild` remain deferred too, for the reason already given (dev-server-only risk, not urgent). Effort: **S** for the completed part, **M** for either deferred major bump if undertaken later.
 
 ---
 
@@ -63,7 +63,7 @@ ecdsa 0.19.2  PYSEC-2026-1325  Minerva timing attack on the P-256 curve via ecds
 Checked via `npm outdated`; only listing packages where the gap has a concrete reason to care, per the audit brief's own instruction not to flag staleness for its own sake:
 
 - **`vite` 5.4.21 → latest 8.2.2 (3 majors behind).** The only outdated-major with a security tie-in (the `esbuild` dev-server advisory above requires this jump to fully clear) — but since that advisory doesn't affect the production build, this is a "worth planning for eventually" item, not urgent.
-- **`react-router-dom` 6.30 → latest 7.18 (1 major behind).** The moderate open-redirect advisory (SEC-C4) is fixed within the 6.x line via `npm audit fix` — the major-version jump is not required for the security fix, so treat this as a separate, non-urgent maintenance decision (React Router 7 has real API changes).
+- **`react-router-dom` 6.30 → latest 7.18 (1 major behind).** Correcting an earlier assumption in this report: the moderate open-redirect advisory (SEC-C4) does **not** resolve within the 6.x line — `npm audit fix` requires `--force` and the full v7 jump to actually fix it. Treat the upgrade as its own deliberate migration (React Router 7 has real API changes) rather than a routine audit-fix side effect.
 - **`react`/`react-dom` 18.3 → latest 19.2 (1 major behind).** No active CVE. Maintenance-relevant in the medium term since React 18 will eventually stop receiving security backports, but there's no clock running on this today — don't prioritize it over any finding in this report.
 - **Everything else flagged by `npm outdated`** (the ~25 individually-versioned `@radix-ui/*` packages, `eslint`, `typescript`, `tailwindcss`, `zustand`, `zod`, etc.) is routine minor/patch drift or a major bump with no security or stated maintenance concern — not worth a founder's time to chase during this audit cycle.
 

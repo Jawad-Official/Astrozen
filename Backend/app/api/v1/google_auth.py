@@ -78,7 +78,9 @@ def google_callback(request: Request, code: str | None = None, state: str | None
         value=access_token,
         httponly=True,
         secure=True,
-        samesite="lax",
+        # See auth.py's /login for why this is None, not Lax - the
+        # frontend and this API are different origins.
+        samesite="none",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
     )
