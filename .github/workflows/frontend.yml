@@ -66,6 +66,15 @@ jobs:
         with:
           publish-dir: ./dist
           production-branch: main
+          # nwtgck/actions-netlify defaults production-deploy to false
+          # regardless of production-branch - without this, every deploy
+          # here was published as a throwaway draft (its own
+          # <deploy-id>--astrozen.netlify.app URL) and the real
+          # astrozen.netlify.app alias never advanced past whatever was
+          # last deployed by hand. This job already runs only on pushes to
+          # main (see the job-level `if` above), so always publishing to
+          # production here is correct.
+          production-deploy: true
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
