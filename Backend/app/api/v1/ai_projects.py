@@ -6,6 +6,7 @@ from fastapi import (
     UploadFile,
     File,
     Body,
+    Request,
 )
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -20,6 +21,7 @@ import ast
 import traceback
 from sqlalchemy.orm.attributes import flag_modified
 from app.api import deps
+from app.core.rate_limit import limiter
 from app.schemas import ai as schemas
 from app.crud import crud_project_idea, feature as crud_feature, issue as crud_issue
 from app.services.ai_service import ai_service, DOC_ORDER
@@ -87,7 +89,9 @@ def _get_owned_idea(db: Session, idea_id: str, current_user: User) -> ProjectIde
 
 
 @router.post("/idea/{idea_id}/blueprint/node/{node_id}/issues")
+@limiter.limit("20/hour")
 async def generate_issues_for_node(
+    request: Request,
     idea_id: str,
     node_id: str,
     db: Session = Depends(deps.get_db),
@@ -616,7 +620,9 @@ def _get_next_steps(idea: ProjectIdea, completed_docs: int, db: Session) -> List
 
 
 @router.post("/idea/{idea_id}/doc/upload", response_model=schemas.DocResponse)
+@limiter.limit("20/hour")
 async def upload_document(
+    request: Request,
     idea_id: str,
     doc_type: AssetType,
     file: UploadFile = File(...),
@@ -718,7 +724,9 @@ async def upload_document(
 
 
 @router.post("/idea/{idea_id}/blueprint/sync")
+@limiter.limit("20/hour")
 async def sync_blueprint_from_docs(
+    request: Request,
     idea_id: str,
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
@@ -802,7 +810,9 @@ async def sync_blueprint_from_docs(
 
 
 @router.post("/idea/submit", response_model=schemas.IdeaResponse)
+@limiter.limit("20/hour")
 async def submit_idea(
+    request: Request,
     idea_in: schemas.IdeaSubmit,
     project_id: Optional[str] = None,
     db: Session = Depends(deps.get_db),
@@ -900,7 +910,9 @@ async def submit_idea(
 
 
 @router.post("/idea/{idea_id}/suggest/{question_index}")
+@limiter.limit("20/hour")
 async def suggest_answer(
+    request: Request,
     idea_id: str,
     question_index: int,
     db: Session = Depends(deps.get_db),
@@ -972,7 +984,9 @@ async def answer_questions(
 @router.post(
     "/idea/{idea_id}/validate", response_model=schemas.ValidationReportResponse
 )
+@limiter.limit("20/hour")
 async def validate_idea(
+    request: Request,
     idea_id: str,
     feedback: Optional[str] = None,
     db: Session = Depends(deps.get_db),
@@ -1133,7 +1147,9 @@ async def update_validation_report(
 
 
 @router.post("/idea/{idea_id}/validate/regenerate-field")
+@limiter.limit("20/hour")
 async def regenerate_validation_field(
+    request: Request,
     idea_id: str,
     field_name: str,
     feedback: str,
@@ -1204,7 +1220,9 @@ async def regenerate_validation_field(
 
 
 @router.post("/idea/{idea_id}/validate/accept-improvements")
+@limiter.limit("20/hour")
 async def accept_improvements_and_revalidate(
+    request: Request,
     idea_id: str,
     accepted_improvements: List[int] = Body(
         ..., description="List of improvement indices to accept (0-based)"
@@ -1400,7 +1418,9 @@ Now re-validate with ALL improvements applied. The score MUST be HIGHER. Each pi
 
 
 @router.post("/idea/{idea_id}/blueprint", response_model=schemas.BlueprintResponse)
+@limiter.limit("20/hour")
 async def generate_blueprint(
+    request: Request,
     idea_id: str,
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
@@ -1511,7 +1531,9 @@ async def save_blueprint(
 
 
 @router.get("/idea/{idea_id}/doc/{doc_type}/questions")
+@limiter.limit("20/hour")
 async def get_doc_questions(
+    request: Request,
     idea_id: str,
     doc_type: AssetType,
     db: Session = Depends(deps.get_db),
@@ -1581,7 +1603,9 @@ async def get_doc_questions(
 
 
 @router.post("/idea/{idea_id}/doc/{doc_type}", response_model=schemas.DocResponse)
+@limiter.limit("20/hour")
 async def generate_document(
+    request: Request,
     idea_id: str,
     doc_type: AssetType,
     answers: Optional[List[Dict[str, str]]] = None,
@@ -1734,7 +1758,9 @@ async def generate_document(
 
 
 @router.post("/idea/{idea_id}/doc/{doc_type}/chat", response_model=schemas.DocResponse)
+@limiter.limit("20/hour")
 async def chat_document(
+    request: Request,
     idea_id: str,
     doc_type: AssetType,
     chat_req: schemas.DocChatRequest,
@@ -1787,7 +1813,9 @@ async def chat_document(
 
 
 @router.post("/idea/{idea_id}/doc/{doc_type}/regenerate-section")
+@limiter.limit("20/hour")
 async def regenerate_doc_section(
+    request: Request,
     idea_id: str,
     doc_type: AssetType,
     section_content: str,
@@ -2256,7 +2284,9 @@ async def get_document_analysis(
 
 
 @router.post("/idea/{idea_id}/doc/{doc_type}/enhance")
+@limiter.limit("20/hour")
 async def generate_document_enhancement(
+    request: Request,
     idea_id: str,
     doc_type: AssetType,
     db: Session = Depends(deps.get_db),
