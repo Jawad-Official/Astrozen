@@ -28,12 +28,19 @@ class GoogleAuthService:
         self.redirect_uri = settings.GOOGLE_REDIRECT_URI or "http://localhost:8000/api/v1/auth/google/callback"
         if not settings.GOOGLE_CLIENT_ID:
             logger.warning("GOOGLE_CLIENT_ID is not set. Google Auth will not work.")
+        # drive.file (per-file access) only, not the broader `documents`
+        # scope ("See, edit, create, and delete all your Google Docs
+        # documents"): this per-user OAuth grant isn't currently used for
+        # any live Drive/Docs API call at all (real access goes through
+        # the app's own service account - see BUG_FINDINGS.md BUG-7), so
+        # there's no functional reason for it to request more than the
+        # narrowest scope. Reduces the blast radius if a captured token
+        # is ever exposed. See SECURITY_FINDINGS.md SEC-10.
         self.scope = [
             "openid",
             "email",
             "profile",
             "https://www.googleapis.com/auth/drive.file",
-            "https://www.googleapis.com/auth/documents"
         ]
 
     def get_authorization_url(self, state: str) -> str:
