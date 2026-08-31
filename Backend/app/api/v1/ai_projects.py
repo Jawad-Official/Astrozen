@@ -2174,8 +2174,8 @@ async def convert_to_project(
                     identifier=f"{team_prefix}-{current_issue_num}",
                 )
                 db.add(issue)
-        except:
-            pass
+        except Exception as e:
+            logger.error(f"Failed to create kanban-derived issues for idea {idea_id}: {e}")
 
     idea.status = IdeaStatus.COMPLETED
     idea.project_id = new_project.id
