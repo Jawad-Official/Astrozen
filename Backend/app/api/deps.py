@@ -81,46 +81,66 @@ def check_is_admin(user: User) -> bool:
     return user.role == "admin"
 
 
-def check_is_team_leader(user: User, team_id: UUID) -> bool:
-    """Check if user is a leader of the specific team"""
+def check_is_team_leader(user: User, team_id: UUID, db: Session) -> bool:
+    """Check if user is a leader of the specific team.
+
+    The team must belong to the user's own organization before the admin
+    bypass is considered - otherwise an admin of one organization could act
+    on a team belonging to a different organization entirely.
+    """
+    from app.models.team_model import Team
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team or team.organization_id != user.organization_id:
+        return False
+
     if check_is_admin(user):
         return True
-    return any(team.id == team_id for team in user.led_teams)
+    return any(t.id == team_id for t in user.led_teams)
 
 
-def check_is_team_member(user: User, team_id: UUID) -> bool:
-    """Check if user is a member of the specific team"""
+def check_is_team_member(user: User, team_id: UUID, db: Session) -> bool:
+    """Check if user is a member of the specific team.
+
+    The team must belong to the user's own organization before the admin
+    bypass is considered - see check_is_team_leader.
+    """
+    from app.models.team_model import Team
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team or team.organization_id != user.organization_id:
+        return False
+
     if check_is_admin(user):
         return True
-    return any(team.id == team_id for team in user.teams)
+    return any(t.id == team_id for t in user.teams)
 
 
 def check_can_manage_project(user: User, project_id: UUID, db: Session) -> bool:
     """
     Check if user can edit/delete project:
+    0. Project must belong to the user's own organization
     1. Is org Admin (Always True)
     2. Is leader of the team assigned to the project
     3. Is the project lead
     """
-    if check_is_admin(user):
-        return True
-
     from app.models.project import Project
     project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
+    if not project or not project.team or project.team.organization_id != user.organization_id:
         return False
+
+    if check_is_admin(user):
+        return True
 
     # Check if project lead
     if project.lead_id == user.id:
         return True
 
     # Check primary team leadership
-    if check_is_team_leader(user, project.team_id):
+    if check_is_team_leader(user, project.team_id, db):
         return True
 
     # Check contributing teams leadership
     for team in project.teams:
-        if check_is_team_leader(user, team.id):
+        if check_is_team_leader(user, team.id, db):
             return True
 
     return False
@@ -129,20 +149,21 @@ def check_can_manage_project(user: User, project_id: UUID, db: Session) -> bool:
 def check_can_edit_issue(user: User, issue_id: UUID, db: Session) -> bool:
     """
     Check if user can edit/delete issue:
+    0. Issue must belong to the user's own organization
     1. Is org Admin (Always True)
     2. Is leader of the team the issue belongs to
     3. Is the assignee of the issue
     """
+    from app.models.issue import Issue
+    issue = db.query(Issue).filter(Issue.id == issue_id).first()
+    if not issue or not issue.team or issue.team.organization_id != user.organization_id:
+        return False
+
     if check_is_admin(user):
         return True
 
-    from app.models.issue import Issue
-    issue = db.query(Issue).filter(Issue.id == issue_id).first()
-    if not issue:
-        return False
-
     # Check team leadership
-    if check_is_team_leader(user, issue.team_id):
+    if check_is_team_leader(user, issue.team_id, db):
         return True
 
     # Check if assignee
@@ -155,17 +176,23 @@ def check_can_edit_issue(user: User, issue_id: UUID, db: Session) -> bool:
 def check_can_edit_feature(user: User, feature_id: UUID, db: Session) -> bool:
     """
     Check if user can edit/delete feature:
+    0. Feature's project must belong to the user's own organization
     1. Is org Admin (Always True)
     2. Has manage access to parent project
     3. Is the feature owner
     """
-    if check_is_admin(user):
-        return True
-
     from app.models.feature import Feature
     feature = db.query(Feature).filter(Feature.id == feature_id).first()
-    if not feature:
+    if (
+        not feature
+        or not feature.project
+        or not feature.project.team
+        or feature.project.team.organization_id != user.organization_id
+    ):
         return False
+
+    if check_is_admin(user):
+        return True
 
     # Check ownership
     if feature.owner_id == user.id:

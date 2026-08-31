@@ -102,7 +102,7 @@ async def create_issue(
     if not current_user.organization_id:
         raise HTTPException(status_code=400, detail="Must belong to an organization")
 
-    if not check_is_team_member(current_user, issue_in.team_id):
+    if not check_is_team_member(current_user, issue_in.team_id, db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You must be a member of the team to create issues in it",

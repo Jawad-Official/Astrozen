@@ -82,7 +82,7 @@ def create_project(
             detail="Every project must be assigned to at least one team",
         )
 
-    if not check_is_team_member(current_user, project_in.team_id):
+    if not check_is_team_member(current_user, project_in.team_id, db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You must be a member of the team to create projects in it",
