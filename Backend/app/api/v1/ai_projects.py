@@ -22,6 +22,7 @@ import traceback
 from sqlalchemy.orm.attributes import flag_modified
 from app.api import deps
 from app.core.rate_limit import limiter
+from app.crud.base import _coerce_uuid
 from app.schemas import ai as schemas
 from app.crud import crud_project_idea, feature as crud_feature, issue as crud_issue
 from app.services.ai_service import ai_service, DOC_ORDER
@@ -573,7 +574,7 @@ async def get_idea_progress(
     completed_docs = (
         db.query(ProjectAsset)
         .filter(
-            ProjectAsset.project_idea_id == idea_id,
+            ProjectAsset.project_idea_id == _coerce_uuid(idea_id),
             ProjectAsset.status == AssetStatus.COMPLETED,
             ProjectAsset.asset_type.in_(DOC_ORDER),
         )
@@ -584,7 +585,7 @@ async def get_idea_progress(
         "validation_report": idea.validation_report is not None,
         "blueprint": db.query(ProjectAsset)
         .filter(
-            ProjectAsset.project_idea_id == idea_id,
+            ProjectAsset.project_idea_id == _coerce_uuid(idea_id),
             ProjectAsset.asset_type == AssetType.DIAGRAM_USER_FLOW,
         )
         .first()
@@ -740,7 +741,7 @@ async def sync_blueprint_from_docs(
     assets = (
         db.query(ProjectAsset)
         .filter(
-            ProjectAsset.project_idea_id == idea_id,
+            ProjectAsset.project_idea_id == _coerce_uuid(idea_id),
             ProjectAsset.status == AssetStatus.COMPLETED,
         )
         .all()
@@ -1951,8 +1952,6 @@ async def link_issue_to_node(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Manually link an issue to a blueprint node."""
-    from app.crud.base import _coerce_uuid
-
     _get_owned_idea(db, idea_id, current_user)
     if not deps.check_can_edit_issue(current_user, issue_id, db):
         raise HTTPException(status_code=404, detail="Issue not found")
@@ -1972,8 +1971,6 @@ async def unlink_issue_from_node(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Unlink an issue from a blueprint node."""
-    from app.crud.base import _coerce_uuid
-
     _get_owned_idea(db, idea_id, current_user)
     if not deps.check_can_edit_issue(current_user, issue_id, db):
         raise HTTPException(status_code=404, detail="Issue link not found")
@@ -2002,7 +1999,7 @@ async def get_idea_details(
 
     # Load assets
     assets = (
-        db.query(ProjectAsset).filter(ProjectAsset.project_idea_id == idea_id).all()
+        db.query(ProjectAsset).filter(ProjectAsset.project_idea_id == _coerce_uuid(idea_id)).all()
     )
 
     # Serialize validation report from SQLAlchemy model
@@ -2107,8 +2104,6 @@ async def convert_to_project(
     """
     Phase 3: Finalize - Converts the validated idea and blueprint into a real Project.
     """
-    from app.crud.base import _coerce_uuid
-
     idea = _get_owned_idea(db, idea_id, current_user)
     if not idea.validation_report:
         raise HTTPException(status_code=400, detail="Idea not validated")
