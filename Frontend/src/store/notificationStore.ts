@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { toast } from 'sonner';
 import { notificationService, Notification } from '@/services/notifications';
 
 interface NotificationStore {
@@ -25,8 +26,9 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         unreadCount: res.data.unread_count,
         isLoading: false 
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch notifications', error);
+      toast.error(error?.response?.data?.detail || error?.message || "Failed to fetch notifications");
       set({ isLoading: false });
     }
   },
@@ -35,13 +37,14 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     try {
       await notificationService.markAsRead(id);
       set((state) => ({
-        notifications: state.notifications.map(n => 
+        notifications: state.notifications.map(n =>
           n.id === id ? { ...n, is_read: true } : n
         ),
         unreadCount: Math.max(0, state.unreadCount - 1)
       }));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to mark notification as read', error);
+      toast.error(error?.response?.data?.detail || error?.message || "Failed to mark notification as read");
     }
   },
 
@@ -52,8 +55,9 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         notifications: state.notifications.map(n => ({ ...n, is_read: true })),
         unreadCount: 0
       }));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to mark all notifications as read', error);
+      toast.error(error?.response?.data?.detail || error?.message || "Failed to mark all notifications as read");
     }
   }
 }));

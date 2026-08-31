@@ -690,6 +690,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
       setNodeDetails(res.data);
     } catch (error) {
       console.error("Failed to fetch node details", error);
+      toast.error("Failed to load node details");
     }
   }, [ideaId]);
 

@@ -532,12 +532,19 @@ async def get_project_ideas(
 
 
 @router.get("/project/{project_id}/ideas")
-async def get_project_ideas(
+async def list_ideas_for_project(
     project_id: str,
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """Get all ideas for a specific project, ordered by created_at descending."""
+    """Get all ideas for a specific project, ordered by created_at descending.
+
+    Distinct name from get_project_ideas above - both routes previously
+    shared the name get_project_ideas, which silently shadowed the first
+    definition in the module namespace (each still worked correctly as a
+    route, since FastAPI captures the function object at decoration time,
+    but the name collision was a latent trap for anything referencing the
+    function directly by name)."""
     deps.verify_project_in_org(db, project_id, current_user)
     ideas = (
         db.query(ProjectIdea)
@@ -1905,7 +1912,7 @@ async def download_doc_as_docx(
     )
 
 
-@router.get("/idea/{idea_id}/blueprint/node/{node_id}/details")
+@router.get("/idea/{idea_id}/blueprint/node/{node_id}/details", response_model=schemas.BlueprintNodeDetailsResponse)
 async def get_blueprint_node_details(
     idea_id: str,
     node_id: str,
@@ -1988,7 +1995,7 @@ async def unlink_issue_from_node(
     return {"message": "Issue unlinked successfully"}
 
 
-@router.get("/idea/{idea_id}", response_model=Any)
+@router.get("/idea/{idea_id}", response_model=schemas.IdeaDetailsResponse)
 async def get_idea_details(
     idea_id: str,
     db: Session = Depends(deps.get_db),
@@ -2174,8 +2181,8 @@ async def convert_to_project(
                     identifier=f"{team_prefix}-{current_issue_num}",
                 )
                 db.add(issue)
-        except:
-            pass
+        except Exception as e:
+            logger.error(f"Failed to create kanban-derived issues for idea {idea_id}: {e}")
 
     idea.status = IdeaStatus.COMPLETED
     idea.project_id = new_project.id

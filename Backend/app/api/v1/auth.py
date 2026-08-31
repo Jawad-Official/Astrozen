@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -22,8 +22,12 @@ def register(request: Request, user_in: UserCreate, db: Session = Depends(get_db
         user = auth_service.register_user(db, user_in=user_in)
         log_event(REGISTER, user_id=str(user.id), ip_address=request.client.host if request.client else None)
         return user
-    except Exception as e:
-        log_event(REGISTER, success=False, ip_address=request.client.host if request.client else None, detail=str(e))
+    except HTTPException as e:
+        # register_user only ever raises HTTPException for its expected
+        # failure paths (duplicate email, etc.) - narrowed from a bare
+        # Exception so an unrelated internal error doesn't get logged into
+        # the audit trail as if it were an ordinary registration failure.
+        log_event(REGISTER, success=False, ip_address=request.client.host if request.client else None, detail=str(e.detail))
         raise
 
 
@@ -59,8 +63,11 @@ def login(
             path="/",
         )
         return response
-    except Exception as e:
-        log_event(LOGIN_FAILURE, success=False, ip_address=request.client.host if request.client else None, detail=str(e))
+    except HTTPException as e:
+        # login_user only ever raises HTTPException for its expected
+        # failure paths (bad credentials, inactive user, etc.) - see the
+        # register handler above for why this is narrowed.
+        log_event(LOGIN_FAILURE, success=False, ip_address=request.client.host if request.client else None, detail=str(e.detail))
         raise
 
 

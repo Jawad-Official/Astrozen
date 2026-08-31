@@ -603,7 +603,13 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
           issueService.getComments(issueId),
           issueService.getActivities(issueId)
         ]);
-        set({ comments, activities });
+        // Guard against a stale response: if the user has since selected a
+        // different issue (or cleared the selection) while this request was
+        // in flight, don't clobber the newer selection's data with this
+        // now-outdated one.
+        if (get().selectedIssueId === issueId) {
+          set({ comments, activities });
+        }
       } catch (error) {
         console.error('Failed to fetch issue details', error);
       }
@@ -640,10 +646,19 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
   },
 
   saveFilter: (name) => {
-    void name;
+    set((state) => ({
+      savedFilters: [
+        ...state.savedFilters,
+        { id: Math.random().toString(36).substr(2, 9), name, filters: { ...state.activeFilters } },
+      ],
+    }));
   },
   loadFilter: (filter) => set({ activeFilters: { ...filter.filters } }),
-  deleteFilter: (id) => {},
+  deleteFilter: (id) => {
+    set((state) => ({
+      savedFilters: state.savedFilters.filter((f) => f.id !== id),
+    }));
+  },
   setActiveFilters: (filters) => set((state) => ({ activeFilters: { ...state.activeFilters, ...filters } })),
   clearFilters: () => set({ activeFilters: defaultFilters }),
 
