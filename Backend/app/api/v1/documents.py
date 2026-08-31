@@ -1,6 +1,9 @@
 import logging
+import re
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
 import sqlalchemy as sa
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 from typing import List, Any, Optional
@@ -16,6 +19,11 @@ from app.services.storage_service import storage_service
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+
+def _slugify_title(title: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", title.strip().lower()).strip("-")
+    return slug or "untitled"
+
 @router.post("/", response_model=schemas.DocumentMeta)
 async def create_document(
     project_id: UUID,
@@ -28,12 +36,17 @@ async def create_document(
     deps.verify_project_in_org(db, project_id, current_user)
     try:
         drive_file_id = await document_service.create_google_doc(title, content_md, user_email=current_user.email)
-        r2_path = f"projects/{project_id}/docs/{title.replace(' ', '_').lower()}.md"
-        
+        doc_id = uuid.uuid4()
+        # Server-generated, collision-safe key: two documents with the same
+        # title in a project would otherwise both slugify to the same
+        # r2_path, which is unique=True on the Document model.
+        r2_path = f"projects/{project_id}/docs/{_slugify_title(title)}-{doc_id}.md"
+
         # Initial sync to R2
         await document_service.sync_doc_to_r2(drive_file_id, r2_path)
-        
+
         db_doc = Document(
+            id=doc_id,
             project_id=project_id,
             drive_file_id=drive_file_id,
             r2_path=r2_path,
@@ -42,10 +55,14 @@ async def create_document(
         db.add(db_doc)
         db.commit()
         db.refresh(db_doc)
-        
+
         # Add embed_url for response
         db_doc.embed_url = f"https://docs.google.com/document/d/{drive_file_id}/edit"
         return db_doc
+    except IntegrityError:
+        db.rollback()
+        logger.exception("Document key collision for project %s", project_id)
+        raise HTTPException(status_code=409, detail="A document with this identifier already exists")
     except Exception:
         logger.exception("Failed to create document for project %s", project_id)
         raise HTTPException(status_code=500, detail="Failed to create document")
