@@ -52,6 +52,27 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _strip_unsafe_images(html: str) -> str:
+    """Remove <img> src values that would make html2docx fetch an external
+    URL server-side. html2docx's image loader (urllib.request.urlopen) has
+    no scheme/host restriction, so an attacker-controlled markdown ->
+    HTML image tag becomes a blind SSRF primitive (internal network
+    recon, cloud metadata endpoints, or `file://` local reads) reachable
+    just by uploading a document and later downloading it as .docx.
+    Only `data:` URIs (embedded, not fetched) are left in place - this
+    app's generated/uploaded documents have no legitimate need to
+    reference an arbitrary external image URL.
+    """
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(html, "html.parser")
+    for img in soup.find_all("img"):
+        src = img.get("src", "")
+        if not src.startswith("data:"):
+            img.decompose()
+    return str(soup)
+
+
 def _get_owned_idea(db: Session, idea_id: str, current_user: User) -> ProjectIdea:
     """Fetch a ProjectIdea and verify it belongs to the current user.
 
@@ -1838,6 +1859,10 @@ async def download_doc_as_docx(
 
     # Wrap in basic HTML structure for better conversion
     full_html = f"<html><body>{html_content}</body></html>"
+
+    # Strip any <img src="..."> that would make html2docx fetch an
+    # external URL server-side (SSRF) - see _strip_unsafe_images.
+    full_html = _strip_unsafe_images(full_html)
 
     # Convert HTML to Docx in memory
     docx_io = html2docx(full_html, title=doc_type.value)
