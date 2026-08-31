@@ -5,6 +5,7 @@ from typing import Optional, List, Dict, Any
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload, MediaInMemoryUpload
 from markdownify import markdownify as md
+from starlette.concurrency import run_in_threadpool
 from app.core.config import settings
 from app.services.storage_service import storage_service
 from app.services.service_account import get_service_account_credentials
@@ -40,22 +41,24 @@ class DocumentService:
         html_content = markdown.markdown(content_md)
         
         media = MediaInMemoryUpload(html_content.encode('utf-8'), mimetype='text/html')
-        
-        file = self.drive_service.files().create(
-            body=file_metadata,
-            media_body=media,
-            fields='id'
-        ).execute()
-        
+
+        file = await run_in_threadpool(
+            lambda: self.drive_service.files().create(
+                body=file_metadata,
+                media_body=media,
+                fields='id'
+            ).execute()
+        )
+
         drive_file_id = file.get('id')
-        
+
         # Share with user if email provided
         if user_email:
             try:
-                self.share_document_with_user(drive_file_id, user_email)
+                await run_in_threadpool(self.share_document_with_user, drive_file_id, user_email)
             except Exception as e:
                 logger.error(f"Failed to share document {drive_file_id} with {user_email}: {e}")
-        
+
         return drive_file_id
 
     def share_document_with_user(self, drive_file_id: str, email: str, role: str = 'writer'):
@@ -89,11 +92,13 @@ class DocumentService:
             raise Exception("Google Drive service not initialized")
 
         # Export as text/plain or text/markdown if supported, but html is safest for conversion
-        content_html = self.drive_service.files().export(
-            fileId=drive_file_id,
-            mimeType='text/html'
-        ).execute()
-        
+        content_html = await run_in_threadpool(
+            lambda: self.drive_service.files().export(
+                fileId=drive_file_id,
+                mimeType='text/html'
+            ).execute()
+        )
+
         return md(content_html.decode('utf-8'))
 
     async def sync_doc_to_r2(self, drive_file_id: str, r2_path: str):
@@ -107,14 +112,18 @@ class DocumentService:
         if not self.docs_service:
             raise Exception("Google Docs service not initialized")
             
-        self.docs_service.documents().batchUpdate(
-            documentId=drive_file_id,
-            body={'requests': requests}
-        ).execute()
+        await run_in_threadpool(
+            lambda: self.docs_service.documents().batchUpdate(
+                documentId=drive_file_id,
+                body={'requests': requests}
+            ).execute()
+        )
 
     async def delete_google_doc(self, drive_file_id: str):
         """Deletes a file from Google Drive."""
         if self.drive_service:
-            self.drive_service.files().delete(fileId=drive_file_id).execute()
+            await run_in_threadpool(
+                lambda: self.drive_service.files().delete(fileId=drive_file_id).execute()
+            )
 
 document_service = DocumentService()

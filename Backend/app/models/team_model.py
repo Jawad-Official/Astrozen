@@ -54,7 +54,11 @@ class Team(Base):
         nullable=False,
     )
     name = Column(String, nullable=False)
-    identifier = Column(String(5), nullable=False)
+    # Matches the actual DB column (VARCHAR(3), set by migration
+    # fdf4ab59a20e) - was previously declared String(5) here, diverging
+    # from both the real column type and generate_identifier()'s 3-char
+    # truncation below. See BUG_FINDINGS.md BUG-1.
+    identifier = Column(String(3), nullable=False)
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     deleted_at = Column(DateTime, nullable=True)

@@ -1,5 +1,6 @@
 from openai import OpenAI
 from fastapi import HTTPException
+from starlette.concurrency import run_in_threadpool
 from app.core.config import settings
 import json
 import re
@@ -177,9 +178,15 @@ class AIService:
         """Prepend the guardrail to user-facing prompts to prevent prompt injection."""
         return GUARDRAIL + user_content
 
-    def _call_ai(self, prompt: str, **kwargs) -> Any:
-        """Call the AI model with the prompt."""
-        return self.client.chat.completions.create(
+    async def _call_ai(self, prompt: str, **kwargs) -> Any:
+        """Call the AI model with the prompt.
+
+        The OpenAI SDK client here is the synchronous variant (`OpenAI`,
+        not `AsyncOpenAI`) - offload to a thread so a slow LLM completion
+        doesn't block the single event loop this app runs on.
+        """
+        return await run_in_threadpool(
+            self.client.chat.completions.create,
             model=self.model,
             messages=[{"role": "user", "content": self._build_prompt(prompt)}],
             **kwargs,
@@ -210,7 +217,7 @@ class AIService:
         Return a JSON object with a "questions" key containing a list of strings, e.g., {{"questions": ["Question 1?", "Question 2?"]}}.
         """
         try:
-            response = self._call_ai(
+            response = await self._call_ai(
                 prompt,
                 response_format={"type": "json_object"},
                 max_tokens=2000,
@@ -259,7 +266,7 @@ class AIService:
         Provide a clear, actionable suggestion. Return ONLY the suggested answer text.
         """
         try:
-            response = self._call_ai(
+            response = await self._call_ai(
                 prompt,
                 max_tokens=3000,
             )
@@ -468,7 +475,7 @@ class AIService:
         """
         try:
             logger.info(f"Calling AI model: {self.model}")
-            response = self._call_ai(
+            response = await self._call_ai(
                 prompt,
                 response_format={"type": "json_object"},
                 max_tokens=8192,
@@ -640,7 +647,7 @@ class AIService:
         {field_instruction}
         """
         try:
-            response = self._call_ai(
+            response = await self._call_ai(
                 prompt,
                 response_format={"type": "json_object"},
                 max_tokens=3000,
@@ -689,7 +696,7 @@ class AIService:
         }}
         """
         try:
-            response = self._call_ai(
+            response = await self._call_ai(
                 prompt,
                 response_format={"type": "json_object"},
                 max_tokens=8192,
@@ -744,7 +751,7 @@ class AIService:
         }}
         """
         try:
-            response = self._call_ai(
+            response = await self._call_ai(
                 prompt,
                 response_format={"type": "json_object"},
                 max_tokens=8192,
@@ -794,7 +801,7 @@ class AIService:
         Otherwise, return the ID in a JSON object: {{"node_id": "the_matching_id"}}.
         """
         try:
-            response = self._call_ai(
+            response = await self._call_ai(
                 prompt,
                 response_format={"type": "json_object"},
                 max_tokens=500,
@@ -832,7 +839,7 @@ class AIService:
         Return a JSON object with a "features" key containing the list.
         """
         try:
-            response = self._call_ai(
+            response = await self._call_ai(
                 prompt,
                 response_format={"type": "json_object"},
                 max_tokens=4000,
@@ -899,7 +906,7 @@ class AIService:
         }}
         """
         try:
-            response = self._call_ai(
+            response = await self._call_ai(
                 prompt,
                 response_format={"type": "json_object"},
                 max_tokens=3000,
@@ -1046,7 +1053,7 @@ class AIService:
         Return the COMPLETE Markdown content for the document with proper formatting.
         """
         try:
-            response = self._call_ai(
+            response = await self._call_ai(
                 prompt,
                 max_tokens=8000,
             )
@@ -1083,7 +1090,7 @@ class AIService:
         Return the complete updated Markdown content for the entire document with the regenerated section.
         """
         try:
-            response = self._call_ai(
+            response = await self._call_ai(
                 prompt,
                 max_tokens=8000,
             )
@@ -1126,7 +1133,7 @@ class AIService:
         Return the COMPLETE UPDATED Markdown content for the document, incorporating the user's changes.
         """
         try:
-            response = self._call_ai(
+            response = await self._call_ai(
                 prompt,
                 max_tokens=8000,
             )
@@ -1171,7 +1178,7 @@ class AIService:
         Be precise with the 'find' text. It must match exactly.
         """
         try:
-            response = self._call_ai(
+            response = await self._call_ai(
                 prompt,
                 response_format={"type": "json_object"},
                 max_tokens=4000,

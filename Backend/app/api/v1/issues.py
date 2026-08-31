@@ -102,7 +102,7 @@ async def create_issue(
     if not current_user.organization_id:
         raise HTTPException(status_code=400, detail="Must belong to an organization")
 
-    if not check_is_team_member(current_user, issue_in.team_id):
+    if not check_is_team_member(current_user, issue_in.team_id, db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You must be a member of the team to create issues in it",
@@ -186,6 +186,8 @@ def add_comment(
     issue = crud_issue.get(db, id=issue_id)
     if not issue:
         raise HTTPException(status_code=404, detail="Issue not found")
+    if not issue.team or issue.team.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=403, detail="Not authorized to comment on this issue")
 
     comment = issue_service.add_comment(
         db, issue_id=issue_id, content=comment_in.content, author_id=current_user.id
@@ -201,6 +203,12 @@ def get_comments(
     current_user: User = Depends(get_current_active_user),
 ):
     """Get comments for an issue"""
+    issue = crud_issue.get(db, id=issue_id)
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+    if not issue.team or issue.team.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this issue")
+
     comments = crud_comment.get_by_issue(db, issue_id=issue_id)
     return comments
 
@@ -212,5 +220,11 @@ def get_activities(
     current_user: User = Depends(get_current_active_user),
 ):
     """Get activity history for an issue"""
+    issue = crud_issue.get(db, id=issue_id)
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+    if not issue.team or issue.team.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this issue")
+
     activities = crud_activity.get_by_issue(db, issue_id=issue_id)
     return activities

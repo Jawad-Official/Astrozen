@@ -7,7 +7,6 @@ from app.crud import (
     feature as crud_feature,
     issue as crud_issue,
 )
-from app.services.project_service import project_service
 from app.services.notification_service import notification_service
 from app.models.notification import NotificationType
 from app.models.team_model import Team
@@ -121,9 +120,6 @@ class TeamService:
         db.commit()
         db.refresh(team)
 
-        # Sync members with projects
-        project_service.sync_team_members(db, team_id=team.id)
-
         # 5. Import data if requested
         if team_in.import_from_team_id:
             self.import_data(
@@ -200,9 +196,6 @@ class TeamService:
         db.add(team)
         db.commit()
         db.refresh(team)
-
-        # Sync members with projects
-        project_service.sync_team_members(db, team_id=team_id)
 
         return team
 

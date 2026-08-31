@@ -6,6 +6,7 @@ from fastapi import (
     UploadFile,
     File,
     Body,
+    Request,
 )
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -20,6 +21,8 @@ import ast
 import traceback
 from sqlalchemy.orm.attributes import flag_modified
 from app.api import deps
+from app.core.rate_limit import limiter
+from app.crud.base import _coerce_uuid
 from app.schemas import ai as schemas
 from app.crud import crud_project_idea, feature as crud_feature, issue as crud_issue
 from app.services.ai_service import ai_service, DOC_ORDER
@@ -52,8 +55,44 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _strip_unsafe_images(html: str) -> str:
+    """Remove <img> src values that would make html2docx fetch an external
+    URL server-side. html2docx's image loader (urllib.request.urlopen) has
+    no scheme/host restriction, so an attacker-controlled markdown ->
+    HTML image tag becomes a blind SSRF primitive (internal network
+    recon, cloud metadata endpoints, or `file://` local reads) reachable
+    just by uploading a document and later downloading it as .docx.
+    Only `data:` URIs (embedded, not fetched) are left in place - this
+    app's generated/uploaded documents have no legitimate need to
+    reference an arbitrary external image URL.
+    """
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(html, "html.parser")
+    for img in soup.find_all("img"):
+        src = img.get("src", "")
+        if not src.startswith("data:"):
+            img.decompose()
+    return str(soup)
+
+
+def _get_owned_idea(db: Session, idea_id: str, current_user: User) -> ProjectIdea:
+    """Fetch a ProjectIdea and verify it belongs to the current user.
+
+    Raises 404 (not 403) whether the idea is missing or simply not the
+    caller's, so a cross-user request can't distinguish "doesn't exist"
+    from "exists but isn't yours".
+    """
+    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
+    if not idea or idea.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Idea not found")
+    return idea
+
+
 @router.post("/idea/{idea_id}/blueprint/node/{node_id}/issues")
+@limiter.limit("20/hour")
 async def generate_issues_for_node(
+    request: Request,
     idea_id: str,
     node_id: str,
     db: Session = Depends(deps.get_db),
@@ -62,8 +101,8 @@ async def generate_issues_for_node(
     """
     AI generates detailed Features, Milestones, and Issues for a specific blueprint node.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea or not idea.project_id:
+    idea = _get_owned_idea(db, idea_id, current_user)
+    if not idea.project_id:
         raise HTTPException(status_code=404, detail="Idea or linked project not found")
 
     from app.models.project import Project
@@ -447,9 +486,7 @@ async def approve_validation_report(
     Phase 2 Approval: Accepts the validation report and triggers automatic feature creation.
     This runs in the background and creates features/sub-features in the database.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     if not idea.validation_report:
         raise HTTPException(
@@ -470,6 +507,7 @@ async def get_project_ideas(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get all ideas for a project, ordered by most recent."""
+    deps.verify_project_in_org(db, project_id, current_user)
     ideas = (
         db.query(ProjectIdea)
         .filter(ProjectIdea.project_id == project_id)
@@ -500,6 +538,7 @@ async def get_project_ideas(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get all ideas for a specific project, ordered by created_at descending."""
+    deps.verify_project_in_org(db, project_id, current_user)
     ideas = (
         db.query(ProjectIdea)
         .filter(ProjectIdea.project_id == project_id)
@@ -529,15 +568,13 @@ async def get_idea_progress(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get progress dashboard for an idea."""
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     # Count completed docs
     completed_docs = (
         db.query(ProjectAsset)
         .filter(
-            ProjectAsset.project_idea_id == idea_id,
+            ProjectAsset.project_idea_id == _coerce_uuid(idea_id),
             ProjectAsset.status == AssetStatus.COMPLETED,
             ProjectAsset.asset_type.in_(DOC_ORDER),
         )
@@ -548,7 +585,7 @@ async def get_idea_progress(
         "validation_report": idea.validation_report is not None,
         "blueprint": db.query(ProjectAsset)
         .filter(
-            ProjectAsset.project_idea_id == idea_id,
+            ProjectAsset.project_idea_id == _coerce_uuid(idea_id),
             ProjectAsset.asset_type == AssetType.DIAGRAM_USER_FLOW,
         )
         .first()
@@ -584,7 +621,9 @@ def _get_next_steps(idea: ProjectIdea, completed_docs: int, db: Session) -> List
 
 
 @router.post("/idea/{idea_id}/doc/upload", response_model=schemas.DocResponse)
+@limiter.limit("20/hour")
 async def upload_document(
+    request: Request,
     idea_id: str,
     doc_type: AssetType,
     file: UploadFile = File(...),
@@ -597,9 +636,7 @@ async def upload_document(
     """
     MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     content = ""
     filename = file.filename.lower() if file.filename else ""
@@ -688,7 +725,9 @@ async def upload_document(
 
 
 @router.post("/idea/{idea_id}/blueprint/sync")
+@limiter.limit("20/hour")
 async def sync_blueprint_from_docs(
+    request: Request,
     idea_id: str,
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
@@ -696,15 +735,13 @@ async def sync_blueprint_from_docs(
     """
     Syncs validation and blueprint from existing manual docs.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     # Fetch all completed assets (docs) for this idea
     assets = (
         db.query(ProjectAsset)
         .filter(
-            ProjectAsset.project_idea_id == idea_id,
+            ProjectAsset.project_idea_id == _coerce_uuid(idea_id),
             ProjectAsset.status == AssetStatus.COMPLETED,
         )
         .all()
@@ -774,7 +811,9 @@ async def sync_blueprint_from_docs(
 
 
 @router.post("/idea/submit", response_model=schemas.IdeaResponse)
+@limiter.limit("20/hour")
 async def submit_idea(
+    request: Request,
     idea_in: schemas.IdeaSubmit,
     project_id: Optional[str] = None,
     db: Session = Depends(deps.get_db),
@@ -872,7 +911,9 @@ async def submit_idea(
 
 
 @router.post("/idea/{idea_id}/suggest/{question_index}")
+@limiter.limit("20/hour")
 async def suggest_answer(
+    request: Request,
     idea_id: str,
     question_index: int,
     db: Session = Depends(deps.get_db),
@@ -881,8 +922,8 @@ async def suggest_answer(
     """
     Phase 1: Skip & Suggest - AI suggests an answer for a specific clarification question.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea or not idea.clarification_questions:
+    idea = _get_owned_idea(db, idea_id, current_user)
+    if not idea.clarification_questions:
         raise HTTPException(status_code=404, detail="Idea or questions not found")
 
     if question_index >= len(idea.clarification_questions):
@@ -918,11 +959,7 @@ async def answer_questions(
     """
     Phase 1: Answer Clarifications - Updates the idea with answers.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
-    if idea.user_id != str(current_user.id):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     # Update questions with answers
     answer_dict = {a.question: a.answer for a in answers}
@@ -948,7 +985,9 @@ async def answer_questions(
 @router.post(
     "/idea/{idea_id}/validate", response_model=schemas.ValidationReportResponse
 )
+@limiter.limit("20/hour")
 async def validate_idea(
+    request: Request,
     idea_id: str,
     feedback: Optional[str] = None,
     db: Session = Depends(deps.get_db),
@@ -957,9 +996,7 @@ async def validate_idea(
     """
     Phase 2: Validation & Analysis - Validates idea against 6 core pillars.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     # If validation report exists and no feedback, return serialized version
     if idea.validation_report and not feedback:
@@ -1075,8 +1112,8 @@ async def update_validation_report(
     Phase 2: Manual Edit Update - Saves manual changes to the validation report.
     Auto-saves user edits.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea or not idea.validation_report:
+    idea = _get_owned_idea(db, idea_id, current_user)
+    if not idea.validation_report:
         raise HTTPException(status_code=404, detail="Report not found")
 
     report = idea.validation_report
@@ -1111,7 +1148,9 @@ async def update_validation_report(
 
 
 @router.post("/idea/{idea_id}/validate/regenerate-field")
+@limiter.limit("20/hour")
 async def regenerate_validation_field(
+    request: Request,
     idea_id: str,
     field_name: str,
     feedback: str,
@@ -1122,8 +1161,8 @@ async def regenerate_validation_field(
     Phase 2: Regenerate a specific validation field based on user feedback.
     Supports nested fields like 'tech_stack.database'.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea or not idea.validation_report:
+    idea = _get_owned_idea(db, idea_id, current_user)
+    if not idea.validation_report:
         raise HTTPException(status_code=404, detail="Report not found")
 
     # Handle nested field names like 'tech_stack.database'
@@ -1182,7 +1221,9 @@ async def regenerate_validation_field(
 
 
 @router.post("/idea/{idea_id}/validate/accept-improvements")
+@limiter.limit("20/hour")
 async def accept_improvements_and_revalidate(
+    request: Request,
     idea_id: str,
     accepted_improvements: List[int] = Body(
         ..., description="List of improvement indices to accept (0-based)"
@@ -1197,8 +1238,8 @@ async def accept_improvements_and_revalidate(
     - AI re-validates 6 core pillars considering accepted improvements
     """
     try:
-        idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-        if not idea or not idea.validation_report:
+        idea = _get_owned_idea(db, idea_id, current_user)
+        if not idea.validation_report:
             raise HTTPException(status_code=404, detail="Report not found")
 
         all_improvements = idea.validation_report.improvements or []
@@ -1378,7 +1419,9 @@ Now re-validate with ALL improvements applied. The score MUST be HIGHER. Each pi
 
 
 @router.post("/idea/{idea_id}/blueprint", response_model=schemas.BlueprintResponse)
+@limiter.limit("20/hour")
 async def generate_blueprint(
+    request: Request,
     idea_id: str,
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
@@ -1386,8 +1429,8 @@ async def generate_blueprint(
     """
     Phase 3: Visual Blueprint - Generates User Flow and Kanban.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea or not idea.validation_report:
+    idea = _get_owned_idea(db, idea_id, current_user)
+    if not idea.validation_report:
         raise HTTPException(status_code=400, detail="Idea not validated yet")
 
     context = {
@@ -1458,24 +1501,22 @@ async def generate_blueprint(
 @router.put("/idea/{idea_id}/blueprint")
 async def save_blueprint(
     idea_id: str,
-    blueprint_in: Dict[str, Any],
+    blueprint_in: schemas.BlueprintSaveRequest,
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Manually save updated blueprint data (node positions, etc.).
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     import json
 
     content = json.dumps(
         {
-            "nodes": blueprint_in.get("nodes", []),
-            "edges": blueprint_in.get("edges", []),
-            "user_flow_mermaid": blueprint_in.get("user_flow_mermaid", ""),
+            "nodes": [n.model_dump(by_alias=True) for n in blueprint_in.nodes],
+            "edges": [e.model_dump(by_alias=True) for e in blueprint_in.edges],
+            "user_flow_mermaid": blueprint_in.user_flow_mermaid,
         }
     )
 
@@ -1491,7 +1532,9 @@ async def save_blueprint(
 
 
 @router.get("/idea/{idea_id}/doc/{doc_type}/questions")
+@limiter.limit("20/hour")
 async def get_doc_questions(
+    request: Request,
     idea_id: str,
     doc_type: AssetType,
     db: Session = Depends(deps.get_db),
@@ -1502,9 +1545,7 @@ async def get_doc_questions(
     Returns empty if no questions are needed.
     Includes AI suggestions for skipping questions.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     # Build project context
     project_context = {
@@ -1563,7 +1604,9 @@ async def get_doc_questions(
 
 
 @router.post("/idea/{idea_id}/doc/{doc_type}", response_model=schemas.DocResponse)
+@limiter.limit("20/hour")
 async def generate_document(
+    request: Request,
     idea_id: str,
     doc_type: AssetType,
     answers: Optional[List[Dict[str, str]]] = None,
@@ -1575,9 +1618,7 @@ async def generate_document(
     Checks if previous docs are completed before proceeding.
     Answers are from the question flow that users answered (or skipped with AI suggestions).
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     # Check dependencies - previous doc must be completed
     doc_index = ai_service.get_doc_index(doc_type.value)
@@ -1718,7 +1759,9 @@ async def generate_document(
 
 
 @router.post("/idea/{idea_id}/doc/{doc_type}/chat", response_model=schemas.DocResponse)
+@limiter.limit("20/hour")
 async def chat_document(
+    request: Request,
     idea_id: str,
     doc_type: AssetType,
     chat_req: schemas.DocChatRequest,
@@ -1729,13 +1772,13 @@ async def chat_document(
     Phase 4: Chat about Doc - Regenerates/Edits doc based on user feedback.
     Each doc has its own chat session.
     """
+    idea = _get_owned_idea(db, idea_id, current_user)
+
     asset = crud_project_idea.project_idea.get_asset(
         db=db, idea_id=idea_id, asset_type=doc_type
     )
     if not asset:
         raise HTTPException(status_code=404, detail="Doc not found")
-
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
 
     # Get chat history
     chat_history = asset.chat_history or []
@@ -1771,7 +1814,9 @@ async def chat_document(
 
 
 @router.post("/idea/{idea_id}/doc/{doc_type}/regenerate-section")
+@limiter.limit("20/hour")
 async def regenerate_doc_section(
+    request: Request,
     idea_id: str,
     doc_type: AssetType,
     section_content: str,
@@ -1783,13 +1828,13 @@ async def regenerate_doc_section(
     Phase 4: Regenerate a specific section of a document.
     User can select text and ask AI to regenerate a better version.
     """
+    idea = _get_owned_idea(db, idea_id, current_user)
+
     asset = crud_project_idea.project_idea.get_asset(
         db=db, idea_id=idea_id, asset_type=doc_type
     )
     if not asset:
         raise HTTPException(status_code=404, detail="Doc not found")
-
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
 
     context = {
         "idea": idea.raw_input,
@@ -1830,6 +1875,8 @@ async def download_doc_as_docx(
     Downloads a document as a .docx file.
     Converts Markdown content to HTML, then to Docx in memory.
     """
+    _get_owned_idea(db, idea_id, current_user)
+
     asset = crud_project_idea.project_idea.get_asset(
         db=db, idea_id=idea_id, asset_type=doc_type
     )
@@ -1841,6 +1888,10 @@ async def download_doc_as_docx(
 
     # Wrap in basic HTML structure for better conversion
     full_html = f"<html><body>{html_content}</body></html>"
+
+    # Strip any <img src="..."> that would make html2docx fetch an
+    # external URL server-side (SSRF) - see _strip_unsafe_images.
+    full_html = _strip_unsafe_images(full_html)
 
     # Convert HTML to Docx in memory
     docx_io = html2docx(full_html, title=doc_type.value)
@@ -1862,6 +1913,8 @@ async def get_blueprint_node_details(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get detailed issues and features linked to a specific node."""
+    _get_owned_idea(db, idea_id, current_user)
+
     issues = db.query(Issue).filter(Issue.blueprint_node_id == node_id).all()
     features = db.query(Feature).filter(Feature.blueprint_node_id == node_id).all()
 
@@ -1899,10 +1952,11 @@ async def link_issue_to_node(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Manually link an issue to a blueprint node."""
-    issue = db.query(Issue).filter(Issue.id == issue_id).first()
-    if not issue:
+    _get_owned_idea(db, idea_id, current_user)
+    if not deps.check_can_edit_issue(current_user, issue_id, db):
         raise HTTPException(status_code=404, detail="Issue not found")
 
+    issue = db.query(Issue).filter(Issue.id == _coerce_uuid(issue_id)).first()
     issue.blueprint_node_id = node_id
     db.commit()
     return {"message": "Issue linked successfully"}
@@ -1917,9 +1971,13 @@ async def unlink_issue_from_node(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Unlink an issue from a blueprint node."""
+    _get_owned_idea(db, idea_id, current_user)
+    if not deps.check_can_edit_issue(current_user, issue_id, db):
+        raise HTTPException(status_code=404, detail="Issue link not found")
+
     issue = (
         db.query(Issue)
-        .filter(Issue.id == issue_id, Issue.blueprint_node_id == node_id)
+        .filter(Issue.id == _coerce_uuid(issue_id), Issue.blueprint_node_id == node_id)
         .first()
     )
     if not issue:
@@ -1937,13 +1995,11 @@ async def get_idea_details(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get full idea details including assets and dynamic blueprint completion."""
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     # Load assets
     assets = (
-        db.query(ProjectAsset).filter(ProjectAsset.project_idea_id == idea_id).all()
+        db.query(ProjectAsset).filter(ProjectAsset.project_idea_id == _coerce_uuid(idea_id)).all()
     )
 
     # Serialize validation report from SQLAlchemy model
@@ -2048,11 +2104,14 @@ async def convert_to_project(
     """
     Phase 3: Finalize - Converts the validated idea and blueprint into a real Project.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea or not idea.validation_report:
+    idea = _get_owned_idea(db, idea_id, current_user)
+    if not idea.validation_report:
         raise HTTPException(status_code=400, detail="Idea not validated")
 
-    team = db.query(Team).filter(Team.id == team_id).first()
+    if not deps.check_is_team_member(current_user, team_id, db):
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    team = db.query(Team).filter(Team.id == _coerce_uuid(team_id)).first()
     team_prefix = team.identifier if team else "AST"
 
     from app.models.project import Project, ProjectStatus
@@ -2062,7 +2121,7 @@ async def convert_to_project(
     new_project = Project(
         name=idea.raw_input[:50],
         description=idea.refined_description or idea.raw_input,
-        team_id=team_id,
+        team_id=_coerce_uuid(team_id),
         lead_id=current_user.id,
         status=ProjectStatus.PLANNED,
         icon="🚀",
@@ -2110,7 +2169,7 @@ async def convert_to_project(
                     title=issue_data["title"],
                     status=IssueStatus.TODO,
                     issue_type=IssueType.TASK,
-                    team_id=team_id,
+                    team_id=_coerce_uuid(team_id),
                     feature_id=feature_id,
                     identifier=f"{team_prefix}-{current_issue_num}",
                 )
@@ -2157,9 +2216,7 @@ async def regenerate_project_md(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Regenerate project.md file for an idea."""
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     project_id = str(idea.project_id) if idea.project_id else None
 
@@ -2182,6 +2239,8 @@ async def get_project_md(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get project.md content for an idea."""
+    _get_owned_idea(db, idea_id, current_user)
+
     asset = crud_project_idea.project_idea.get_asset(
         db, idea_id=idea_id, asset_type=AssetType.PROJECT_MD
     )
@@ -2203,6 +2262,8 @@ async def get_document_analysis(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get the quality analysis for an uploaded document."""
+    _get_owned_idea(db, idea_id, current_user)
+
     asset = crud_project_idea.project_idea.get_asset(
         db, idea_id=idea_id, asset_type=doc_type
     )
@@ -2218,22 +2279,22 @@ async def get_document_analysis(
 
 
 @router.post("/idea/{idea_id}/doc/{doc_type}/enhance")
+@limiter.limit("20/hour")
 async def generate_document_enhancement(
+    request: Request,
     idea_id: str,
     doc_type: AssetType,
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Generate AI-enhanced version of the document."""
+    idea = _get_owned_idea(db, idea_id, current_user)
+
     asset = crud_project_idea.project_idea.get_asset(
         db, idea_id=idea_id, asset_type=doc_type
     )
     if not asset:
         raise HTTPException(status_code=404, detail="Document not found")
-
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
 
     if not asset.analysis_result:
         raise HTTPException(
@@ -2286,6 +2347,8 @@ async def accept_document_enhancement(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Accept the AI enhancement and replace the original document."""
+    idea = _get_owned_idea(db, idea_id, current_user)
+
     asset = crud_project_idea.project_idea.get_asset(
         db, idea_id=idea_id, asset_type=doc_type
     )
@@ -2307,10 +2370,8 @@ async def accept_document_enhancement(
     db.commit()
 
     try:
-        idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-        if idea:
-            project_id = str(idea.project_id) if idea.project_id else None
-            await project_md_service.save_project_md(db, idea_id, project_id)
+        project_id = str(idea.project_id) if idea.project_id else None
+        await project_md_service.save_project_md(db, idea_id, project_id)
     except Exception as e:
         logger.warning(f"Failed to update project.md after enhancement: {e}")
 
@@ -2325,6 +2386,8 @@ async def decline_document_enhancement(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Decline the AI enhancement and keep the original document."""
+    _get_owned_idea(db, idea_id, current_user)
+
     asset = crud_project_idea.project_idea.get_asset(
         db, idea_id=idea_id, asset_type=doc_type
     )
