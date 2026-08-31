@@ -4,6 +4,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import decode_access_token
+from app.crud.base import _coerce_uuid
 from app.models.user import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
@@ -89,6 +90,7 @@ def check_is_team_leader(user: User, team_id: UUID, db: Session) -> bool:
     on a team belonging to a different organization entirely.
     """
     from app.models.team_model import Team
+    team_id = _coerce_uuid(team_id)
     team = db.query(Team).filter(Team.id == team_id).first()
     if not team or team.organization_id != user.organization_id:
         return False
@@ -105,6 +107,7 @@ def check_is_team_member(user: User, team_id: UUID, db: Session) -> bool:
     bypass is considered - see check_is_team_leader.
     """
     from app.models.team_model import Team
+    team_id = _coerce_uuid(team_id)
     team = db.query(Team).filter(Team.id == team_id).first()
     if not team or team.organization_id != user.organization_id:
         return False
@@ -123,6 +126,7 @@ def check_can_manage_project(user: User, project_id: UUID, db: Session) -> bool:
     3. Is the project lead
     """
     from app.models.project import Project
+    project_id = _coerce_uuid(project_id)
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project or not project.team or project.team.organization_id != user.organization_id:
         return False
@@ -155,6 +159,7 @@ def check_can_edit_issue(user: User, issue_id: UUID, db: Session) -> bool:
     3. Is the assignee of the issue
     """
     from app.models.issue import Issue
+    issue_id = _coerce_uuid(issue_id)
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue or not issue.team or issue.team.organization_id != user.organization_id:
         return False
@@ -182,6 +187,7 @@ def check_can_edit_feature(user: User, feature_id: UUID, db: Session) -> bool:
     3. Is the feature owner
     """
     from app.models.feature import Feature
+    feature_id = _coerce_uuid(feature_id)
     feature = db.query(Feature).filter(Feature.id == feature_id).first()
     if (
         not feature
@@ -202,14 +208,19 @@ def check_can_edit_feature(user: User, feature_id: UUID, db: Session) -> bool:
     return check_can_manage_project(user, feature.project_id, db)
 
 
-def verify_project_in_org(db: Session, project_id: UUID, user: User):
+def verify_project_in_org(db: Session, project_id, user: User):
     """Fetch a project and verify it belongs to the current user's organization.
 
     Raises 404 (not 403) on any mismatch so cross-organization resource
     existence is never confirmed to an unauthorized caller.
+
+    Accepts project_id as either a UUID or a str (some callers only have a
+    `str` path parameter) - see app.crud.base._coerce_uuid for why a plain
+    str must be converted before it reaches a UUID(as_uuid=True) column.
     """
     from app.models.project import Project
-    project = db.query(Project).filter(Project.id == project_id).first()
+    from app.crud.base import _coerce_uuid
+    project = db.query(Project).filter(Project.id == _coerce_uuid(project_id)).first()
     if not project or not project.team or project.team.organization_id != user.organization_id:
         raise HTTPException(status_code=404, detail="Project not found")
     return project

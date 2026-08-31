@@ -52,6 +52,19 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _get_owned_idea(db: Session, idea_id: str, current_user: User) -> ProjectIdea:
+    """Fetch a ProjectIdea and verify it belongs to the current user.
+
+    Raises 404 (not 403) whether the idea is missing or simply not the
+    caller's, so a cross-user request can't distinguish "doesn't exist"
+    from "exists but isn't yours".
+    """
+    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
+    if not idea or idea.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Idea not found")
+    return idea
+
+
 @router.post("/idea/{idea_id}/blueprint/node/{node_id}/issues")
 async def generate_issues_for_node(
     idea_id: str,
@@ -62,8 +75,8 @@ async def generate_issues_for_node(
     """
     AI generates detailed Features, Milestones, and Issues for a specific blueprint node.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea or not idea.project_id:
+    idea = _get_owned_idea(db, idea_id, current_user)
+    if not idea.project_id:
         raise HTTPException(status_code=404, detail="Idea or linked project not found")
 
     from app.models.project import Project
@@ -447,9 +460,7 @@ async def approve_validation_report(
     Phase 2 Approval: Accepts the validation report and triggers automatic feature creation.
     This runs in the background and creates features/sub-features in the database.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     if not idea.validation_report:
         raise HTTPException(
@@ -470,6 +481,7 @@ async def get_project_ideas(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get all ideas for a project, ordered by most recent."""
+    deps.verify_project_in_org(db, project_id, current_user)
     ideas = (
         db.query(ProjectIdea)
         .filter(ProjectIdea.project_id == project_id)
@@ -500,6 +512,7 @@ async def get_project_ideas(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get all ideas for a specific project, ordered by created_at descending."""
+    deps.verify_project_in_org(db, project_id, current_user)
     ideas = (
         db.query(ProjectIdea)
         .filter(ProjectIdea.project_id == project_id)
@@ -529,9 +542,7 @@ async def get_idea_progress(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get progress dashboard for an idea."""
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     # Count completed docs
     completed_docs = (
@@ -597,9 +608,7 @@ async def upload_document(
     """
     MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     content = ""
     filename = file.filename.lower() if file.filename else ""
@@ -696,9 +705,7 @@ async def sync_blueprint_from_docs(
     """
     Syncs validation and blueprint from existing manual docs.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     # Fetch all completed assets (docs) for this idea
     assets = (
@@ -881,8 +888,8 @@ async def suggest_answer(
     """
     Phase 1: Skip & Suggest - AI suggests an answer for a specific clarification question.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea or not idea.clarification_questions:
+    idea = _get_owned_idea(db, idea_id, current_user)
+    if not idea.clarification_questions:
         raise HTTPException(status_code=404, detail="Idea or questions not found")
 
     if question_index >= len(idea.clarification_questions):
@@ -918,11 +925,7 @@ async def answer_questions(
     """
     Phase 1: Answer Clarifications - Updates the idea with answers.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
-    if idea.user_id != str(current_user.id):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     # Update questions with answers
     answer_dict = {a.question: a.answer for a in answers}
@@ -957,9 +960,7 @@ async def validate_idea(
     """
     Phase 2: Validation & Analysis - Validates idea against 6 core pillars.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     # If validation report exists and no feedback, return serialized version
     if idea.validation_report and not feedback:
@@ -1075,8 +1076,8 @@ async def update_validation_report(
     Phase 2: Manual Edit Update - Saves manual changes to the validation report.
     Auto-saves user edits.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea or not idea.validation_report:
+    idea = _get_owned_idea(db, idea_id, current_user)
+    if not idea.validation_report:
         raise HTTPException(status_code=404, detail="Report not found")
 
     report = idea.validation_report
@@ -1122,8 +1123,8 @@ async def regenerate_validation_field(
     Phase 2: Regenerate a specific validation field based on user feedback.
     Supports nested fields like 'tech_stack.database'.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea or not idea.validation_report:
+    idea = _get_owned_idea(db, idea_id, current_user)
+    if not idea.validation_report:
         raise HTTPException(status_code=404, detail="Report not found")
 
     # Handle nested field names like 'tech_stack.database'
@@ -1197,8 +1198,8 @@ async def accept_improvements_and_revalidate(
     - AI re-validates 6 core pillars considering accepted improvements
     """
     try:
-        idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-        if not idea or not idea.validation_report:
+        idea = _get_owned_idea(db, idea_id, current_user)
+        if not idea.validation_report:
             raise HTTPException(status_code=404, detail="Report not found")
 
         all_improvements = idea.validation_report.improvements or []
@@ -1386,8 +1387,8 @@ async def generate_blueprint(
     """
     Phase 3: Visual Blueprint - Generates User Flow and Kanban.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea or not idea.validation_report:
+    idea = _get_owned_idea(db, idea_id, current_user)
+    if not idea.validation_report:
         raise HTTPException(status_code=400, detail="Idea not validated yet")
 
     context = {
@@ -1465,9 +1466,7 @@ async def save_blueprint(
     """
     Manually save updated blueprint data (node positions, etc.).
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     import json
 
@@ -1502,9 +1501,7 @@ async def get_doc_questions(
     Returns empty if no questions are needed.
     Includes AI suggestions for skipping questions.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     # Build project context
     project_context = {
@@ -1575,9 +1572,7 @@ async def generate_document(
     Checks if previous docs are completed before proceeding.
     Answers are from the question flow that users answered (or skipped with AI suggestions).
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     # Check dependencies - previous doc must be completed
     doc_index = ai_service.get_doc_index(doc_type.value)
@@ -1729,13 +1724,13 @@ async def chat_document(
     Phase 4: Chat about Doc - Regenerates/Edits doc based on user feedback.
     Each doc has its own chat session.
     """
+    idea = _get_owned_idea(db, idea_id, current_user)
+
     asset = crud_project_idea.project_idea.get_asset(
         db=db, idea_id=idea_id, asset_type=doc_type
     )
     if not asset:
         raise HTTPException(status_code=404, detail="Doc not found")
-
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
 
     # Get chat history
     chat_history = asset.chat_history or []
@@ -1783,13 +1778,13 @@ async def regenerate_doc_section(
     Phase 4: Regenerate a specific section of a document.
     User can select text and ask AI to regenerate a better version.
     """
+    idea = _get_owned_idea(db, idea_id, current_user)
+
     asset = crud_project_idea.project_idea.get_asset(
         db=db, idea_id=idea_id, asset_type=doc_type
     )
     if not asset:
         raise HTTPException(status_code=404, detail="Doc not found")
-
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
 
     context = {
         "idea": idea.raw_input,
@@ -1830,6 +1825,8 @@ async def download_doc_as_docx(
     Downloads a document as a .docx file.
     Converts Markdown content to HTML, then to Docx in memory.
     """
+    _get_owned_idea(db, idea_id, current_user)
+
     asset = crud_project_idea.project_idea.get_asset(
         db=db, idea_id=idea_id, asset_type=doc_type
     )
@@ -1862,6 +1859,8 @@ async def get_blueprint_node_details(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get detailed issues and features linked to a specific node."""
+    _get_owned_idea(db, idea_id, current_user)
+
     issues = db.query(Issue).filter(Issue.blueprint_node_id == node_id).all()
     features = db.query(Feature).filter(Feature.blueprint_node_id == node_id).all()
 
@@ -1899,10 +1898,13 @@ async def link_issue_to_node(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Manually link an issue to a blueprint node."""
-    issue = db.query(Issue).filter(Issue.id == issue_id).first()
-    if not issue:
+    from app.crud.base import _coerce_uuid
+
+    _get_owned_idea(db, idea_id, current_user)
+    if not deps.check_can_edit_issue(current_user, issue_id, db):
         raise HTTPException(status_code=404, detail="Issue not found")
 
+    issue = db.query(Issue).filter(Issue.id == _coerce_uuid(issue_id)).first()
     issue.blueprint_node_id = node_id
     db.commit()
     return {"message": "Issue linked successfully"}
@@ -1917,9 +1919,15 @@ async def unlink_issue_from_node(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Unlink an issue from a blueprint node."""
+    from app.crud.base import _coerce_uuid
+
+    _get_owned_idea(db, idea_id, current_user)
+    if not deps.check_can_edit_issue(current_user, issue_id, db):
+        raise HTTPException(status_code=404, detail="Issue link not found")
+
     issue = (
         db.query(Issue)
-        .filter(Issue.id == issue_id, Issue.blueprint_node_id == node_id)
+        .filter(Issue.id == _coerce_uuid(issue_id), Issue.blueprint_node_id == node_id)
         .first()
     )
     if not issue:
@@ -1937,9 +1945,7 @@ async def get_idea_details(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get full idea details including assets and dynamic blueprint completion."""
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     # Load assets
     assets = (
@@ -2048,11 +2054,16 @@ async def convert_to_project(
     """
     Phase 3: Finalize - Converts the validated idea and blueprint into a real Project.
     """
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea or not idea.validation_report:
+    from app.crud.base import _coerce_uuid
+
+    idea = _get_owned_idea(db, idea_id, current_user)
+    if not idea.validation_report:
         raise HTTPException(status_code=400, detail="Idea not validated")
 
-    team = db.query(Team).filter(Team.id == team_id).first()
+    if not deps.check_is_team_member(current_user, team_id, db):
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    team = db.query(Team).filter(Team.id == _coerce_uuid(team_id)).first()
     team_prefix = team.identifier if team else "AST"
 
     from app.models.project import Project, ProjectStatus
@@ -2062,7 +2073,7 @@ async def convert_to_project(
     new_project = Project(
         name=idea.raw_input[:50],
         description=idea.refined_description or idea.raw_input,
-        team_id=team_id,
+        team_id=_coerce_uuid(team_id),
         lead_id=current_user.id,
         status=ProjectStatus.PLANNED,
         icon="🚀",
@@ -2110,7 +2121,7 @@ async def convert_to_project(
                     title=issue_data["title"],
                     status=IssueStatus.TODO,
                     issue_type=IssueType.TASK,
-                    team_id=team_id,
+                    team_id=_coerce_uuid(team_id),
                     feature_id=feature_id,
                     identifier=f"{team_prefix}-{current_issue_num}",
                 )
@@ -2157,9 +2168,7 @@ async def regenerate_project_md(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Regenerate project.md file for an idea."""
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
+    idea = _get_owned_idea(db, idea_id, current_user)
 
     project_id = str(idea.project_id) if idea.project_id else None
 
@@ -2182,6 +2191,8 @@ async def get_project_md(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get project.md content for an idea."""
+    _get_owned_idea(db, idea_id, current_user)
+
     asset = crud_project_idea.project_idea.get_asset(
         db, idea_id=idea_id, asset_type=AssetType.PROJECT_MD
     )
@@ -2203,6 +2214,8 @@ async def get_document_analysis(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get the quality analysis for an uploaded document."""
+    _get_owned_idea(db, idea_id, current_user)
+
     asset = crud_project_idea.project_idea.get_asset(
         db, idea_id=idea_id, asset_type=doc_type
     )
@@ -2225,15 +2238,13 @@ async def generate_document_enhancement(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Generate AI-enhanced version of the document."""
+    idea = _get_owned_idea(db, idea_id, current_user)
+
     asset = crud_project_idea.project_idea.get_asset(
         db, idea_id=idea_id, asset_type=doc_type
     )
     if not asset:
         raise HTTPException(status_code=404, detail="Document not found")
-
-    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
 
     if not asset.analysis_result:
         raise HTTPException(
@@ -2286,6 +2297,8 @@ async def accept_document_enhancement(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Accept the AI enhancement and replace the original document."""
+    idea = _get_owned_idea(db, idea_id, current_user)
+
     asset = crud_project_idea.project_idea.get_asset(
         db, idea_id=idea_id, asset_type=doc_type
     )
@@ -2307,10 +2320,8 @@ async def accept_document_enhancement(
     db.commit()
 
     try:
-        idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
-        if idea:
-            project_id = str(idea.project_id) if idea.project_id else None
-            await project_md_service.save_project_md(db, idea_id, project_id)
+        project_id = str(idea.project_id) if idea.project_id else None
+        await project_md_service.save_project_md(db, idea_id, project_id)
     except Exception as e:
         logger.warning(f"Failed to update project.md after enhancement: {e}")
 
@@ -2325,6 +2336,8 @@ async def decline_document_enhancement(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Decline the AI enhancement and keep the original document."""
+    _get_owned_idea(db, idea_id, current_user)
+
     asset = crud_project_idea.project_idea.get_asset(
         db, idea_id=idea_id, asset_type=doc_type
     )
