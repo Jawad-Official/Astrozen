@@ -52,6 +52,15 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
+        env:
+          # Vite bakes env vars into the static bundle at build time. This
+          # build runs inside GitHub Actions (nwtgck/actions-netlify below
+          # only uploads the already-built dist/ folder afterward), so
+          # Netlify's own dashboard-configured env vars are never consulted
+          # for this build - setting VITE_API_BASE_URL there alone does
+          # nothing. Not a secret (it's the public backend URL), so it's
+          # set directly here rather than requiring a GitHub secret.
+          VITE_API_BASE_URL: https://astrozen-backend-zwnw.onrender.com/api/v1
       - name: Deploy to Netlify
         uses: nwtgck/actions-netlify@v3
         with:
