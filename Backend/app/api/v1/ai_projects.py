@@ -1905,7 +1905,7 @@ async def download_doc_as_docx(
     )
 
 
-@router.get("/idea/{idea_id}/blueprint/node/{node_id}/details")
+@router.get("/idea/{idea_id}/blueprint/node/{node_id}/details", response_model=schemas.BlueprintNodeDetailsResponse)
 async def get_blueprint_node_details(
     idea_id: str,
     node_id: str,
@@ -1988,7 +1988,7 @@ async def unlink_issue_from_node(
     return {"message": "Issue unlinked successfully"}
 
 
-@router.get("/idea/{idea_id}", response_model=Any)
+@router.get("/idea/{idea_id}", response_model=schemas.IdeaDetailsResponse)
 async def get_idea_details(
     idea_id: str,
     db: Session = Depends(deps.get_db),

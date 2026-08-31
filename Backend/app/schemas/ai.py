@@ -3,6 +3,8 @@ from typing import List, Dict, Any, Optional, Union
 from datetime import datetime
 from uuid import UUID
 from app.models.project_idea import IdeaStatus, AssetType, AssetStatus
+from app.models.issue import IssueStatus, IssuePriority
+from app.models.feature import FeatureStatus
 
 
 class IdeaSubmit(BaseModel):
@@ -203,3 +205,63 @@ class RegenerateFieldRequest(BaseModel):
 class RegenerateSectionRequest(BaseModel):
     section_content: str
     user_message: str
+
+
+class BlueprintNodeIssueSummary(BaseModel):
+    id: str
+    identifier: str
+    title: str
+    status: IssueStatus
+    priority: IssuePriority
+
+
+class BlueprintNodeFeatureSummary(BaseModel):
+    id: str
+    name: str
+    status: FeatureStatus
+
+
+class BlueprintNodeStats(BaseModel):
+    total_issues: int
+    done_issues: int
+
+
+class BlueprintNodeDetailsResponse(BaseModel):
+    node_id: str
+    completion: int
+    stats: BlueprintNodeStats
+    issues: List[BlueprintNodeIssueSummary]
+    features: List[BlueprintNodeFeatureSummary]
+
+
+class IdeaDetailsAsset(BaseModel):
+    """One processed ProjectAsset row. extra='allow' since asset content
+    parsing is dynamic (JSON vs legacy mermaid-string content)."""
+
+    model_config = {"extra": "allow"}
+
+    id: str
+    asset_type: str
+    content: Optional[str] = None
+    status: str
+    chat_history: Optional[Any] = None
+
+
+class IdeaDetailsResponse(BaseModel):
+    """Full idea detail response (GET /idea/{idea_id}). Deliberately
+    lenient (extra='allow', loosely-typed nested dicts) on
+    validation_report/blueprint since both are assembled server-side from
+    dynamically-parsed JSON asset content with an evolving shape - this
+    documents and types the known top-level fields without risking
+    silently dropping fields the frontend depends on."""
+
+    model_config = {"extra": "allow"}
+
+    id: str
+    raw_input: str
+    refined_description: Optional[str] = None
+    status: IdeaStatus
+    clarification_questions: Optional[Any] = None
+    validation_report: Optional[Dict[str, Any]] = None
+    assets: List[IdeaDetailsAsset] = []
+    blueprint: Optional[Dict[str, Any]] = None

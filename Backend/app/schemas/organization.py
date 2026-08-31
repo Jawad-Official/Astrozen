@@ -20,5 +20,17 @@ class Organization(OrganizationBase):
     created_by_id: Optional[UUID4] = None
     created_at: datetime
     updated_at: datetime
-    
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OrganizationMember(BaseModel):
+    id: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    full_name: Optional[str] = None
+    email: str
+    job_title: Optional[str] = None
+    role: str
+
     model_config = ConfigDict(from_attributes=True)

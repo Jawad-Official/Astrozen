@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.database import get_db
 from app.api.deps import get_current_active_user
 from app.models.user import User
-from app.schemas.organization import OrganizationCreate, Organization as OrganizationSchema
+from app.schemas.organization import OrganizationCreate, Organization as OrganizationSchema, OrganizationMember
 from app.schemas.invite_code import InviteCode as InviteCodeSchema
 from app.services import organization_service
 from uuid import UUID
@@ -71,7 +71,7 @@ def get_my_organization(
     return org
 
 
-@router.get("/me/members", response_model=List[dict])
+@router.get("/me/members", response_model=List[OrganizationMember])
 def get_organization_members(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
