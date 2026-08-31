@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, ForeignKey, DateTime, func, Text, UUID
+from sqlalchemy import Column, String, ForeignKey, DateTime, func, Text, UUID, Index
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -29,3 +29,8 @@ class Document(Base):
     # Relationships
     project = relationship("Project", back_populates="documents")
     idea = relationship("ProjectIdea")
+
+    __table_args__ = (
+        Index("idx_documents_project_id", "project_id"),
+        Index("idx_documents_idea_id", "idea_id"),
+    )
