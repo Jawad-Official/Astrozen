@@ -48,42 +48,13 @@ class ProjectService:
             obj_in=project_in
         )
 
-        # If team association changed, we DON'T automatically add all team members anymore
-        # if project_in.team_id or project_in.team_ids is not None:
-        #      self.sync_project_members(db, project=updated_project)
+        # Team association changes no longer auto-add all team members to
+        # the project - removed sync_project_members/sync_team_members
+        # (see CODE_QUALITY_FINDINGS.md CQ-1). This was a deliberate
+        # product decision, not a regression.
 
         # Re-fetch to ensure all relations are loaded for the API response
         return crud_project.get(db, id=project_id)
-
-    def sync_project_members(self, db: Session, *, project: Project):
-        """Ensure all members of joined teams are added to the project - DISABLED"""
-        return
-        # teams_to_sync = [project.team] if project.team else []
-        # if project.teams:
-        #     teams_to_sync.extend(project.teams)
-        
-        # member_ids = {m.id for m in project.members}
-        # added = False
-        
-        # for team in teams_to_sync:
-        #     for member in team.members:
-        #         if member.id not in member_ids:
-        #             project.members.append(member)
-        #             member_ids.add(member.id)
-        #             added = True
-        
-        # if added:
-        #     db.add(project)
-        #     db.commit()
-        #     db.refresh(project)
-
-    def sync_team_members(self, db: Session, *, team_id: UUID):
-        """
-        Sync members of a team with all projects involving that team.
-        Called when team members are added/removed. - DISABLED
-        """
-        return
-    
 
 
 
