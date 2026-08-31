@@ -237,6 +237,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
       set((state) => ({ issues: [newIssue, ...state.issues] }));
     } catch (error) {
       console.error('Failed to create issue', error);
+      throw error;
     }
   },
 
@@ -248,6 +249,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to update issue', error);
+      throw error;
     }
   },
 
@@ -259,6 +261,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to delete issue', error);
+      throw error;
     }
   },
 
@@ -343,6 +346,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to delete project update', error);
+      throw error;
     }
   },
 
@@ -368,6 +372,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to delete update comment', error);
+      throw error;
     }
   },
 
@@ -380,6 +385,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to toggle update reaction', error);
+      throw error;
     }
   },
 
@@ -392,6 +398,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to toggle update comment reaction', error);
+      throw error;
     }
   },
 
@@ -420,6 +427,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to delete project resource', error);
+      throw error;
     }
   },
 
@@ -476,6 +484,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to update feature', error);
+      throw error;
     }
   },
 
@@ -487,6 +496,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to delete feature', error);
+      throw error;
     }
   },
 
@@ -502,6 +512,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to add milestone', error);
+      throw error;
     }
   },
 
@@ -517,6 +528,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to update milestone', error);
+      throw error;
     }
   },
 
@@ -532,6 +544,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to delete milestone', error);
+      throw error;
     }
   },
 
@@ -558,6 +571,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to toggle milestone', error);
+      throw error;
     }
   },
 
@@ -576,6 +590,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to toggle project favorite', error);
+      throw error;
     }
   },
 
