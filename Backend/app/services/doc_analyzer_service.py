@@ -1,6 +1,7 @@
 import json
 from typing import Any, Dict, List, Optional
 from openai import OpenAI
+from starlette.concurrency import run_in_threadpool
 from app.core.config import settings
 import logging
 
@@ -174,7 +175,8 @@ class DocAnalyzerService:
         """
 
         try:
-            response = self.client.chat.completions.create(
+            response = await run_in_threadpool(
+                self.client.chat.completions.create,
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
@@ -258,7 +260,8 @@ class DocAnalyzerService:
         """
 
         try:
-            response = self.client.chat.completions.create(
+            response = await run_in_threadpool(
+                self.client.chat.completions.create,
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=6000,

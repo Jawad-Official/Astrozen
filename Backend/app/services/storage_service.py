@@ -1,5 +1,6 @@
 import boto3
 from botocore.exceptions import ClientError
+from starlette.concurrency import run_in_threadpool
 from app.core.config import settings
 import logging
 
@@ -37,11 +38,14 @@ class StorageService:
             return key # Return key anyway for local mock behavior if needed
 
         try:
-            self.s3_client.put_object(
+            # boto3 is synchronous; offload to a thread so this blocking
+            # network call doesn't stall the whole event loop.
+            await run_in_threadpool(
+                self.s3_client.put_object,
                 Bucket=self.bucket_name,
                 Key=key,
                 Body=content.encode('utf-8'),
-                ContentType=content_type
+                ContentType=content_type,
             )
             return key
         except ClientError as e:
@@ -50,9 +54,18 @@ class StorageService:
 
     async def get_content(self, key: str) -> str:
         """Retrieves text content from R2."""
-        try:
+        if not self.s3_client:
+            logger.error("Attempted to read from R2 but client is not initialized.")
+            raise RuntimeError("R2 storage is not configured")
+
+        def _fetch() -> str:
             response = self.s3_client.get_object(Bucket=self.bucket_name, Key=key)
             return response['Body'].read().decode('utf-8')
+
+        try:
+            # Offload both the request and the streamed body read - both
+            # are blocking boto3/socket calls.
+            return await run_in_threadpool(_fetch)
         except ClientError as e:
             logger.error(f"Error reading from R2: {e}")
             raise e

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 from typing import List, Any, Optional
 from uuid import UUID
 
@@ -127,10 +128,12 @@ async def upload_document(
         # For Drive API update, we need media upload
         from googleapiclient.http import MediaInMemoryUpload
         media = MediaInMemoryUpload(result.value.encode('utf-8'), mimetype='text/html')
-        document_service.drive_service.files().update(
-            fileId=doc.drive_file_id,
-            media_body=media
-        ).execute()
+        await run_in_threadpool(
+            lambda: document_service.drive_service.files().update(
+                fileId=doc.drive_file_id,
+                media_body=media
+            ).execute()
+        )
         
         # 3. Sync to R2
         await storage_service.upload_content(doc.r2_path, content_md)
