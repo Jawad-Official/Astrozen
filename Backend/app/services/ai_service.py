@@ -5,9 +5,19 @@ from app.core.config import settings
 import json
 import re
 import logging
+import time
+import hashlib
 from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
+
+# Short-lived in-process memoization for _call_ai, keyed on the exact
+# request sent to the model. Catches byte-identical repeat calls (a
+# double-clicked "Generate" button, a client-side retry after a slow
+# response) without needing an external cache - not a general-purpose
+# response cache, so the TTL is intentionally short.
+AI_CACHE_TTL_SECONDS = 60
+AI_CACHE_MAX_ENTRIES = 500
 
 # 6 Core Pillars for validation
 CORE_PILLARS = [
@@ -92,6 +102,7 @@ class AIService:
             logger.warning("OPENROUTER_API_KEY is missing. AIService will be limited.")
 
         self.model = settings.MODEL_NAME
+        self._response_cache: Dict[str, tuple] = {}  # cache_key -> (expires_at, response)
 
     def _repair_json(self, json_str: str) -> str:
         """Attempt to repair truncated JSON by balancing braces, quotes, and removing trailing commas."""
@@ -178,19 +189,46 @@ class AIService:
         """Prepend the guardrail to user-facing prompts to prevent prompt injection."""
         return GUARDRAIL + user_content
 
+    def _cache_key(self, prompt: str, kwargs: dict) -> str:
+        payload = json.dumps(
+            {"model": self.model, "prompt": prompt, "kwargs": kwargs},
+            sort_keys=True,
+            default=str,
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
     async def _call_ai(self, prompt: str, **kwargs) -> Any:
         """Call the AI model with the prompt.
 
         The OpenAI SDK client here is the synchronous variant (`OpenAI`,
         not `AsyncOpenAI`) - offload to a thread so a slow LLM completion
         doesn't block the single event loop this app runs on.
+
+        Byte-identical (prompt, kwargs) pairs are memoized in-process for
+        a short TTL, so a double-clicked "Generate" or a client retry
+        doesn't trigger a second billable call - see AI_CACHE_TTL_SECONDS.
         """
-        return await run_in_threadpool(
+        cache_key = self._cache_key(prompt, kwargs)
+        now = time.monotonic()
+
+        cached = self._response_cache.get(cache_key)
+        if cached is not None and cached[0] > now:
+            return cached[1]
+
+        response = await run_in_threadpool(
             self.client.chat.completions.create,
             model=self.model,
             messages=[{"role": "user", "content": self._build_prompt(prompt)}],
             **kwargs,
         )
+
+        if len(self._response_cache) >= AI_CACHE_MAX_ENTRIES:
+            expired_keys = [k for k, (expires_at, _) in self._response_cache.items() if expires_at <= now]
+            for k in expired_keys:
+                del self._response_cache[k]
+
+        self._response_cache[cache_key] = (now + AI_CACHE_TTL_SECONDS, response)
+        return response
 
     async def generate_clarification_questions(
         self, idea: str, max_questions: int = 7
