@@ -222,6 +222,12 @@ def create_milestone(
     if not feature:
         raise HTTPException(status_code=404, detail="Feature not found")
 
+    if not check_can_edit_feature(current_user, feature_id, db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only project managers or the feature owner can create milestones",
+        )
+
     milestone = crud_feature.create_milestone(
         db, feature_id=feature_id, obj_in=milestone_in
     )
@@ -240,6 +246,12 @@ def update_milestone(
     feature = crud_feature.get(db, id=feature_id)
     if not feature:
         raise HTTPException(status_code=404, detail="Feature not found")
+
+    if not check_can_edit_feature(current_user, feature_id, db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only project managers or the feature owner can update milestones",
+        )
 
     milestone = crud_feature.get_milestone(db, id=milestone_id)
     if not milestone or milestone.feature_id != feature_id:
