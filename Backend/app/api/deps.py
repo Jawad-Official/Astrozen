@@ -200,3 +200,48 @@ def check_can_edit_feature(user: User, feature_id: UUID, db: Session) -> bool:
 
     # Check project management permissions
     return check_can_manage_project(user, feature.project_id, db)
+
+
+def verify_project_in_org(db: Session, project_id: UUID, user: User):
+    """Fetch a project and verify it belongs to the current user's organization.
+
+    Raises 404 (not 403) on any mismatch so cross-organization resource
+    existence is never confirmed to an unauthorized caller.
+    """
+    from app.models.project import Project
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project or not project.team or project.team.organization_id != user.organization_id:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project
+
+
+def get_owned_document(
+    doc_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Fetch a document and verify the caller may access it: either the
+    document's project belongs to the caller's organization, or the
+    document's idea belongs to the caller. Raises 404 otherwise - the same
+    response as a genuinely missing document, so existence isn't leaked.
+    """
+    from app.models.document import Document
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    not_found = HTTPException(status_code=404, detail="Document not found")
+    if not doc:
+        raise not_found
+
+    if doc.project_id:
+        from app.models.project import Project
+        project = db.query(Project).filter(Project.id == doc.project_id).first()
+        if not project or not project.team or project.team.organization_id != current_user.organization_id:
+            raise not_found
+    elif doc.idea_id:
+        from app.models.project_idea import ProjectIdea
+        idea = db.query(ProjectIdea).filter(ProjectIdea.id == doc.idea_id).first()
+        if not idea or idea.user_id != current_user.id:
+            raise not_found
+    else:
+        raise not_found
+
+    return doc

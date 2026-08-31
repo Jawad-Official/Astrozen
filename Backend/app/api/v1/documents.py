@@ -22,6 +22,7 @@ async def create_document(
     current_user: User = Depends(deps.get_current_active_user),
 ):
     """Create a new Google Doc and sync it to R2."""
+    deps.verify_project_in_org(db, project_id, current_user)
     try:
         drive_file_id = await document_service.create_google_doc(title, content_md, user_email=current_user.email)
         r2_path = f"projects/{project_id}/docs/{title.replace(' ', '_').lower()}.md"
@@ -53,15 +54,20 @@ async def list_documents(
     current_user: User = Depends(deps.get_current_active_user),
 ):
     """List documents for a project or an idea."""
-    query = db.query(Document)
-    if project_id:
-        query = query.filter(Document.project_id == project_id)
-    if idea_id:
-        query = query.filter(Document.idea_id == idea_id)
-    
     if not project_id and not idea_id:
         raise HTTPException(status_code=400, detail="Must provide either project_id or idea_id")
-        
+
+    query = db.query(Document)
+    if project_id:
+        deps.verify_project_in_org(db, project_id, current_user)
+        query = query.filter(Document.project_id == project_id)
+    if idea_id:
+        from app.models.project_idea import ProjectIdea
+        idea = db.query(ProjectIdea).filter(ProjectIdea.id == idea_id).first()
+        if not idea or idea.user_id != current_user.id:
+            raise HTTPException(status_code=404, detail="Idea not found")
+        query = query.filter(Document.idea_id == idea_id)
+
     docs = query.all()
     for doc in docs:
         doc.embed_url = f"https://docs.google.com/document/d/{doc.drive_file_id}/edit"
@@ -69,29 +75,18 @@ async def list_documents(
 
 @router.get("/doc/{doc_id}", response_model=schemas.DocumentMeta)
 async def get_document(
-    doc_id: UUID,
-    db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),
+    doc: Document = Depends(deps.get_owned_document),
 ):
     """Get document metadata and embed URL."""
-    doc = db.query(Document).filter(Document.id == doc_id).first()
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
-    
     doc.embed_url = f"https://docs.google.com/document/d/{doc.drive_file_id}/edit"
     return doc
 
 @router.delete("/doc/{doc_id}")
 async def delete_document(
-    doc_id: UUID,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),
+    doc: Document = Depends(deps.get_owned_document),
 ):
     """Delete document from Drive, R2, and DB."""
-    doc = db.query(Document).filter(Document.id == doc_id).first()
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
-    
     try:
         await document_service.delete_google_doc(doc.drive_file_id)
         # R2 deletion could also be handled here
@@ -103,31 +98,20 @@ async def delete_document(
 
 @router.post("/doc/{doc_id}/sync")
 async def sync_document(
-    doc_id: UUID,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),
+    doc: Document = Depends(deps.get_owned_document),
 ):
     """Manual trigger to sync Drive content to R2."""
-    doc = db.query(Document).filter(Document.id == doc_id).first()
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
-    
     background_tasks.add_task(document_service.sync_doc_to_r2, doc.drive_file_id, doc.r2_path)
     return {"message": "Sync task started in background"}
 
 @router.post("/doc/{doc_id}/upload", response_model=schemas.DocumentMeta)
 async def upload_document(
-    doc_id: UUID,
     file: UploadFile = File(...),
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),
+    doc: Document = Depends(deps.get_owned_document),
 ):
     """Replace document with an uploaded .docx file."""
-    doc = db.query(Document).filter(Document.id == doc_id).first()
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
-    
     if not file.filename.endswith(".docx"):
         raise HTTPException(status_code=400, detail="Only .docx files supported for replacement")
 
@@ -162,16 +146,10 @@ async def upload_document(
 
 @router.post("/doc/{doc_id}/apply-change")
 async def apply_change(
-    doc_id: UUID,
     payload: schemas.ApplyDocumentChangeRequest,
-    db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),
+    doc: Document = Depends(deps.get_owned_document),
 ):
     """Apply an AI-proposed change to the Google Doc."""
-    doc = db.query(Document).filter(Document.id == doc_id).first()
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
-    
     try:
         requests = [
             {
@@ -195,16 +173,10 @@ async def apply_change(
 
 @router.post("/doc/{doc_id}/chat")
 async def chat_document(
-    doc_id: UUID,
     chat_req: schemas.DocChatRequest,
-    db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),
+    doc: Document = Depends(deps.get_owned_document),
 ):
     """Chat with AI about a specific document. Returns proposed changes if applicable."""
-    doc = db.query(Document).filter(Document.id == doc_id).first()
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
-    
     try:
         from app.services.ai_service import ai_service
         
