@@ -50,6 +50,8 @@ async def update_project_md_background(project_id: str):
 @router.get("", response_model=List[FeatureSchema])
 def list_features(
     project_id: Optional[UUID] = None,
+    skip: int = 0,
+    limit: int = 100,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -65,7 +67,7 @@ def list_features(
                 status_code=403, detail="Not authorized to view this project"
             )
 
-        return crud_feature.get_by_project(db, project_id=project_id)
+        return crud_feature.get_by_project(db, project_id=project_id, skip=skip, limit=limit)
 
     # Return all features in organization
     return crud_feature.get_multi_by_user_projects(
@@ -73,6 +75,8 @@ def list_features(
         user_id=current_user.id,
         user_team_ids=[],
         organization_id=current_user.organization_id,
+        skip=skip,
+        limit=limit,
     )
 
 

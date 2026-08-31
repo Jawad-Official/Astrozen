@@ -54,6 +54,8 @@ async def create_document(
 async def list_documents(
     project_id: Optional[UUID] = None,
     idea_id: Optional[UUID] = None,
+    skip: int = 0,
+    limit: int = 100,
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ):
@@ -72,7 +74,7 @@ async def list_documents(
             raise HTTPException(status_code=404, detail="Idea not found")
         query = query.filter(Document.idea_id == idea_id)
 
-    docs = query.all()
+    docs = query.offset(skip).limit(limit).all()
     for doc in docs:
         doc.embed_url = f"https://docs.google.com/document/d/{doc.drive_file_id}/edit"
     return docs

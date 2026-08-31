@@ -17,12 +17,14 @@ class CRUDFeature(CRUDBase[Feature, FeatureCreate, FeatureUpdate]):
             selectinload(Feature.sub_features),
         ).filter(Feature.id == id).first()
 
-    def get_by_project(self, db: Session, *, project_id: UUID) -> List[Feature]:
+    def get_by_project(
+        self, db: Session, *, project_id: UUID, skip: int = 0, limit: int = 100
+    ) -> List[Feature]:
         """Get all features for a project"""
         return db.query(Feature).options(
             selectinload(Feature.milestones),
             selectinload(Feature.sub_features),
-        ).filter(Feature.project_id == project_id).all()
+        ).filter(Feature.project_id == project_id).offset(skip).limit(limit).all()
 
     def get_multi_by_user_projects(
         self,
@@ -30,7 +32,9 @@ class CRUDFeature(CRUDBase[Feature, FeatureCreate, FeatureUpdate]):
         *,
         user_id: UUID,
         user_team_ids: List[UUID],
-        organization_id: Optional[UUID] = None
+        organization_id: Optional[UUID] = None,
+        skip: int = 0,
+        limit: int = 100,
     ) -> List[Feature]:
         """Get all features for all projects the user has access to"""
         from app.models.project import Project
@@ -39,11 +43,11 @@ class CRUDFeature(CRUDBase[Feature, FeatureCreate, FeatureUpdate]):
             selectinload(Feature.milestones),
             selectinload(Feature.sub_features),
         ).join(Project).join(Project.team)
-        
+
         if organization_id:
             query = query.filter(Team.organization_id == organization_id)
-            
-        return query.all()
+
+        return query.offset(skip).limit(limit).all()
 
     def get_next_identifier(self, db: Session, prefix: str) -> str:
         """Get the next identifier for a given prefix (e.g., ENG-F1, ENG-F2)"""
