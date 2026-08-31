@@ -8,6 +8,7 @@
     "build": "node scripts/run-on-subst.cjs vite build",
     "build:dev": "node scripts/run-on-subst.cjs vite build --mode development",
     "lint": "eslint .",
+    "typecheck": "tsc -b",
     "preview": "node scripts/run-on-subst.cjs vite preview"
   },
   "dependencies": {

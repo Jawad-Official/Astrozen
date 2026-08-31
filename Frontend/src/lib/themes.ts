@@ -29,6 +29,10 @@ export interface ThemeColors {
   'sidebar-foreground': string;
   'sidebar-primary': string;
   'sidebar-border': string;
+  card: string;
+  'card-foreground': string;
+  popover: string;
+  'popover-foreground': string;
 }
 
 export const themes: Record<Exclude<ThemeName, 'system'>, ThemeColors> = {
@@ -77,6 +81,10 @@ export const themes: Record<Exclude<ThemeName, 'system'>, ThemeColors> = {
     'sidebar-foreground': '222 47% 11%',
     'sidebar-primary': '142 76% 36%',
     'sidebar-border': '214.3 31.8% 91.4%',
+    card: '0 0% 100%',
+    'card-foreground': '222 47% 11%',
+    popover: '0 0% 100%',
+    'popover-foreground': '222 47% 11%',
   },
   midnight: {
     background: '222 47% 4%',
