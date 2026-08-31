@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface AuthLayoutProps {
@@ -10,9 +11,27 @@ interface AuthLayoutProps {
 
 export function AuthLayout({ children, title, description, illustration }: AuthLayoutProps) {
   return (
-    <div className="flex min-h-screen bg-background">
+    /* Dark like the landing page this is reached from - the public surface
+       is art-directed as one piece, and the app still honours the user's
+       own theme once they're inside. It also keeps the illustration panel's
+       white headings legible, which they aren't on the light theme. */
+    <div className="theme-dark flex min-h-screen bg-background text-foreground">
       {/* Left side - Content */}
       <div className="flex-1 flex flex-col justify-center items-center p-8 lg:p-12 xl:p-24 relative overflow-hidden">
+        {/* Way back to the public landing page, so the auth pages aren't a
+            dead end for someone who just wanted to read about the product. */}
+        <Link
+          to="/"
+          className="absolute top-6 left-6 lg:top-8 lg:left-8 z-20 flex items-center gap-2 group"
+        >
+          <span className="flex h-7 w-7 items-center justify-center rounded bg-primary/20 ring-1 ring-primary/30 transition-all group-hover:bg-primary/30">
+            <span className="h-3 w-3 rounded-full bg-primary" />
+          </span>
+          <span className="text-[15px] font-semibold tracking-tight text-foreground">
+            Astrozen
+          </span>
+        </Link>
+
         {/* Decorative background elements */}
         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-primary/10 via-background to-background -z-10" />
         <div className="absolute bottom-0 right-0 w-1/2 h-1/2 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-primary/5 via-background to-background -z-10" />

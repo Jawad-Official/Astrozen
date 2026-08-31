@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Slot } from "@radix-ui/react-slot";
+import { Slot, Slottable } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
@@ -87,7 +87,12 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             <span className="sr-only">Loading...</span>
           </>
         ) : null}
-        {children}
+        {/* Slottable, not a bare {children}: with asChild the wrapper is a
+            Radix Slot, which demands exactly one child - and the loading
+            branch above always contributes a second node (even as null).
+            Marking children slottable lets Slot merge into the caller's
+            element while keeping the spinner as its sibling. */}
+        <Slottable>{children}</Slottable>
       </Comp>
     );
   }

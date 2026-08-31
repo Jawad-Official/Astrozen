@@ -33,8 +33,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setOrganization(orgData);
         setTeams(teamsData);
       }
-    } catch (error) {
-      console.error("Failed to load auth data", error);
+    } catch (error: any) {
+      // A 401 here is the normal, expected answer for a logged-out visitor
+      // - the public landing page triggers this on every anonymous view, so
+      // don't dirty the console with it. Anything else is worth reporting.
+      if (error?.response?.status !== 401) {
+        console.error("Failed to load auth data", error);
+      }
       // Don't auto-logout on error, could be network. API client handles 401.
     } finally {
       setIsLoading(false);
@@ -61,7 +66,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setOrganization(null);
     setTeams([]);
-    window.location.href = "/login";
+    // Signing out returns to the public landing page rather than dropping
+    // the user straight onto a login form.
+    window.location.href = "/";
   }
 
   const value = {

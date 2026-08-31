@@ -30,7 +30,9 @@ export default function Login() {
       if (!authUser.organizationId) {
         navigate('/org-setup');
       } else {
-        navigate('/');
+        // "/" is the public landing page now - send authenticated
+        // users into the workspace instead.
+        navigate('/all-issues');
       }
     }
   }, [isAuthenticated, authUser, navigate]);

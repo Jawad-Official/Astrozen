@@ -21,6 +21,7 @@ const TeamSettingsPage = lazy(() => import("@/pages/teams/[teamId]/settings/page
 const FeaturesPage = lazy(() => import("@/pages/features/page"));
 const AIGeneratorPage = lazy(() => import("@/pages/ai-generator/page"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
+const LandingPage = lazy(() => import("@/pages/landing/page"));
 const Login = lazy(() => import("@/pages/auth/Login"));
 const Register = lazy(() => import("@/pages/auth/Register"));
 const OrganizationSetup = lazy(() => import("@/pages/auth/OrganizationSetup"));
@@ -47,6 +48,10 @@ const App = () => {
             <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">Loading...</div>}>
             <Routes>
               {/* Public Routes */}
+              {/* "/" is deliberately public and never gated on the session
+                  check - the landing page must paint immediately even while
+                  a cold-starting backend is still answering /me. */}
+              <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               
@@ -63,7 +68,7 @@ const App = () => {
                   <MainLayout />
                 </RequireAuth>
               }>
-                <Route path="/" element={<Navigate to="/all-issues" replace />} />
+                <Route path="/app" element={<Navigate to="/all-issues" replace />} />
                 <Route path="/all-issues" element={<AllIssuesPage />} />
                 <Route path="/inbox" element={<InboxPage />} />
                 <Route path="/my-issues" element={<MyIssuesPage />} />
