@@ -19,12 +19,19 @@ export const apiClient = axios.create({
   withCredentials: true,
 });
 
+// Pages that work perfectly well for a logged-out visitor - a 401 here is
+// the expected, uninteresting answer to "am I logged in?", not a session
+// that just expired. AuthContext's own getCurrentUser() call already
+// handles that failure by leaving user null; this interceptor's job is to
+// catch a session dying mid-use on a page that actually requires one.
+const PUBLIC_PATHS = ["/", "/contact", "/login", "/register"];
+
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (
       error.response?.status === 401 &&
-      window.location.pathname !== "/login"
+      !PUBLIC_PATHS.includes(window.location.pathname)
     ) {
       window.location.href = "/login";
     }
