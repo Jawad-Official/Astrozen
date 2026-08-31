@@ -71,7 +71,7 @@ by nginx on `:18011`. Open `http://localhost:18011`.
 
 The backend's `JWT_SECRET` in `docker-compose.yml` is a throwaway
 dev-only value generated for this stack - regenerate it for your own use,
-never reuse it anywhere real. `OPENROUTER_API_KEY`, `GOOGLE_CLIENT_ID`/
+never reuse it anywhere real. `GEMINI_API_KEY`, `GOOGLE_CLIENT_ID`/
 `GOOGLE_CLIENT_SECRET`, and the `R2_*` storage variables are left unset,
 so AI generation, Google Docs sync, and file storage stay disabled (each
 logs a warning and no-ops rather than crashing) until you add real values

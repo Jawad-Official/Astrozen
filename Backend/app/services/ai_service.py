@@ -90,16 +90,16 @@ GUARDRAIL = (
 
 class AIService:
     def __init__(self):
-        api_key = settings.OPENROUTER_API_KEY
+        api_key = settings.GEMINI_API_KEY
         if api_key:
             api_key = api_key.strip().strip('"').strip("'")
             self.client = OpenAI(
-                base_url="https://openrouter.ai/api/v1",
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
                 api_key=api_key,
             )
         else:
             self.client = None
-            logger.warning("OPENROUTER_API_KEY is missing. AIService will be limited.")
+            logger.warning("GEMINI_API_KEY is missing. AIService will be limited.")
 
         self.model = settings.MODEL_NAME
         self._response_cache: Dict[str, tuple] = {}  # cache_key -> (expires_at, response)
@@ -275,7 +275,7 @@ class AIService:
             if "401" in error_msg or "User not found" in error_msg:
                 raise HTTPException(
                     status_code=400,
-                    detail="AI API Configuration Error: The OpenRouter API key provided in the backend is invalid. Please check OPENROUTER_API_KEY in the .env file.",
+                    detail="AI API Configuration Error: The Gemini API key provided in the backend is invalid. Please check GEMINI_API_KEY in the .env file.",
                 )
             return []
 
@@ -599,7 +599,7 @@ class AIService:
             if "401" in error_msg or "User not found" in error_msg:
                 raise HTTPException(
                     status_code=400,
-                    detail="AI API Configuration Error: The OpenRouter API key provided in the backend is invalid. Please check OPENROUTER_API_KEY in the .env file.",
+                    detail="AI API Configuration Error: The Gemini API key provided in the backend is invalid. Please check GEMINI_API_KEY in the .env file.",
                 )
 
             raise HTTPException(
@@ -747,7 +747,7 @@ class AIService:
             if "401" in error_msg or "User not found" in error_msg:
                 raise HTTPException(
                     status_code=400,
-                    detail="AI API Configuration Error: The OpenRouter API key provided in the backend is invalid. Please check OPENROUTER_API_KEY in the .env file.",
+                    detail="AI API Configuration Error: The Gemini API key provided in the backend is invalid. Please check GEMINI_API_KEY in the .env file.",
                 )
 
             raise HTTPException(
@@ -802,7 +802,7 @@ class AIService:
             if "401" in error_msg or "User not found" in error_msg or "authentication" in error_msg.lower():
                 raise HTTPException(
                     status_code=400,
-                    detail="AI API Configuration Error: The OpenRouter API key provided in the backend is invalid. Please check OPENROUTER_API_KEY in the .env file.",
+                    detail="AI API Configuration Error: The Gemini API key provided in the backend is invalid. Please check GEMINI_API_KEY in the .env file.",
                 )
 
             raise HTTPException(

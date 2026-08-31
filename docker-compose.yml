@@ -36,7 +36,7 @@ services:
       # SettingsError here even though config.py's parse_cors_origins
       # validator supports that shape. JSON array syntax is required.
       BACKEND_CORS_ORIGINS: '["http://localhost:18011"]'
-      # OPENROUTER_API_KEY / GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / R2_*
+      # GEMINI_API_KEY / GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / R2_*
       # deliberately left unset: those integrations degrade gracefully
       # (each service logs a warning and disables itself, per app startup
       # logging) rather than failing the whole app. Set real values here to

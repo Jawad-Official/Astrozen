@@ -86,9 +86,9 @@ class Settings(BaseSettings):
     # Encryption key for OAuth tokens at rest
     ENCRYPTION_KEY: str | None = None
 
-    # AI & Cloudflare R2
-    OPENROUTER_API_KEY: str | None = None
-    MODEL_NAME: str = "gpt-oss-120b:exacto"
+    # AI (Google AI Studio / Gemini) & Cloudflare R2
+    GEMINI_API_KEY: str | None = None
+    MODEL_NAME: str = "gemini-2.5-flash"
 
     R2_ACCOUNT_ID: str | None = None
     R2_ACCESS_KEY_ID: str | None = None

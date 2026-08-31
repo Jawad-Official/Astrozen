@@ -34,7 +34,7 @@ echo
 echo "Expected env vars on Railway backend:"
 echo "  - DATABASE_URL"
 echo "  - JWT_SECRET"
-echo "  - OPENROUTER_API_KEY"
+echo "  - GEMINI_API_KEY"
 echo "  - GOOGLE_CLIENT_ID"
 echo "  - GOOGLE_CLIENT_SECRET"
 echo "  - GOOGLE_REDIRECT_URI"

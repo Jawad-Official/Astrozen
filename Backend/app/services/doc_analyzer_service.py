@@ -94,17 +94,17 @@ DOC_REQUIREMENTS = {
 
 class DocAnalyzerService:
     def __init__(self):
-        api_key = settings.OPENROUTER_API_KEY
+        api_key = settings.GEMINI_API_KEY
         if api_key:
             # Clean key of common whitespace/quote issues from .env
             api_key = api_key.strip().strip('"').strip("'")
             self.client = OpenAI(
                 api_key=api_key,
-                base_url="https://openrouter.ai/api/v1",
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
             )
         else:
             self.client = None
-            logger.warning("OPENROUTER_API_KEY is missing. DocAnalyzerService will be disabled.")
+            logger.warning("GEMINI_API_KEY is missing. DocAnalyzerService will be disabled.")
         
         self.model = settings.MODEL_NAME
 
@@ -125,7 +125,7 @@ class DocAnalyzerService:
                 "detected_sections": [],
                 "missing_sections": [],
                 "issues": ["AI Analysis service is currently disabled (missing API key)"],
-                "suggestions": ["Configure OPENROUTER_API_KEY to enable AI analysis"],
+                "suggestions": ["Configure GEMINI_API_KEY to enable AI analysis"],
                 "ai_can_enhance": False,
                 "enhancement_preview": "",
                 "summary": "AI Analysis Disabled",
