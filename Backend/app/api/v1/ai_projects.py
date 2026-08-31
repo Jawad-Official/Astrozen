@@ -1458,7 +1458,7 @@ async def generate_blueprint(
 @router.put("/idea/{idea_id}/blueprint")
 async def save_blueprint(
     idea_id: str,
-    blueprint_in: Dict[str, Any],
+    blueprint_in: schemas.BlueprintSaveRequest,
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
@@ -1473,9 +1473,9 @@ async def save_blueprint(
 
     content = json.dumps(
         {
-            "nodes": blueprint_in.get("nodes", []),
-            "edges": blueprint_in.get("edges", []),
-            "user_flow_mermaid": blueprint_in.get("user_flow_mermaid", ""),
+            "nodes": [n.model_dump(by_alias=True) for n in blueprint_in.nodes],
+            "edges": [e.model_dump(by_alias=True) for e in blueprint_in.edges],
+            "user_flow_mermaid": blueprint_in.user_flow_mermaid,
         }
     )
 

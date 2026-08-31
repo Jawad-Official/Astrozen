@@ -105,6 +105,41 @@ class BlueprintResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class BlueprintSaveNode(BaseModel):
+    """A single node in a manually-edited blueprint (e.g. after dragging to
+    reposition). Deliberately more lenient than FlowNode - the frontend only
+    guarantees `id`, and round-trips whatever other fields it already had."""
+
+    model_config = {"extra": "allow"}
+
+    id: str
+    label: Optional[str] = None
+    type: Optional[str] = None
+    x: Optional[float] = None
+    y: Optional[float] = None
+    subtasks: Optional[List[str]] = None
+    status: Optional[str] = None
+
+
+class BlueprintSaveEdge(BaseModel):
+    model_config = {"extra": "allow", "populate_by_name": True}
+
+    from_field: Optional[str] = Field(default=None, alias="from")
+    to: Optional[str] = None
+    label: Optional[str] = None
+
+
+class BlueprintSaveRequest(BaseModel):
+    """Body for PUT /idea/{idea_id}/blueprint. `user_flow_mermaid` is the
+    diagram source text rendered client-side by Mermaid - bounding its type
+    and length here is a defense-in-depth measure alongside Mermaid's own
+    'strict' securityLevel and DOMPurify sanitization on the render side."""
+
+    nodes: List[BlueprintSaveNode] = []
+    edges: List[BlueprintSaveEdge] = []
+    user_flow_mermaid: str = Field(default="", max_length=20000)
+
+
 class DocGenerationRequest(BaseModel):
     doc_type: AssetType
     answers: Optional[List[Dict[str, str]]] = None

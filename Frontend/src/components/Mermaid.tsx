@@ -21,7 +21,7 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, onNodeClick }) => {
       mermaid.initialize({
         startOnLoad: true,
         theme: 'dark',
-        securityLevel: 'loose',
+        securityLevel: 'strict',
         fontFamily: 'Inter, sans-serif',
         themeVariables: {
           primaryColor: '#3b82f6',
@@ -72,7 +72,11 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, onNodeClick }) => {
           .then((result) => {
             if (ref.current) {
               ref.current.innerHTML = result.svg;
-              
+              // securityLevel is 'strict', so mermaid sanitizes the SVG and
+              // never inlines click handlers as attributes - bindFunctions
+              // is the supported way to wire them back up afterward.
+              result.bindFunctions?.(ref.current);
+
               const svg = ref.current.querySelector('svg');
               if (svg) {
                 svg.style.maxWidth = '100%';
