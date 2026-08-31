@@ -40,7 +40,17 @@ class CRUDProject(CRUDBase[Project, ProjectCreate, ProjectUpdateSchema]):
         """Get filtered projects with visibility rules"""
         from app.models.team_model import Team
 
-        query = db.query(Project).join(Project.team)
+        query = (
+            db.query(Project)
+            .join(Project.team)
+            .options(
+                joinedload(Project.lead),
+                selectinload(Project.members),
+                selectinload(Project.teams),
+                selectinload(Project.updates),
+                selectinload(Project.resources),
+            )
+        )
 
         if organization_id:
             query = query.filter(Team.organization_id == organization_id)

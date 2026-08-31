@@ -13,20 +13,22 @@ class CRUDFeature(CRUDBase[Feature, FeatureCreate, FeatureUpdate]):
     
     def get(self, db: Session, id: Any) -> Optional[Feature]:
         return db.query(Feature).options(
-            selectinload(Feature.milestones)
+            selectinload(Feature.milestones),
+            selectinload(Feature.sub_features),
         ).filter(Feature.id == id).first()
 
     def get_by_project(self, db: Session, *, project_id: UUID) -> List[Feature]:
         """Get all features for a project"""
         return db.query(Feature).options(
-            selectinload(Feature.milestones)
+            selectinload(Feature.milestones),
+            selectinload(Feature.sub_features),
         ).filter(Feature.project_id == project_id).all()
 
     def get_multi_by_user_projects(
-        self, 
-        db: Session, 
-        *, 
-        user_id: UUID, 
+        self,
+        db: Session,
+        *,
+        user_id: UUID,
         user_team_ids: List[UUID],
         organization_id: Optional[UUID] = None
     ) -> List[Feature]:
@@ -34,7 +36,8 @@ class CRUDFeature(CRUDBase[Feature, FeatureCreate, FeatureUpdate]):
         from app.models.project import Project
         from app.models.team_model import Team
         query = db.query(Feature).options(
-            selectinload(Feature.milestones)
+            selectinload(Feature.milestones),
+            selectinload(Feature.sub_features),
         ).join(Project).join(Project.team)
         
         if organization_id:
