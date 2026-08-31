@@ -4,6 +4,16 @@ import tailwindcssAnimate from "tailwindcss-animate";
 export default {
   darkMode: ["class"],
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+  // ThemeContext.tsx builds theme class names dynamically
+  // (`theme-${resolvedTheme}`), so they never appear as literal strings
+  // anywhere Tailwind's content scanner looks - without this safelist,
+  // the JIT purges the .theme-midnight/.theme-forest/.theme-ocean rule
+  // blocks entirely from the production build (verified: they were
+  // completely absent from the compiled CSS). .theme-dark/.theme-light
+  // happen to survive today only because they share a selector list with
+  // .dark/.light, which Tailwind keeps for unrelated reasons (dark:
+  // variants) - listed explicitly here too so that isn't relied on.
+  safelist: ["theme-dark", "theme-light", "theme-midnight", "theme-forest", "theme-ocean"],
   prefix: "",
   theme: {
     container: {
