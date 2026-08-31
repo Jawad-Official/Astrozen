@@ -36,8 +36,14 @@ class GoogleAuthService:
             "https://www.googleapis.com/auth/documents"
         ]
 
-    def get_authorization_url(self) -> str:
-        """Generate the URL to redirect the user to Google consent screen."""
+    def get_authorization_url(self, state: str) -> str:
+        """Generate the URL to redirect the user to Google consent screen.
+
+        `state` is an opaque, unguessable value the caller generates and
+        must verify matches on the callback - the standard OAuth defense
+        against login CSRF (an attacker feeding a victim their own
+        authorization code via a bare, unauthenticated callback GET).
+        """
         params = {
             "client_id": self.client_id,
             "redirect_uri": self.redirect_uri,
@@ -45,6 +51,7 @@ class GoogleAuthService:
             "scope": " ".join(self.scope),
             "access_type": "offline",
             "prompt": "consent",
+            "state": state,
         }
         return f"{self.AUTH_BASE}?{urlencode(params)}"
 
