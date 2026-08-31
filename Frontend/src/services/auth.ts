@@ -43,9 +43,10 @@ export const authService = {
     return mapUser(response.data);
   },
 
-  logout: () => {
-    localStorage.removeItem('token');
-    window.location.href = '/login';
+  logout: async (): Promise<void> => {
+    // Clears the httpOnly auth_token cookie server-side - the frontend
+    // has no token of its own to clear anymore (see SEC-7).
+    await apiClient.post('/auth/logout');
   },
 };
 

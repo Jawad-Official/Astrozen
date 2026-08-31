@@ -59,7 +59,11 @@ def client(db_session):
             pass
 
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
+    # https, not the default http://testserver - the auth_token cookie is
+    # set with Secure=True (required alongside SameSite=None, see SEC-7),
+    # and a Secure cookie is only round-tripped by the test client's
+    # cookie jar on a request that looks like it's over TLS.
+    with TestClient(app, base_url="https://testserver") as test_client:
         yield test_client
     app.dependency_overrides.clear()
 

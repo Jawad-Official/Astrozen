@@ -8,7 +8,7 @@ from app.api.deps import get_current_active_user
 from app.models.user import User
 from app.schemas.user import UserCreate, User as UserSchema, Token
 from app.services import auth_service
-from app.services.audit_service import log_event, LOGIN_SUCCESS, LOGIN_FAILURE, REGISTER, PERMISSION_DENIED
+from app.services.audit_service import log_event, LOGIN_SUCCESS, LOGIN_FAILURE, REGISTER, PERMISSION_DENIED, LOGOUT
 from app.core.rate_limit import limiter
 
 router = APIRouter()
@@ -49,7 +49,12 @@ def login(
             value=result["access_token"],
             httponly=True,
             secure=True,
-            samesite="lax",
+            # The frontend (Netlify) and this API (Render) are different
+            # origins, so the cookie must be sent on cross-site requests -
+            # SameSite=Lax only covers same-site requests and cross-site
+            # top-level navigation, not the XHR/fetch calls the frontend
+            # actually makes. SameSite=None requires Secure (already set).
+            samesite="none",
             max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             path="/",
         )
@@ -63,3 +68,17 @@ def login(
 def get_current_user_info(current_user: User = Depends(get_current_active_user)):
     """Get current user information"""
     return current_user
+
+
+@router.post("/logout")
+def logout(request: Request, current_user: User = Depends(get_current_active_user)):
+    """Clear the httpOnly auth cookie server-side.
+
+    The frontend no longer keeps a copy of the token it could clear
+    itself (see SEC-7) - this is now the only way to actually end a
+    session before the token's natural expiry.
+    """
+    log_event(LOGOUT, user_id=str(current_user.id), ip_address=request.client.host if request.client else None)
+    response = JSONResponse(content={"message": "Logged out"})
+    response.delete_cookie(key="auth_token", path="/")
+    return response

@@ -7,8 +7,8 @@ export interface AuthContextType {
   teams: Team[];
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (token: string) => Promise<void>;
-  logout: () => void;
+  login: (token?: string) => Promise<void>;
+  logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 

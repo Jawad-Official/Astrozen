@@ -13,12 +13,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      loadData();
-    } else {
-      setIsLoading(false);
-    }
+    // There's no client-readable token to check first anymore (see
+    // SEC-7) - the only way to know if a session cookie exists is to ask
+    // the server. A logged-out visitor just gets a 401 here, which
+    // resolves to isAuthenticated: false the same as before.
+    loadData();
   }, []);
 
   async function loadData() {
@@ -42,13 +41,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function login(token: string) {
-    localStorage.setItem("token", token);
+  async function login(_token?: string) {
+    // The backend already set the auth_token cookie on the login/register
+    // response that produced this token - nothing to store client-side
+    // (see SEC-7). The parameter is kept so existing callers that pass
+    // the access token from the login response don't need to change.
     await loadData();
   }
 
-  function logout() {
-    localStorage.removeItem("token");
+  async function logout() {
+    try {
+      await authService.logout();
+    } catch (error) {
+      // Best-effort: still clear local state and navigate away even if
+      // the request fails (e.g. offline) - the cookie will simply expire
+      // on its own at worst.
+      console.error("Logout request failed", error);
+    }
     setUser(null);
     setOrganization(null);
     setTeams([]);
