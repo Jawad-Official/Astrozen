@@ -59,6 +59,26 @@ Astrozen is a project planning and execution workspace. You bring an idea; Astro
 - Source: `https://github.com/Jawad-Official/Astrozen`
 - Docs and deeper implementation notes live under `docs/` in the repo.
 
+## Run Locally with Docker
+
+```
+docker compose up --build
+```
+
+This starts three containers: Postgres, the FastAPI backend (runs Alembic
+migrations on boot, then serves on `:18010`), and the built frontend served
+by nginx on `:18011`. Open `http://localhost:18011`.
+
+The backend's `JWT_SECRET` in `docker-compose.yml` is a throwaway
+dev-only value generated for this stack - regenerate it for your own use,
+never reuse it anywhere real. `OPENROUTER_API_KEY`, `GOOGLE_CLIENT_ID`/
+`GOOGLE_CLIENT_SECRET`, and the `R2_*` storage variables are left unset,
+so AI generation, Google Docs sync, and file storage stay disabled (each
+logs a warning and no-ops rather than crashing) until you add real values
+under the `backend` service's `environment` block. Everything else -
+auth, projects, issues, features, teams - works against the containerized
+Postgres out of the box.
+
 ## Planned and In Progress
 
 - Frontend linting and theme passes remain open in several screens.
