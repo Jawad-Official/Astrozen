@@ -274,6 +274,30 @@ class AIService:
                     logger.error(f"Regex fallback also failed: {str(fallback_error)}")
                 raise e
 
+    @staticmethod
+    def _require_object(parsed: Any, what: str) -> Dict[str, Any]:
+        """Insist the model actually gave us an object to work with.
+
+        `_parse_json` answers None for empty content - a safety block, or
+        a thinking-capable model that spends its whole max_tokens budget
+        on reasoning and emits no message content. Callers then did
+        `parsed.get(...)` on None, and that AttributeError escaped past
+        CORSMiddleware to ServerErrorMiddleware, so the 500 carried no
+        Access-Control-Allow-Origin header and the browser reported a CORS
+        failure instead of a server error. A bare list parses but has no
+        .get(), and fails identically.
+        """
+        if not isinstance(parsed, dict):
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    f"The AI returned an empty or unusable {what}. This is usually a "
+                    f"truncated or filtered response - try again, and if it persists "
+                    f"check MODEL_NAME and the token limit for this call."
+                ),
+            )
+        return parsed
+
     def _build_prompt(self, user_content: str) -> str:
         """Prepend the guardrail to user-facing prompts to prevent prompt injection."""
         return GUARDRAIL + user_content
@@ -847,7 +871,10 @@ class AIService:
                 response_format={"type": "json_object"},
                 max_tokens=8192,
             )
-            return self._parse_json(response.choices[0].message.content)
+            return self._require_object(
+                self._parse_json(response.choices[0].message.content),
+                "blueprint",
+            )
         except HTTPException:
             raise
         except Exception as e:
@@ -904,7 +931,10 @@ class AIService:
                 response_format={"type": "json_object"},
                 max_tokens=8192,
             )
-            return self._parse_json(response.choices[0].message.content)
+            return self._require_object(
+                self._parse_json(response.choices[0].message.content),
+                "issue plan",
+            )
         except HTTPException:
             raise
         except Exception as e:
@@ -1345,7 +1375,10 @@ class AIService:
                 response_format={"type": "json_object"},
                 max_tokens=4000,
             )
-            return self._parse_json(response.choices[0].message.content)
+            return self._require_object(
+                self._parse_json(response.choices[0].message.content),
+                "response",
+            )
         except HTTPException:
             raise
         except Exception as e:
