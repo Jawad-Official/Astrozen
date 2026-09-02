@@ -106,3 +106,57 @@ def test_provider_auth_errors_are_recognised(message):
 )
 def test_non_auth_errors_are_not_misreported_as_key_problems(message):
     assert AIService._is_auth_error(message) is False
+
+
+# The shape Gemini returns for a model name the key cannot reach. This was
+# the actual production failure: a rejected MODEL_NAME was indistinguishable
+# from any other server error, so /validate just returned a bare 500.
+GEMINI_BAD_MODEL_ERROR = (
+    "Error code: 404 - [{'error': {'code': 404, 'message': "
+    "'models/gemini-2.5-flash is not found for API version v1beta, or is not "
+    "supported for generateContent.', 'status': 'NOT_FOUND'}}]"
+)
+
+
+def test_rejected_model_name_is_recognised():
+    assert AIService._is_model_error(GEMINI_BAD_MODEL_ERROR) is True
+
+
+def test_rejected_model_name_reports_the_name_and_the_variable_to_change(
+    unconfigured_ai,
+):
+    """The message has to name both the model that was rejected and the
+    setting that controls it - that is the whole difference from a 500."""
+    unconfigured_ai.model = "models/gemini-2.5-flash"
+
+    with pytest.raises(HTTPException) as exc_info:
+        unconfigured_ai._raise_if_misconfigured(GEMINI_BAD_MODEL_ERROR)
+
+    assert exc_info.value.status_code == 503
+    assert "models/gemini-2.5-flash" in exc_info.value.detail
+    assert "MODEL_NAME" in exc_info.value.detail
+
+
+def test_rejected_key_is_reported_as_a_key_problem_not_a_model_problem(
+    unconfigured_ai,
+):
+    with pytest.raises(HTTPException) as exc_info:
+        unconfigured_ai._raise_if_misconfigured(GEMINI_BAD_KEY_ERROR)
+
+    assert exc_info.value.status_code == 503
+    assert "GEMINI_API_KEY" in exc_info.value.detail
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Error code: 429 - rate limit exceeded",
+        "Error code: 503 - the model is overloaded",
+        "Connection timed out",
+    ],
+)
+def test_transient_failures_are_left_alone(unconfigured_ai, message):
+    """A quota or overload error is not a misconfiguration - it must fall
+    through to the caller's own handling rather than be relabelled as a
+    settings problem the operator cannot act on."""
+    assert unconfigured_ai._raise_if_misconfigured(message) is None

@@ -129,6 +129,45 @@ class AIService:
             )
 
     @staticmethod
+    def _is_model_error(error_msg: str) -> bool:
+        """Does this provider error mean "that model name is wrong"?
+
+        Gemini answers an unknown or unsupported model with HTTP 404
+        NOT_FOUND - "models/<name> is not found for API version v1beta, or
+        is not supported for generateContent". Nothing in the old handling
+        recognised that, so a stale MODEL_NAME looked exactly like any
+        other server error.
+        """
+        haystack = error_msg.lower()
+        return "not_found" in haystack or (
+            "is not found for api version" in haystack
+            or "not supported for" in haystack
+            or ("404" in haystack and "model" in haystack)
+        )
+
+    def _raise_if_misconfigured(self, error_msg: str) -> None:
+        """Turn a provider rejection that only an operator can fix into a
+        response that says so."""
+        if self._is_auth_error(error_msg):
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "AI is misconfigured on this server: the provider rejected "
+                    "GEMINI_API_KEY. Check the key is current and enabled for the "
+                    "Generative Language API."
+                ),
+            )
+        if self._is_model_error(error_msg):
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    f"AI is misconfigured on this server: the provider rejected the "
+                    f"model '{self.model}'. Set MODEL_NAME to a model your key can "
+                    f"reach."
+                ),
+            )
+
+    @staticmethod
     def _is_auth_error(error_msg: str) -> bool:
         """Does this provider error mean "your API key is bad"?
 
@@ -267,12 +306,21 @@ class AIService:
         if cached is not None and cached[0] > now:
             return cached[1]
 
-        response = await run_in_threadpool(
-            self.client.chat.completions.create,
-            model=self.model,
-            messages=[{"role": "user", "content": self._build_prompt(prompt)}],
-            **kwargs,
-        )
+        try:
+            response = await run_in_threadpool(
+                self.client.chat.completions.create,
+                model=self.model,
+                messages=[{"role": "user", "content": self._build_prompt(prompt)}],
+                **kwargs,
+            )
+        except Exception as e:
+            # Translate the provider's own misconfiguration errors here, at
+            # the one point every AI call passes through, rather than in
+            # each of the dozen callers. These become HTTPException, which
+            # the callers re-raise untouched instead of folding into their
+            # generic fallbacks.
+            self._raise_if_misconfigured(str(e))
+            raise
 
         if len(self._response_cache) >= AI_CACHE_MAX_ENTRIES:
             expired_keys = [k for k, (expires_at, _) in self._response_cache.items() if expires_at <= now]
