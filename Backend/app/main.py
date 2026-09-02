@@ -101,5 +101,16 @@ def root():
 
 @app.get("/health")
 def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy"}
+    """Health check endpoint.
+
+    `ai_configured` reports only whether the server booted with a
+    GEMINI_API_KEY present - never the key, and never whether the
+    provider accepted it. It exists because a missing key and a rejected
+    key used to be indistinguishable from the outside (both surfaced as a
+    generic 500 on /ai/idea/{id}/validate), which made a deployed
+    instance impossible to triage without shell access to its logs.
+    """
+    return {
+        "status": "healthy",
+        "ai_configured": bool(settings.GEMINI_API_KEY),
+    }
