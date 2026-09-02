@@ -838,6 +838,12 @@ async def submit_idea(
             questions = await ai_service.generate_clarification_questions(
                 idea_in.raw_input, max_questions=7
             )
+        # An unconfigured or unreachable provider must not be downgraded to
+        # "no questions" - that is indistinguishable from "the idea is
+        # clear", and the idea would be stored as READY_FOR_VALIDATION on
+        # the strength of an AI call that never happened.
+        except HTTPException:
+            raise
         except Exception as e:
             import logging
 
@@ -909,6 +915,11 @@ async def submit_idea(
         res_data_dict = res_data.model_dump()
         res_data_dict["project_id"] = project_id
         return res_data_dict
+    # Deliberate responses (the 503 for unconfigured AI, the 400 for a user
+    # with no team) already carry the right status and message - re-wrapping
+    # them as a generic 500 buries the actionable part.
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
 

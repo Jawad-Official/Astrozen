@@ -99,10 +99,60 @@ class AIService:
             )
         else:
             self.client = None
-            logger.warning("GEMINI_API_KEY is missing. AIService will be limited.")
+            logger.warning(
+                "GEMINI_API_KEY is missing. Every AI-backed route will return "
+                "503 until it is set."
+            )
 
         self.model = settings.MODEL_NAME
         self._response_cache: Dict[str, tuple] = {}  # cache_key -> (expires_at, response)
+
+    def _require_client(self) -> None:
+        """Fail loudly, and in the caller's language, when the provider was
+        never configured.
+
+        Without this the first thing to touch `self.client` raised a bare
+        `AttributeError: 'NoneType' object has no attribute 'chat'`, which
+        the blanket handlers below turned into an empty result - so a
+        missing API key looked like the AI had run and found nothing to
+        say. HTTPException is re-raised untouched by those handlers, so a
+        config problem reaches the user as a config problem.
+        """
+        if self.client is None:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "AI is not configured on this server: GEMINI_API_KEY is not set. "
+                    "Add a Google AI Studio key as GEMINI_API_KEY (see Backend/.env.example) "
+                    "and restart the backend."
+                ),
+            )
+
+    @staticmethod
+    def _is_auth_error(error_msg: str) -> bool:
+        """Does this provider error mean "your API key is bad"?
+
+        Gemini does not answer 401 the way OpenRouter did - a rejected key
+        comes back as HTTP 400 `INVALID_ARGUMENT` with the message "Please
+        pass a valid API key", or 403 `PERMISSION_DENIED`/`API_KEY_INVALID`.
+        Matching only on "401"/"User not found" (the OpenRouter wording)
+        let a bad key fall through to a generic 500, so the one error a
+        user can actually fix was the one they never got told about.
+        """
+        haystack = error_msg.lower()
+        return any(
+            needle in haystack
+            for needle in (
+                "401",
+                "user not found",
+                "authentication",
+                "valid api key",
+                "api key not valid",
+                "api_key_invalid",
+                "permission_denied",
+                "unauthenticated",
+            )
+        )
 
     def _repair_json(self, json_str: str) -> str:
         """Attempt to repair truncated JSON by balancing braces, quotes, and removing trailing commas."""
@@ -208,6 +258,8 @@ class AIService:
         a short TTL, so a double-clicked "Generate" or a client retry
         doesn't trigger a second billable call - see AI_CACHE_TTL_SECONDS.
         """
+        self._require_client()
+
         cache_key = self._cache_key(prompt, kwargs)
         now = time.monotonic()
 
@@ -268,11 +320,13 @@ class AIService:
                 return data.get("questions", [])
             except Exception:
                 return []
+        except HTTPException:
+            raise
         except Exception as e:
             error_msg = str(e)
             logger.error(f"AI Clarification failed: {error_msg}")
 
-            if "401" in error_msg or "User not found" in error_msg:
+            if self._is_auth_error(error_msg):
                 raise HTTPException(
                     status_code=400,
                     detail="AI API Configuration Error: The Gemini API key provided in the backend is invalid. Please check GEMINI_API_KEY in the .env file.",
@@ -309,6 +363,8 @@ class AIService:
                 max_tokens=3000,
             )
             return response.choices[0].message.content.strip()
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"AI Suggestion failed: {str(e)}")
             return ""
@@ -594,9 +650,11 @@ class AIService:
             logger.info(f"pricing_model present: {'pricing_model' in parsed_data}")
 
             return parsed_data
+        except HTTPException:
+            raise
         except Exception as e:
             error_msg = str(e)
-            if "401" in error_msg or "User not found" in error_msg:
+            if self._is_auth_error(error_msg):
                 raise HTTPException(
                     status_code=400,
                     detail="AI API Configuration Error: The Gemini API key provided in the backend is invalid. Please check GEMINI_API_KEY in the .env file.",
@@ -700,6 +758,8 @@ class AIService:
                     return result[first_key]
 
             return result
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Field regeneration failed: {str(e)}")
             return current_value
@@ -740,11 +800,13 @@ class AIService:
                 max_tokens=8192,
             )
             return self._parse_json(response.choices[0].message.content)
+        except HTTPException:
+            raise
         except Exception as e:
             error_msg = str(e)
             logger.error(f"Blueprint generation failed: {error_msg}")
 
-            if "401" in error_msg or "User not found" in error_msg:
+            if self._is_auth_error(error_msg):
                 raise HTTPException(
                     status_code=400,
                     detail="AI API Configuration Error: The Gemini API key provided in the backend is invalid. Please check GEMINI_API_KEY in the .env file.",
@@ -795,11 +857,13 @@ class AIService:
                 max_tokens=8192,
             )
             return self._parse_json(response.choices[0].message.content)
+        except HTTPException:
+            raise
         except Exception as e:
             error_msg = str(e)
             logger.error(f"Issue generation for node failed: {error_msg}")
 
-            if "401" in error_msg or "User not found" in error_msg or "authentication" in error_msg.lower():
+            if self._is_auth_error(error_msg):
                 raise HTTPException(
                     status_code=400,
                     detail="AI API Configuration Error: The Gemini API key provided in the backend is invalid. Please check GEMINI_API_KEY in the .env file.",
@@ -846,6 +910,8 @@ class AIService:
             )
             data = self._parse_json(response.choices[0].message.content)
             return data.get("node_id")
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Auto-link issue failed: {str(e)}")
             return None
@@ -884,6 +950,8 @@ class AIService:
             )
             data = self._parse_json(response.choices[0].message.content)
             return data.get("features", [])
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Feature expansion failed: {str(e)}")
             return []
@@ -957,6 +1025,8 @@ class AIService:
                         q["id"] = f"q{i + 1}"
 
             return result
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Doc questions generation failed: {str(e)}")
             return {"has_questions": False, "questions": []}
@@ -1096,6 +1166,8 @@ class AIService:
                 max_tokens=8000,
             )
             return response.choices[0].message.content
+        except HTTPException:
+            raise
         except Exception as e:
             error_msg = str(e)
             logger.error(f"Doc generation failed: {error_msg}")
@@ -1133,6 +1205,8 @@ class AIService:
                 max_tokens=8000,
             )
             return response.choices[0].message.content
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Doc section regeneration failed: {str(e)}")
             return current_content
@@ -1176,6 +1250,8 @@ class AIService:
                 max_tokens=8000,
             )
             return response.choices[0].message.content
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Doc chat failed: {str(e)}")
             return current_content
@@ -1222,6 +1298,8 @@ class AIService:
                 max_tokens=4000,
             )
             return self._parse_json(response.choices[0].message.content)
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Structured doc chat failed: {str(e)}")
             return {"explanation": f"Sorry, I encountered an error: {str(e)}"}

@@ -49,7 +49,4 @@ Frontend/docs
 .docs/
 *docs/
 
-*.env.example
-Backend/.env.example
-
 .gitignore
