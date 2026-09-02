@@ -8,7 +8,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { 
+import {
   Square,
   CheckSquare,
   DotsThree,
@@ -20,22 +20,17 @@ import {
   WarningCircle,
   Archive,
   Binoculars,
-  Flask,
   Gear,
   Star,
-  Check,
   CheckCircle,
   CircleHalf,
   Circle,
   XCircle,
   X,
-  NotePencil,
   Package,
-  Sliders,
   Target,
   CornersIn,
   CornersOut,
-  ArrowRight,
   User,
 } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
@@ -55,12 +50,9 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import AgentPlan, { Task, Subtask } from './ui/agent-plan';
 import { useToast } from '@/hooks/use-toast';
 import { CreateSubFeatureDialog } from './feature/CreateSubFeatureDialog';
 
@@ -117,7 +109,6 @@ export const FeatureWindow = {
   },
 
   HealthIcon: ({ health, className }: { health: FeatureHealth; className?: string }) => {
-    const iconClass = cn('h-3 w-3', className);
     switch (health) {
       case 'on_track': return <div className={cn("h-2 w-2 rounded-full bg-emerald-500", className)} />;
       case 'at_risk': return <div className={cn("h-2 w-2 rounded-full bg-yellow-500", className)} />;
@@ -126,10 +117,9 @@ export const FeatureWindow = {
     }
   },
 
-  Row: ({ 
-    feature, 
-    projects, 
-    teams,
+  Row: ({
+    feature,
+    projects,
     allFeatures,
     expanded,
     onToggleExpand,
@@ -163,23 +153,9 @@ export const FeatureWindow = {
   }) => {
     const { toast } = useToast();
     const project = projects.find((p) => p.id === feature.projectId);
-    const team = teams?.find(t => t.id === project?.teamId);
     const lastDraggedPriority = useRef<IssuePriority | null>(null);
     const [editingDescriptionId, setEditingDescriptionId] = useState<string | null>(null);
     const [tempDescription, setTempDescription] = useState('');
-
-    const handleUpdateStatus = async (status: FeatureStatus) => {
-      try {
-        await onUpdate(feature.id, { status });
-        toast({ title: 'Status updated' });
-      } catch (error: any) {
-        toast({ 
-          title: 'Failed to update status', 
-          description: error.response?.data?.detail || 'An error occurred',
-          variant: 'destructive' 
-        });
-      }
-    };
 
     const handleDelete = async () => {
       if (!confirm('Delete this feature?')) return;
@@ -581,8 +557,6 @@ export const FeatureWindow = {
           onCreateFeature?: () => void; 
         }) => {
           const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-          const priorityGroupRefs = useRef<Record<IssuePriority, HTMLDivElement | null>>({} as any);
-          const [priorityGroupRects, setPriorityGroupRects] = useState<Record<IssuePriority, DOMRect>>({} as any);
           const [manualCollapsibleStates, setManualCollapsibleStates] = useState<Record<IssuePriority, boolean>>({} as any);
         
           const toggleExpand = (id: string) => {
@@ -619,17 +593,6 @@ export const FeatureWindow = {
             return [...fullPriorities, ...emptyPriorities];
           }, [groupedFeatures]);
 
-          const getPriorityColorClass = (priority: IssuePriority) => {
-            switch (priority) {
-              case 'urgent': return 'bg-red-400';
-              case 'high': return 'bg-orange-400';
-              case 'medium': return 'bg-yellow-400';
-              case 'low': return 'bg-blue-400';
-              case 'none': return 'bg-zinc-500';
-              default: return 'bg-primary/40';
-            }
-          };
-  
       if (loading) return (
         <div className="flex-1 flex items-center justify-center bg-background">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
@@ -720,23 +683,21 @@ export const FeatureWindow = {
       );
     },
 
-    Detail: ({ 
-      featureId, 
-      features, 
+    Detail: ({
+      featureId,
+      features,
       projects,
-      teams,
       orgMembers,
-      onClose, 
-      onUpdateFeature, 
-      onDeleteFeature, 
+      onClose,
+      onUpdateFeature,
+      onDeleteFeature,
       onAddMilestone,
       onCreateIssueForMilestone,
       onToggleMilestone,
       onDeleteMilestone,
-      onUpdateMilestone,
       onAddFeature,
       onAddSubFeature,
-    }: { 
+    }: {
       featureId: string | null; 
       features: Feature[]; 
       projects: Project[];

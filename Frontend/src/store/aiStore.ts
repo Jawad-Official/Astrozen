@@ -353,7 +353,7 @@ export const useAIStore = create<AIStore>((set, get) => ({
     try {
       await aiService.syncDocument(docId);
       toast.success("Sync started");
-    } catch (error: any) {
+    } catch {
       toast.error("Sync failed");
     }
   },
@@ -366,7 +366,7 @@ export const useAIStore = create<AIStore>((set, get) => ({
         activeDocumentId: state.activeDocumentId === docId ? null : state.activeDocumentId
       }));
       toast.success("Document deleted");
-    } catch (error: any) {
+    } catch {
       toast.error("Failed to delete document");
     }
   }

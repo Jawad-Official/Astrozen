@@ -20,7 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 export function ThemeSwitcher() {
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
 
   const themeIcons: Record<ThemeName, React.ReactNode> = {
     light: <Sun weight="fill" className="h-4 w-4 text-amber-500" />,

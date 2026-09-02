@@ -1,5 +1,4 @@
-import { IssueStatus } from '@/types/issue';
-import { 
+import {
   IssueStatusIcon, 
   IssueTypeIcon, 
   IssuePriorityIcon,

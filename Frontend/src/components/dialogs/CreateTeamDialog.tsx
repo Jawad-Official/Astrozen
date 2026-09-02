@@ -12,8 +12,7 @@ import {
 import { CreateTeamData, Team } from '@/types/auth';
 import { useAuth } from '@/context/AuthContext';
 import { organizationService } from '@/services/organization';
-import { cn } from '@/lib/utils';
-import { Users, IdentificationCard, ShieldCheck, Database, Check } from '@phosphor-icons/react';
+import { Users, IdentificationCard, ShieldCheck, Database } from '@phosphor-icons/react';
 
 interface CreateTeamDialogProps {
   open: boolean;
@@ -82,8 +81,6 @@ export function CreateTeamDialog({ open, onOpenChange, onCreateTeam, teams }: Cr
       handleSubmit();
     }
   };
-
-  const leaderMember = members.find(m => m.id === leaderId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

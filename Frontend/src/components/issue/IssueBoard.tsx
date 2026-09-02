@@ -12,10 +12,9 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { 
-  IssueStatusIcon,
-  IssuePriorityIcon, 
-  IssueTypeIcon, 
+import {
+  IssuePriorityIcon,
+  IssueTypeIcon,
   IssueIdentifier
 } from './IssueAtomicComponents';
 
@@ -46,13 +45,12 @@ const getStatusColorClass = (status: IssueStatus) => {
   }
 };
 
-export function IssueBoard({ 
-  issues, 
-  projects, 
-  features, 
-  orgMembers, 
-  onUpdateIssue, 
-  onCreateIssue 
+export function IssueBoard({
+  issues,
+  projects,
+  features,
+  orgMembers,
+  onUpdateIssue
 }: IssueBoardProps) {
   const { getIssueById } = useIssueStore();
   

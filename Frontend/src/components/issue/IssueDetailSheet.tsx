@@ -19,14 +19,7 @@ import {
   DialogTitle, 
   DialogDescription,
 } from '@/components/ui/dialog';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -37,17 +30,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { 
-  X, 
-  NotePencil, 
-  Check, 
-  ChatTeardropText, 
-  PaperPlaneRight, 
-  Pulse, 
-  CalendarBlank, 
+import {
+  X,
+  PaperPlaneRight,
+  Pulse,
+  CalendarBlank,
   Clock,
   User,
-  Package,
   Target,
   Plus,
   Trash,
@@ -88,9 +77,8 @@ export function IssueDetailSheet({
   onDeleteIssue, 
   onCreateSubIssue 
 }: IssueDetailSheetProps) {
-  const { 
-    issues, 
-    projects, 
+  const {
+    projects,
     features, 
     orgMembers,
     getIssueById, 
@@ -165,7 +153,7 @@ export function IssueDetailSheet({
       await addComment(issue.id, newComment.trim());
       setNewComment('');
       toast({ title: 'Comment added' });
-    } catch (error: any) {
+    } catch {
       toast({ title: 'Failed to add comment', variant: 'destructive' });
     }
   };

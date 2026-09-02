@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Feature, FeatureStatus, FeatureMilestone } from '@/types/feature';
+import { Feature, FeatureMilestone } from '@/types/feature';
 import { Project } from '@/types/issue';
 import { 
   Plus, 
@@ -39,9 +39,6 @@ interface ProjectFeaturesViewProps {
 
 export const ProjectFeaturesView = ({
   features,
-  projects,
-  onUpdateFeature,
-  onDeleteFeature,
   onAddMilestone,
   onUpdateMilestone,
   onDeleteMilestone,
@@ -74,7 +71,7 @@ export const ProjectFeaturesView = ({
       await onUpdateMilestone(featureId, milestoneId, { name: editName.trim() });
       setEditingMilestoneId(null);
       toast({ title: 'Milestone updated' });
-    } catch (error) {
+    } catch {
       toast({ title: 'Failed to update milestone', variant: 'destructive' });
     }
   };

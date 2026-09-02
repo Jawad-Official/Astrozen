@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import {
   CheckSquare as CheckCircle,
   Square as Circle,
-  Warning as CircleAlert,
   ArrowsClockwise as CircleDotDashed,
   XSquare as CircleX,
   Plus,
@@ -55,7 +54,6 @@ const RecursiveTask = ({
 }) => {
   const [expanded, setExpanded] = useState(level === 0);
   const isCompleted = task.status === "completed";
-  const hasSubtasks = 'subtasks' in task && task.subtasks && task.subtasks.length > 0;
 
   const taskVariants = {
     hidden: { opacity: 0, y: -5 },

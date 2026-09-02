@@ -7,20 +7,15 @@ import {
   ChatCircleText,
   ArrowClockwise,
   Plus,
-  ArrowBendUpLeft,
   UploadSimple,
   Trash,
   X,
   Database,
-  Lock,
   Lightbulb,
   TrendUp,
   Circuitry,
-  Pencil,
-  SkipForward,
   Coins,
   Stack,
-  ChartBar,
   Rocket,
   CheckCircle,
   XCircle,
@@ -38,10 +33,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { aiService } from '@/services/ai.service';
 import { toast } from 'sonner';
@@ -338,7 +330,7 @@ const BlueprintCanvas = ({
       }
     };
 
-    const handleGlobalPointerUp = (e: PointerEvent) => {
+    const handleGlobalPointerUp = () => {
       if (draggingNodeId) {
         // Save only on pointer up to minimize backend calls
         setInternalNodes(current => {
@@ -458,7 +450,7 @@ const BlueprintCanvas = ({
       <motion.div
         className="w-full h-full origin-top-left will-change-transform"
         onPointerDown={handleCanvasPointerDown}
-        onClick={(e) => {
+        onClick={() => {
             if (!isCanvasDragging.current && !draggingNodeId && onCanvasClick) {
                 onCanvasClick();
             }
@@ -614,10 +606,6 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
   const [validationTab, setValidationTab] = useState<'overview' | 'features' | 'techstack' | 'pricing' | 'improvements'>('overview');
   const [selectedImprovementIndices, setSelectedImprovementIndices] = useState<number[]>([]);
   const [improvementStatus, setImprovementStatus] = useState<Record<number, string>>({});
-  const [chatMessage, setChatMessage] = useState('');
-  const [selectedDocType, setSelectedDocType] = useState<string | null>(null);
-  const [isRefining, setIsRefining] = useState(false);
-  const [refineFeedback, setRefineFeedback] = useState('');
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
 
   // Blueprint Modal State
@@ -685,7 +673,6 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
 
   // Auto-save timer
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const selectedDoc = docs.find(d => d.asset_type === selectedDocType);
 
   const fetchNodeDetails = useCallback(async (nodeId: string) => {
     if (!ideaId) return;
@@ -706,7 +693,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
       fetchNodeDetails(selectedNode.id);
       loadIdea(ideaId); // Refresh main blueprint data
       setIsLinkingIssue(false);
-    } catch (error) {
+    } catch {
       toast.error("Failed to link issue");
     }
   };
@@ -718,7 +705,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
       toast.success("Issue unlinked");
       fetchNodeDetails(selectedNode.id);
       loadIdea(ideaId); // Refresh main blueprint data
-    } catch (error) {
+    } catch {
       toast.error("Failed to unlink issue");
     }
   };
@@ -761,7 +748,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
           if (ideas && ideas.length > 0) {
             setIdeaId(ideas[0].id);
           }
-        } catch (error) {
+        } catch {
           // Ignore error
         } finally {
           setLoading(false);
@@ -862,7 +849,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                         edges = parsed.edges || [];
                         mermaid = parsed.user_flow_mermaid || '';
                     }
-                } catch (e) {
+                } catch {
                     // Content is raw mermaid string
                 }
                 
@@ -879,7 +866,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                 if (kanbanAsset) {
                     try {
                         kanbanFeatures = JSON.parse(kanbanAsset.content || '[]');
-                    } catch (e) {
+                    } catch {
                         // Ignore
                     }
                 }
@@ -895,7 +882,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
               }
           }
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to load project plans");
     } finally {
       setLoading(false);
@@ -923,7 +910,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
         setPhase('VALIDATION');
         handleValidate(res.data.id);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to submit project description");
     } finally {
       setLoading(false);
@@ -951,7 +938,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
     try {
       const res = await aiService.suggestAnswer(ideaId, currentQuestionIndex);
       setAiSuggestion(res.data.suggestion);
-    } catch (error) {
+    } catch {
       toast.error("AI couldn't suggest an answer");
     } finally {
       setLoading(false);
@@ -973,7 +960,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
         await aiService.answerQuestions(ideaId!, answers);
         setPhase('VALIDATION');
         handleValidate(ideaId!);
-      } catch (error) {
+      } catch {
         toast.error("Failed to save answers");
       } finally {
         setLoading(false);
@@ -988,10 +975,8 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
     try {
       const res = await aiService.validateIdea(id, feedback);
       setValidationReport(res.data);
-      setIsRefining(false);
-      setRefineFeedback('');
       if (feedback) toast.success("Analysis regenerated");
-    } catch (error) {
+    } catch {
       toast.error("Validation failed");
     } finally {
       setLoading(false);
@@ -1007,11 +992,6 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
         await aiService.updateValidationReport(ideaId, updatedReport);
       } catch (error) { console.error("Auto-save failed", error); }
     }, 2000);
-  };
-
-  const triggerRevalidation = async (feedback: string) => {
-    if (revalidating) return;
-    await handleValidate(ideaId!, feedback);
   };
 
   // Blueprint Generation
@@ -1033,7 +1013,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
 
       setBlueprint({ ...res.data, nodes });
       setPhase('BLUEPRINT');
-    } catch (error) {
+    } catch {
       toast.error("Blueprint generation failed");
     } finally {
       setLoading(false);
@@ -1066,7 +1046,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
           setShowAnalysisModal(true);
         }
       }
-    } catch (error) {
+    } catch {
       toast.error("Upload failed");
     } finally {
       setLoading(false);
@@ -1155,7 +1135,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
       } else {
         await handleGenerateDoc(type);
       }
-    } catch (error) {
+    } catch {
       toast.error(`Failed to prepare ${type}`);
     } finally {
       setLoading(false);
@@ -1191,7 +1171,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
       const res = await aiService.generateDoc(ideaId, generatingDocType, answersArray);
       updateDocState(generatingDocType, res.data);
       toast.success(`${DOC_INFO[generatingDocType].label} generated`);
-    } catch (error) {
+    } catch {
       toast.error(`Failed to generate ${generatingDocType}`);
     } finally {
       setLoading(false);
@@ -1206,7 +1186,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
       const res = await aiService.generateDoc(ideaId, type);
       updateDocState(type, res.data);
       toast.success(`${DOC_INFO[type].label} generated`);
-    } catch (error) {
+    } catch {
       toast.error(`Failed to generate ${type}`);
     } finally {
       setLoading(false);
@@ -1223,24 +1203,8 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
         }
         return [...prev, data];
     });
-    setSelectedDocType(type);
   };
   
-  const handleChatDoc = async () => {
-    if (!chatMessage.trim() || !selectedDocType || !ideaId) return;
-    setLoading(true);
-    try {
-      const res = await aiService.chatDoc(ideaId, selectedDocType, chatMessage);
-      updateDocState(selectedDocType, res.data);
-      setChatMessage('');
-      toast.success("Document refined");
-    } catch (error) {
-      toast.error("Failed to refine document");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Tech Stack Local State
   const [editingTech, setEditingTech] = useState<string | null>(null);
   const [techFeedback, setTechFeedback] = useState<Record<string, string>>({});
@@ -1260,7 +1224,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
           handleValidationEdit(updatedReport);
           toast.success(`${field} tech stack updated`);
       }
-    } catch (error) {
+    } catch {
       toast.error(`Failed to regenerate ${field}`);
     } finally {
       setIsRegeneratingTech(null);

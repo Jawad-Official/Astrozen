@@ -20,10 +20,9 @@ interface StatusGroupProps {
   defaultExpanded?: boolean;
 }
 
-export function StatusGroup({ 
-  status, 
-  label, 
-  issues, 
+export function StatusGroup({
+  status,
+  issues,
   onIssueClick, 
   projects,
   features,

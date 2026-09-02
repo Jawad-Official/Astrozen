@@ -1,25 +1,20 @@
 import { useState, useMemo } from 'react';
 import { useIssueStore } from '@/store/issueStore';
 import { useAuth } from '@/context/AuthContext';
-import { hasTeamAccess } from '@/lib/permissions';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { SkeletonList } from '@/components/ui/skeleton';
 import { EmptyState, LoadingState } from '@/components/ui/empty-state';
-import { 
-  Plus, 
-  Columns, 
+import {
+  Plus,
+  Columns,
   Eye,
-  Lock,
-  FolderSimple,
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { Project, ProjectStatus } from '@/types/issue';
 import { useNavigate, useSearchParams, useOutletContext } from 'react-router-dom';
 import { ProjectBar } from '@/components/ProjectBar';
-import { PROJECT_STATUS_CONFIG, PROJECT_PRIORITY_OPTIONS } from '@/lib/constants';
+import { PROJECT_STATUS_CONFIG } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
-import { aiService } from '@/services/ai.service';
 
 const statusOrder: ProjectStatus[] = ['in_progress', 'planned', 'backlog', 'paused', 'completed', 'cancelled'];
 
@@ -31,7 +26,7 @@ const ProjectsPage = () => {
   const { user, teams } = useAuth();
   const { onOpenAIPlanner } = useOutletContext<any>();
   
-  const { projects: allProjects, issues, features, teams: storeTeams, orgMembers, deleteProject, addProject, isLoading } = useIssueStore();
+  const { projects: allProjects, issues, features, orgMembers, deleteProject, addProject, isLoading } = useIssueStore();
   const [activeTab, setActiveTab] = useState<'projects' | 'all'>('projects');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 

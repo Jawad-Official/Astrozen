@@ -24,11 +24,10 @@ import { Badge } from '@/components/ui/badge';
 import { DotsThree, Trash, Plus } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  IssueStatusIcon, 
-  IssueTypeIcon, 
-  IssuePriorityIcon, 
-  IssueIdentifier
+import {
+  IssueStatusIcon,
+  IssueTypeIcon,
+  IssuePriorityIcon
 } from './IssueAtomicComponents';
 
 const getInitials = (name?: string) => {

@@ -8,7 +8,6 @@ import {
   Stack,
   Layout,
   FileText,
-  ChatCircleText,
   ArrowClockwise,
   Rocket,
   ArrowsIn,
@@ -76,22 +75,19 @@ export default function AIGeneratorPage() {
     currentQuestionIndex, 
     validationReport, 
     updateValidationReport,
-    blueprint, 
-    docs, 
+    blueprint,
     documents,
     activeDocumentId,
-    isGenerating, 
+    isGenerating,
     generationMessage,
     submitIdea,
     answerQuestion,
     validateIdea,
     generateBlueprint,
     generateDoc,
-    chatDoc,
     generateIssues,
     ideaId,
     projectId,
-    reset,
     selectedImprovementIndices,
     setSelectedImprovements,
     acceptImprovements,
@@ -124,25 +120,6 @@ export default function AIGeneratorPage() {
   const { fetchData } = useIssueStore();
 
   const selectedNode = blueprint?.nodes?.find(n => n.id === selectedNodeId);
-
-  const handleDownloadDoc = async (docType: string) => {
-    if (!ideaId) return;
-    try {
-      const res = await aiService.downloadDoc(ideaId, docType);
-      const filename = `${docType.replace('_', ' ')}.docx`;
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      toast.success(`Downloaded ${filename}`);
-    } catch (error) {
-      toast.error("Download failed");
-    }
-  };
 
   const handleNodeClick = (id: string) => {
     setSelectedNodeId(id);

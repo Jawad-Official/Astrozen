@@ -60,7 +60,7 @@ export const AIDocChatPanel: React.FC<AIDocChatPanelProps> = ({
         proposal: data.proposal
       };
       setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
+    } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I encountered an error processing your request." }]);
     } finally {
       setIsGenerating(false);

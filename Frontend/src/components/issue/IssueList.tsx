@@ -8,7 +8,7 @@ import {
   Project
 } from '@/types/issue';
 import { Feature } from '@/types/feature';
-import { CircleNotch, Plus, CaretDown, CircleDashed } from '@phosphor-icons/react';
+import { Plus, CaretDown, CircleDashed } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -78,10 +78,6 @@ export function IssueList({
     }
   };
 
-  const handleDragOverStatus = (status: IssueStatus) => {
-    setManualCollapsibleStates(prev => ({ ...prev, [status]: true }));
-  };
-  
   if (loading) return (
     <div className="flex-1 flex items-center justify-center bg-background">
       <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />

@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Feature, 
-  FeatureStatus, 
-  FeatureHealth, 
+import {
+  FeatureStatus,
+  FeatureHealth,
   FeatureType,
   FEATURE_STATUS_CONFIG,
   FEATURE_HEALTH_CONFIG
@@ -17,7 +16,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Check, User, FolderSimple, Diamond } from '@phosphor-icons/react';
@@ -43,16 +41,15 @@ const FEATURE_TYPE_CONFIG: Record<FeatureType, { label: string; icon: string }> 
   infrastructure: { label: 'Infrastructure', icon: '🏗️' },
 };
 
-export function CreateFeatureDialog({ 
-  open, 
-  onOpenChange, 
-  projects, 
-  teams, 
-  orgMembers, 
-  selectedProjectId, 
+export function CreateFeatureDialog({
+  open,
+  onOpenChange,
+  projects,
+  teams,
+  orgMembers,
+  selectedProjectId,
   selectedTeamId,
-  defaultParentId,
-  onAddFeature 
+  onAddFeature
 }: CreateFeatureDialogProps) {
   const { toast } = useToast();
   const [name, setName] = useState('');

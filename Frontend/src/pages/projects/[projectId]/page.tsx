@@ -5,13 +5,12 @@ import { useIssueStore } from '@/store/issueStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { 
+import {
   MagicWand,
-  CaretRight, 
+  CaretRight,
   CaretDown,
-  DotsThree, 
-  Star, 
+  DotsThree,
+  Star,
   Link,
   ChatTeardropText,
   Plus,
@@ -22,22 +21,17 @@ import {
   CircleHalf,
   Sliders,
   Check,
-  WarningCircle,
-  Circle,
   Stack,
-  Diamond,
   X,
-  Trash,
   ArrowSquareOut,
   User,
-  Buildings,
   MagnifyingGlass,
   Sidebar as SidebarIcon,
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
-import { IssueStatus, ProjectStatus, ProjectHealth, ProjectPriority, Milestone, ProjectUpdate as ProjectUpdateType, ProjectResource, Issue, PRIORITY_CONFIG } from '@/types/issue';
+import { ProjectStatus, ProjectHealth, ProjectPriority, ProjectUpdate as ProjectUpdateType } from '@/types/issue';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,17 +39,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
-import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
@@ -65,7 +50,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Label } from '@/components/ui/label';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import {
   Popover,
@@ -74,29 +58,14 @@ import {
 } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate, useParams, useOutletContext, useSearchParams } from 'react-router-dom';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import { IssueBar } from '@/components/IssueBar';
 import { ProjectBar } from '@/components/ProjectBar';
 import { PlansTab } from './PlansTab';
 import { StatusGroup } from '@/components/StatusGroup';
 import { MilestoneDialog } from '@/components/dialogs/MilestoneDialog';
-import { 
-  PROJECT_STATUS_CONFIG, 
-  PROJECT_PRIORITY_OPTIONS, 
-  PROJECT_HEALTH_CONFIG,
-} from '@/lib/constants';
-import { PRIORITY_CONFIG as ISSUE_PRIORITY_CONFIG } from '@/types/issue';
-import { featureService } from '@/services/features';
 import { FeatureWindow, FEATURE_STATUS_CONFIG } from '@/components/FeatureWindow';
 import { CreateIssueDialog } from '@/components/issue/CreateIssueDialog';
 import { PROJECT_STATUS_OPTIONS, PROJECT_HEALTH_OPTIONS } from '@/lib/project-options';
-import { teamService } from '@/services/teams';
-import { userService, OrgMember } from '@/services/users';
-import type { Team } from '@/types/auth';
+import { PROJECT_PRIORITY_OPTIONS } from '@/lib/constants';
 
 interface MainLayoutContext {
   onCreateIssue: () => void;
@@ -109,13 +78,13 @@ const ProjectDetailPage = () => {
   const navigate = useNavigate();
   const { projectId } = useParams();
   const { user } = useAuth();
-  const { 
-    projects, features, issues, teams, orgMembers, updateProject, setSelectedIssue, currentUser, setSelectedProject,
+  const {
+    projects, features, issues, teams, orgMembers, updateProject, setSelectedIssue, currentUser,
     addProjectUpdate, deleteProjectUpdate, addProjectResource, deleteProjectResource,
-    toggleProjectFavorite, fetchProject, addFeature, updateFeature, deleteFeature,
+    toggleProjectFavorite, addFeature, updateFeature, deleteFeature,
     addFeatureMilestone, updateFeatureMilestone, deleteFeatureMilestone, toggleFeatureMilestone,
     addUpdateComment, deleteUpdateComment, toggleUpdateReaction, toggleUpdateCommentReaction,
-    fetchOrgMembers, fetchTeams, addIssue, selectedIssueId, updateIssue, deleteIssue, deleteProject
+    addIssue, updateIssue, deleteIssue, deleteProject
   } = useIssueStore();
   
   const { onCreateSubIssue } = useOutletContext<MainLayoutContext>();
@@ -126,14 +95,10 @@ const ProjectDetailPage = () => {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [updateContent, setUpdateContent] = useState('');
   const [selectedHealth, setSelectedHealth] = useState<ProjectHealth>('on_track');
-  const [assigneesTab, setAssigneesTab] = useState<'assignees' | 'labels'>('assignees');
   const [showSidebar, setShowSidebar] = useState(true);
 
   const [milestoneDialogOpen, setMilestoneDialogOpen] = useState(false);
-  const [milestoneName, setMilestoneName] = useState('');
-  const [milestoneDescription, setMilestoneDescription] = useState('');
-  const [milestoneDate, setMilestoneDate] = useState<Date | undefined>();
-  
+
   const [resourceDialogOpen, setResourceDialogOpen] = useState(false);
   const [resourceName, setResourceName] = useState('');
   const [resourceUrl, setResourceUrl] = useState('');
@@ -150,7 +115,6 @@ const ProjectDetailPage = () => {
   
   const [createFeatureMilestoneOpen, setCreateFeatureMilestoneOpen] = useState(false);
   const [activeFeatureId, setActiveFeatureId] = useState<string | null>(null);
-  const [newFeatureMilestoneName, setNewFeatureMilestoneName] = useState('');
   const [newFeatureMilestoneParent, setNewFeatureMilestoneParent] = useState<string | undefined>();
   
   const [createIssueOpen, setCreateIssueOpen] = useState(false);
@@ -171,7 +135,6 @@ const ProjectDetailPage = () => {
 
   const currentStatus = project ? (PROJECT_STATUS_OPTIONS.find(s => s.value === project.status) || PROJECT_STATUS_OPTIONS[0]) : PROJECT_STATUS_OPTIONS[0];
   const currentPriority = project ? (PROJECT_PRIORITY_OPTIONS.find(p => p.value === project.priority) || PROJECT_PRIORITY_OPTIONS[4]) : PROJECT_PRIORITY_OPTIONS[4];
-  const currentHealth = project ? (PROJECT_HEALTH_OPTIONS.find(h => h.value === project.health) || PROJECT_HEALTH_OPTIONS[3]) : PROJECT_HEALTH_OPTIONS[3];
 
   const canManageProject = useMemo(() => {
     if (!user || !project) return false;
@@ -269,10 +232,10 @@ const ProjectDetailPage = () => {
       toast({ title: 'Project deleted' });
       navigate('/projects');
     } catch (error: any) {
-      toast({ 
-        title: 'Failed to delete project', 
+      toast({
+        title: 'Failed to delete project',
         description: error.response?.data?.detail || 'An error occurred',
-        variant: 'destructive' 
+        variant: 'destructive'
       });
     }
   };
@@ -281,7 +244,7 @@ const ProjectDetailPage = () => {
     try {
       await updateProject(project.id, { status });
       toast({ title: 'Status updated' });
-    } catch (error: any) {
+    } catch {
       toast({ title: 'Failed to update status', variant: 'destructive' });
     }
   };
@@ -290,17 +253,8 @@ const ProjectDetailPage = () => {
     try {
       await updateProject(project.id, { priority });
       toast({ title: 'Priority updated' });
-    } catch (error: any) {
+    } catch {
       toast({ title: 'Failed to update priority', variant: 'destructive' });
-    }
-  };
-
-  const handleHealthChange = async (health: ProjectHealth) => {
-    try {
-      await updateProject(project.id, { health });
-      toast({ title: 'Health updated' });
-    } catch (error: any) {
-      toast({ title: 'Failed to update health', variant: 'destructive' });
     }
   };
 
@@ -308,7 +262,7 @@ const ProjectDetailPage = () => {
     try {
       await updateProject(project.id, { lead: lead || undefined });
       toast({ title: 'Lead updated' });
-    } catch (error: any) {
+    } catch {
       toast({ title: 'Failed to update lead', variant: 'destructive' });
     }
   };
@@ -323,7 +277,7 @@ const ProjectDetailPage = () => {
     try {
       await updateProject(project.id, { members: updatedMembers });
       toast({ title: isMember ? 'Member removed' : 'Member added' });
-    } catch (error: any) {
+    } catch {
       toast({ title: 'Failed to update member', variant: 'destructive' });
     }
   };
@@ -335,7 +289,7 @@ const ProjectDetailPage = () => {
     try {
       await updateProject(project.id, { teams: updatedTeams });
       toast({ title: hasTeam ? 'Team removed' : 'Team added' });
-    } catch (error: any) {
+    } catch {
       toast({ title: 'Failed to update team', variant: 'destructive' });
     }
   };
@@ -344,7 +298,7 @@ const ProjectDetailPage = () => {
     try {
       await updateProject(project.id, { [field]: date });
       toast({ title: 'Date updated' });
-    } catch (error: any) {
+    } catch {
       toast({ title: 'Failed to update date', variant: 'destructive' });
     }
   };
@@ -361,29 +315,11 @@ const ProjectDetailPage = () => {
       });
       setMilestoneDialogOpen(false);
       toast({ title: 'Milestone added' });
-    } catch (error: any) {
+    } catch {
       toast({ title: 'Failed to add milestone', variant: 'destructive' });
     }
   };
 
-  const handleToggleMilestone = async (milestoneId: string) => {
-    const updatedMilestones = project.milestones.map(m => m.id === milestoneId ? { ...m, completed: !m.completed } : m);
-    try {
-      await updateProject(project.id, { milestones: updatedMilestones });
-    } catch (error: any) {
-      toast({ title: 'Failed to update milestone', variant: 'destructive' });
-    }
-  };
-
-  const handleDeleteMilestone = async (milestoneId: string) => {
-    const updatedMilestones = project.milestones.filter(m => m.id !== milestoneId);
-    try {
-      await updateProject(project.id, { milestones: updatedMilestones });
-      toast({ title: 'Milestone deleted' });
-    } catch (error: any) {
-      toast({ title: 'Failed to delete milestone', variant: 'destructive' });
-    }
-  };
 
   const handleAddResource = async () => {
     if (!resourceName.trim() || !resourceUrl.trim()) return;
@@ -396,7 +332,7 @@ const ProjectDetailPage = () => {
       setResourceDialogOpen(false);
       setResourceName(''); setResourceUrl('');
       toast({ title: 'Resource added' });
-    } catch (error: any) {
+    } catch {
       toast({ title: 'Failed to add resource', variant: 'destructive' });
     }
   };
@@ -405,7 +341,7 @@ const ProjectDetailPage = () => {
     try {
       await deleteProjectResource(project.id, resourceId);
       toast({ title: 'Resource deleted' });
-    } catch (error: any) {
+    } catch {
       toast({ title: 'Failed to delete resource', variant: 'destructive' });
     }
   };
@@ -415,7 +351,7 @@ const ProjectDetailPage = () => {
       await updateProject(project.id, { description: descriptionDraft.trim() || undefined });
       setEditingDescription(false);
       toast({ title: 'Description updated' });
-    } catch (error: any) {
+    } catch {
       toast({ title: 'Failed to update description', variant: 'destructive' });
     }
   };
@@ -426,7 +362,7 @@ const ProjectDetailPage = () => {
       await addProjectUpdate(project.id, { content: updateContent.trim(), health: selectedHealth });
       setUpdateContent('');
       toast({ title: 'Update posted' });
-    } catch (error) {
+    } catch {
       toast({ title: 'Failed to post update', variant: 'destructive' });
     }
   };
@@ -435,7 +371,7 @@ const ProjectDetailPage = () => {
     try {
       await deleteProjectUpdate(project.id, updateId);
       toast({ title: 'Update deleted' });
-    } catch (error: any) {
+    } catch {
       toast({ title: 'Failed to delete update', variant: 'destructive' });
     }
   };
@@ -444,7 +380,7 @@ const ProjectDetailPage = () => {
     const updatedUpdates = project.updates.map(u => u.id === updateId ? { ...u, ...updates } : u);
     try {
       await updateProject(project.id, { updates: updatedUpdates });
-    } catch (error: any) {
+    } catch {
       toast({ title: 'Failed to update update', variant: 'destructive' });
     }
   };
@@ -452,7 +388,7 @@ const ProjectDetailPage = () => {
   const handleAddUpdateComment = async (updateId: string, content: string, parentId?: string) => {
     try {
       await addUpdateComment(project.id, updateId, content, parentId);
-    } catch (error: any) {
+    } catch {
       toast({ title: 'Failed to add comment', variant: 'destructive' });
     }
   };
@@ -460,7 +396,7 @@ const ProjectDetailPage = () => {
   const handleDeleteUpdateComment = async (updateId: string, commentId: string) => {
     try {
       await deleteUpdateComment(project.id, updateId, commentId);
-    } catch (error: any) {
+    } catch {
       toast({ title: 'Failed to delete comment', variant: 'destructive' });
     }
   };
@@ -471,7 +407,7 @@ const ProjectDetailPage = () => {
       await addFeature({ name: newFeatureName.trim(), project_id: project.id, status: 'discovery' });
       setNewFeatureName(''); setCreateFeatureOpen(false);
       toast({ title: 'Feature created' });
-    } catch (error) {
+    } catch {
       toast({ title: 'Failed to create feature', variant: 'destructive' });
     }
   };

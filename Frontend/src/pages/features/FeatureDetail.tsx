@@ -9,21 +9,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { 
-  ArrowLeft, 
-  Check, 
-  ShieldWarning as ShieldAlert, 
+import {
+  ArrowLeft,
+  Check,
   Pulse,
   Plus,
-  Package,
-  CalendarBlank
 } from '@phosphor-icons/react';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import AgentPlan from '@/components/ui/agent-plan';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { motion } from 'framer-motion';
 import { MilestoneDialog } from '@/components/dialogs/MilestoneDialog';
 import { CreateIssueDialog } from '@/components/issue/CreateIssueDialog';
 import { CreateSubFeatureDialog } from '@/components/feature/CreateSubFeatureDialog';
@@ -61,7 +55,7 @@ export default function FeatureDetailPage() {
       const data = await strategyService.getFeature(featureId);
       setFeature(data);
       setFormData(data);
-    } catch (error) {
+    } catch {
       toast({ title: "Feature not found", variant: "destructive" });
       navigate('/features');
     } finally {
@@ -95,7 +89,7 @@ export default function FeatureDetailPage() {
       toast({ title: "Feature updated" });
       setIsEditing(false);
       loadFeature();
-    } catch (error) {
+    } catch {
       toast({ title: "Failed to update", variant: "destructive" });
     }
   }
@@ -128,7 +122,7 @@ export default function FeatureDetailPage() {
       setNewMilestone({ name: '', description: '', targetDate: '', parentId: undefined });
       toast({ title: 'Milestone added' });
       loadFeature();
-    } catch (error) {
+    } catch {
       toast({ title: 'Failed to add milestone', variant: 'destructive' });
     }
   };

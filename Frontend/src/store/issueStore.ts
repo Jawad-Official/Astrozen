@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Issue, Label, Project, Comment, Activity, SavedFilter, FilterState, TriageStatus, CustomView } from '@/types/issue';
-import { Feature, FeatureMilestone } from '@/types/feature';
+import { Feature } from '@/types/feature';
 import { Team } from '@/types/auth';
 import { issueService } from '@/services/issues';
 import { projectService } from '@/services/projects';
@@ -154,11 +154,11 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const [issuesRes, projects, featuresData, teams, members] = await Promise.all([
-        issueService.getAll().catch(err => ({ issues: [], total: 0 })),
-        projectService.getAll().catch(err => []),
-        featureService.getAll().catch(err => []),
-        teamService.getAll().catch(err => []),
-        userService.getOrganizationMembers().catch(err => [])
+        issueService.getAll().catch(() => ({ issues: [], total: 0 })),
+        projectService.getAll().catch(() => []),
+        featureService.getAll().catch(() => []),
+        teamService.getAll().catch(() => []),
+        userService.getOrganizationMembers().catch(() => [])
       ]);
       
       set({ 
@@ -665,7 +665,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
   // Comments (temporary local state until real API hook is used in components)
   addComment: async (issueId, content) => {
     try {
-      const newComment = await issueService.addComment(issueId, content);
+      await issueService.addComment(issueId, content);
       const [comments, activities] = await Promise.all([
         issueService.getComments(issueId),
         issueService.getActivities(issueId)

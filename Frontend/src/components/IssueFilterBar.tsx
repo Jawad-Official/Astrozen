@@ -12,18 +12,16 @@ import {
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { 
-  Funnel, 
-  X, 
-  FloppyDisk, 
+import {
+  Funnel,
+  X,
+  FloppyDisk,
   CaretDown,
   CircleHalf,
   ChartBar,
   FolderSimple,
-  Target,
   User,
   Tag,
 } from '@phosphor-icons/react';
