@@ -2,9 +2,11 @@ from openai import OpenAI
 from fastapi import HTTPException
 from starlette.concurrency import run_in_threadpool
 from app.core.config import settings
+import asyncio
 import json
 import re
 import logging
+import random
 import time
 import hashlib
 from typing import List, Dict, Any, Optional
@@ -18,6 +20,14 @@ logger = logging.getLogger(__name__)
 # response cache, so the TTL is intentionally short.
 AI_CACHE_TTL_SECONDS = 60
 AI_CACHE_MAX_ENTRIES = 500
+
+# Gemini sheds load with 503 UNAVAILABLE ("experiencing high demand ...
+# please try again later") - an explicit invitation to retry. Three
+# attempts with exponential backoff adds at most a few seconds to a call
+# that already takes many, and turns a momentary spike into a slower
+# success rather than a failed blueprint.
+AI_MAX_ATTEMPTS = 3
+AI_RETRY_BASE_DELAY_SECONDS = 1.0
 
 # 6 Core Pillars for validation
 CORE_PILLARS = [
@@ -143,6 +153,60 @@ class AIService:
             "is not found for api version" in haystack
             or "not supported for" in haystack
             or ("404" in haystack and "model" in haystack)
+        )
+
+    @staticmethod
+    def _is_transient_error(error_msg: str) -> bool:
+        """Is this an upstream capacity problem a retry can plausibly clear?
+
+        Gemini sheds load with HTTP 503 UNAVAILABLE - "This model is
+        currently experiencing high demand. Spikes in demand are usually
+        temporary. Please try again later." That is the provider asking to
+        be retried, but nothing retried, so a momentary spike surfaced as a
+        hard failure on a user's blueprint or suggestion.
+        """
+        haystack = error_msg.lower()
+        return any(
+            needle in haystack
+            for needle in (
+                "unavailable",
+                "high demand",
+                "overloaded",
+                "try again later",
+                "resource_exhausted",
+                "rate limit",
+                "internal error",
+                "deadline",
+                "timed out",
+                "timeout",
+                "connection",
+            )
+        )
+
+    def _raise_unavailable(self, error_msg: str) -> None:
+        """Report an exhausted retry as what it is: upstream, and temporary.
+
+        Deliberately not a 500 - nothing is wrong with this server or the
+        request, and the distinction tells the user whether retrying is
+        worth their time.
+        """
+        haystack = error_msg.lower()
+        if "resource_exhausted" in haystack or "quota" in haystack:
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "The AI provider's rate limit for this key has been reached. "
+                    "Wait a moment and try again; if it persists, the key's quota "
+                    "for the day may be spent."
+                ),
+            )
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"The AI provider is temporarily overloaded and did not respond "
+                f"after {AI_MAX_ATTEMPTS} attempts. This is upstream demand, not a "
+                f"problem with your project - please try again in a moment."
+            ),
         )
 
     def _raise_if_misconfigured(self, error_msg: str) -> None:
@@ -330,21 +394,44 @@ class AIService:
         if cached is not None and cached[0] > now:
             return cached[1]
 
-        try:
-            response = await run_in_threadpool(
-                self.client.chat.completions.create,
-                model=self.model,
-                messages=[{"role": "user", "content": self._build_prompt(prompt)}],
-                **kwargs,
-            )
-        except Exception as e:
-            # Translate the provider's own misconfiguration errors here, at
-            # the one point every AI call passes through, rather than in
-            # each of the dozen callers. These become HTTPException, which
-            # the callers re-raise untouched instead of folding into their
-            # generic fallbacks.
-            self._raise_if_misconfigured(str(e))
-            raise
+        response = None
+        for attempt in range(1, AI_MAX_ATTEMPTS + 1):
+            try:
+                response = await run_in_threadpool(
+                    self.client.chat.completions.create,
+                    model=self.model,
+                    messages=[{"role": "user", "content": self._build_prompt(prompt)}],
+                    **kwargs,
+                )
+                break
+            except Exception as e:
+                error_msg = str(e)
+
+                # Translate the provider's own misconfiguration errors here,
+                # at the one point every AI call passes through, rather than
+                # in each of the dozen callers. These become HTTPException,
+                # which the callers re-raise untouched instead of folding
+                # into their generic fallbacks. A retry cannot fix a bad key
+                # or a bad model name, so this fails fast.
+                self._raise_if_misconfigured(error_msg)
+
+                if not self._is_transient_error(error_msg):
+                    raise
+
+                if attempt == AI_MAX_ATTEMPTS:
+                    self._raise_unavailable(error_msg)
+
+                delay = AI_RETRY_BASE_DELAY_SECONDS * (2 ** (attempt - 1))
+                delay += random.uniform(0, delay / 4)  # jitter, so concurrent
+                logger.warning(  # callers don't retry in lockstep
+                    "AI call failed with a transient error (attempt %d/%d), "
+                    "retrying in %.1fs: %s",
+                    attempt,
+                    AI_MAX_ATTEMPTS,
+                    delay,
+                    error_msg,
+                )
+                await asyncio.sleep(delay)
 
         if len(self._response_cache) >= AI_CACHE_MAX_ENTRIES:
             expired_keys = [k for k, (expires_at, _) in self._response_cache.items() if expires_at <= now]
