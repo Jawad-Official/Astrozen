@@ -495,8 +495,8 @@ export default function AIGeneratorPage() {
                                 // If switching TO one-time, remove /mo indicators
                                 if (newModel === 'One-Time Purchase') {
                                   newPrice = newPrice.replace(/\s*\/\s*(month|mo|year|yr|user)/gi, '').trim();
-                                  newAnnual = null;
-                                } 
+                                  newAnnual = undefined;
+                                }
                                 // If switching TO recurring, ensure / month exists if missing and not $0
                                 else if ((newModel === 'Subscription' || newModel === 'Freemium') && newPrice !== '$0' && !newPrice.includes('/')) {
                                   newPrice = `${newPrice} / month`;
@@ -506,7 +506,7 @@ export default function AIGeneratorPage() {
                                   if (!newPrice.includes('/ user')) {
                                     newPrice = newPrice.replace(/\/\s*(month|mo)/gi, '').trim() + ' / user / month';
                                   }
-                                  newAnnual = null;
+                                  newAnnual = undefined;
                                 }
 
                                 return { ...tier, name: newName, price: newPrice, annual_price: newAnnual };
@@ -801,7 +801,7 @@ export default function AIGeneratorPage() {
                              <div className="space-y-4">
                                <h4 className="text-xs font-black uppercase tracking-[0.2em] text-white/30">Detailed Subtasks</h4>
                                <div className="space-y-3">
-                                 {selectedNode.subtasks.map((task, i) => (
+                                 {(selectedNode.subtasks || []).map((task, i) => (
                                    <div key={i} className="flex gap-3 p-3 rounded-xl bg-white/5 border border-white/5 items-start">
                                      <div className="h-5 w-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0 mt-0.5">{i+1}</div>
                                      <p className="text-sm text-white/80 leading-relaxed">{task}</p>

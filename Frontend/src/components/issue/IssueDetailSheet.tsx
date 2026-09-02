@@ -270,7 +270,7 @@ export function IssueDetailSheet({
                             className="cursor-pointer hover:bg-muted transition-all gap-1.5 px-2 py-0.5 h-auto border-border text-muted-foreground/80 text-[10px] rounded-md"
                             onClick={() => setSelectedIssue(issue.parentId!)}
                           >
-                            <IssueIdentifier identifier={parent?.identifier} className="text-[8px] opacity-50" />
+                            <IssueIdentifier identifier={parent?.identifier || ''} className="text-[8px] opacity-50" />
                             <span className="font-medium">{parent?.title || 'Parent Issue'}</span>
                           </Badge>
                         </div>
