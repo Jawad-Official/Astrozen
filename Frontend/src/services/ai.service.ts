@@ -85,6 +85,10 @@ export interface Blueprint {
   kanban_features: KanbanFeature[];
   nodes?: FlowNode[];
   edges?: FlowEdge[];
+  /** True when the stored kanban asset content couldn't be parsed - render
+   * an explicit "couldn't load" state instead of treating this as "no
+   * kanban items yet". */
+  kanban_parse_error?: boolean;
 }
 
 export interface Doc {

@@ -41,8 +41,8 @@ async def update_project_md_background(project_id: str):
         if idea:
             await project_md_service.save_project_md(db, str(idea.id), str(project_id))
             logger.info(f"Updated project.md for project {project_id}")
-    except Exception as e:
-        logger.error(f"Failed to update project.md: {e}")
+    except Exception:
+        logger.exception(f"Failed to update project.md for project {project_id}")
     finally:
         db.close()
 

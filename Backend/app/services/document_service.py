@@ -56,8 +56,8 @@ class DocumentService:
         if user_email:
             try:
                 await run_in_threadpool(self.share_document_with_user, drive_file_id, user_email)
-            except Exception as e:
-                logger.error(f"Failed to share document {drive_file_id} with {user_email}: {e}")
+            except Exception:
+                logger.exception(f"Failed to share document {drive_file_id} with {user_email}")
 
         return drive_file_id
 

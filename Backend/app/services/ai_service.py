@@ -231,8 +231,8 @@ class AIService:
                             "Successfully extracted and parsed JSON using regex fallback"
                         )
                         return result
-                except Exception as fallback_error:
-                    logger.error(f"Regex fallback also failed: {str(fallback_error)}")
+                except Exception:
+                    logger.exception("Regex fallback also failed")
                 raise e
 
     def _build_prompt(self, user_content: str) -> str:
@@ -319,12 +319,13 @@ class AIService:
                     return data
                 return data.get("questions", [])
             except Exception:
+                logger.exception("Failed to parse clarification questions response")
                 return []
         except HTTPException:
             raise
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"AI Clarification failed: {error_msg}")
+            logger.exception("AI clarification failed")
 
             if self._is_auth_error(error_msg):
                 raise HTTPException(
@@ -365,8 +366,8 @@ class AIService:
             return response.choices[0].message.content.strip()
         except HTTPException:
             raise
-        except Exception as e:
-            logger.error(f"AI Suggestion failed: {str(e)}")
+        except Exception:
+            logger.exception("AI suggestion failed")
             return ""
 
     async def validate_idea(
@@ -654,6 +655,7 @@ class AIService:
             raise
         except Exception as e:
             error_msg = str(e)
+            logger.exception("AI validation failed")
             if self._is_auth_error(error_msg):
                 raise HTTPException(
                     status_code=400,
@@ -760,8 +762,8 @@ class AIService:
             return result
         except HTTPException:
             raise
-        except Exception as e:
-            logger.error(f"Field regeneration failed: {str(e)}")
+        except Exception:
+            logger.exception("Field regeneration failed")
             return current_value
 
     async def generate_blueprint(self, idea_context: Dict[str, Any]) -> Dict[str, Any]:
@@ -804,7 +806,7 @@ class AIService:
             raise
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"Blueprint generation failed: {error_msg}")
+            logger.exception("Blueprint generation failed")
 
             if self._is_auth_error(error_msg):
                 raise HTTPException(
@@ -861,7 +863,7 @@ class AIService:
             raise
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"Issue generation for node failed: {error_msg}")
+            logger.exception("Issue generation for node failed")
 
             if self._is_auth_error(error_msg):
                 raise HTTPException(
@@ -912,8 +914,8 @@ class AIService:
             return data.get("node_id")
         except HTTPException:
             raise
-        except Exception as e:
-            logger.error(f"Auto-link issue failed: {str(e)}")
+        except Exception:
+            logger.exception("Auto-link issue failed")
             return None
 
     async def expand_features_for_creation(
@@ -952,8 +954,8 @@ class AIService:
             return data.get("features", [])
         except HTTPException:
             raise
-        except Exception as e:
-            logger.error(f"Feature expansion failed: {str(e)}")
+        except Exception:
+            logger.exception("Feature expansion failed")
             return []
 
     async def generate_doc_questions(
@@ -1027,8 +1029,8 @@ class AIService:
             return result
         except HTTPException:
             raise
-        except Exception as e:
-            logger.error(f"Doc questions generation failed: {str(e)}")
+        except Exception:
+            logger.exception("Doc questions generation failed")
             return {"has_questions": False, "questions": []}
 
     async def generate_doc(
@@ -1168,9 +1170,8 @@ class AIService:
             return response.choices[0].message.content
         except HTTPException:
             raise
-        except Exception as e:
-            error_msg = str(e)
-            logger.error(f"Doc generation failed: {error_msg}")
+        except Exception:
+            logger.exception("Doc generation failed")
             return f"# {doc_type}\n\nError generating document."
 
     async def regenerate_doc_section(
@@ -1207,8 +1208,8 @@ class AIService:
             return response.choices[0].message.content
         except HTTPException:
             raise
-        except Exception as e:
-            logger.error(f"Doc section regeneration failed: {str(e)}")
+        except Exception:
+            logger.exception("Doc section regeneration failed")
             return current_content
 
     async def chat_about_doc(
@@ -1252,8 +1253,8 @@ class AIService:
             return response.choices[0].message.content
         except HTTPException:
             raise
-        except Exception as e:
-            logger.error(f"Doc chat failed: {str(e)}")
+        except Exception:
+            logger.exception("Doc chat failed")
             return current_content
 
     async def chat_about_doc_structured(
@@ -1301,7 +1302,7 @@ class AIService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Structured doc chat failed: {str(e)}")
+            logger.exception("Structured doc chat failed")
             return {"explanation": f"Sorry, I encountered an error: {str(e)}"}
 
     async def get_progress_dashboard(

@@ -19,12 +19,12 @@ async def sync_all_documents_to_r2():
             try:
                 await document_service.sync_doc_to_r2(doc.drive_file_id, doc.r2_path)
                 logger.debug(f"Synced doc {doc.id} ({doc.title})")
-            except Exception as e:
-                logger.error(f"Failed to sync doc {doc.id} ({doc.title}): {e}")
+            except Exception:
+                logger.exception(f"Failed to sync doc {doc.id} ({doc.title})")
 
         logger.info(f"Background sync completed at {utc_now()}")
-    except Exception as e:
-        logger.error(f"Error in background sync task: {e}")
+    except Exception:
+        logger.exception("Error in background sync task")
     finally:
         db.close()
 

@@ -867,18 +867,24 @@ export default function AIGeneratorPage() {
                   <CardDescription>Features mapped to initial development tasks.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {['Todo', 'In Progress', 'Done'].map(col => (
-                      <div key={col} className="space-y-3">
-                        <h3 className="text-xs font-semibold uppercase text-muted-foreground px-2">{col}</h3>
-                        {blueprint.kanban_features.filter((f: any) => f.status === col || (col === 'Todo' && (!f.status || f.status === 'pending'))).map((f: any, i: number) => (
-                           <div key={i} className="p-3 rounded-md bg-white/5 border border-white/10 text-sm">
-                             {f.title}
-                           </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
+                  {blueprint.kanban_parse_error ? (
+                    <div className="p-4 rounded-md border border-destructive/30 bg-destructive/5 text-sm text-destructive">
+                      This blueprint's kanban data couldn't be loaded. Try regenerating the blueprint.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {['Todo', 'In Progress', 'Done'].map(col => (
+                        <div key={col} className="space-y-3">
+                          <h3 className="text-xs font-semibold uppercase text-muted-foreground px-2">{col}</h3>
+                          {blueprint.kanban_features.filter((f: any) => f.status === col || (col === 'Todo' && (!f.status || f.status === 'pending'))).map((f: any, i: number) => (
+                             <div key={i} className="p-3 rounded-md bg-white/5 border border-white/10 text-sm">
+                               {f.title}
+                             </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
              </Card>
 

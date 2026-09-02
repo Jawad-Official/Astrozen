@@ -10,7 +10,7 @@ from fastapi import (
 )
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from typing import Any, List, Dict, Optional
+from typing import Any, List, Dict, Optional, Union
 import mammoth
 import markdown
 from html2docx import html2docx
@@ -18,7 +18,6 @@ import io
 import logging
 import json
 import ast
-import traceback
 from sqlalchemy.orm.attributes import flag_modified
 from app.api import deps
 from app.core.rate_limit import limiter
@@ -89,6 +88,43 @@ def _get_owned_idea(db: Session, idea_id: str, current_user: User) -> ProjectIde
     return idea
 
 
+class AssetParseError(Exception):
+    """Raised when a ProjectAsset's stored content is neither valid JSON nor
+    a legacy Python-literal string that ast.literal_eval can recover."""
+
+
+def _parse_asset_json(content: str, *, asset_id: Any) -> Union[list, dict]:
+    """Parse a ProjectAsset's stored content (kanban/blueprint data).
+
+    Content is normally JSON. Some rows predate a fix where it was written
+    with Python's str() instead of json.dumps(), producing a Python-repr
+    string (single-quoted, True/False/None) that isn't valid JSON - for
+    those, ast.literal_eval is used as an explicit, logged compatibility
+    fallback. Raises AssetParseError if neither succeeds, so callers can
+    surface an explicit error state instead of silently treating malformed
+    content as empty.
+    """
+    try:
+        return json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    try:
+        value = ast.literal_eval(content)
+    except (ValueError, SyntaxError, TypeError) as exc:
+        logger.exception(
+            "Asset %s content is neither valid JSON nor a parseable Python literal",
+            asset_id,
+        )
+        raise AssetParseError(f"Could not parse asset {asset_id}") from exc
+
+    logger.warning(
+        "Asset %s content parsed via legacy ast.literal_eval fallback, not JSON",
+        asset_id,
+    )
+    return value
+
+
 @router.post("/idea/{idea_id}/blueprint/node/{node_id}/issues")
 @limiter.limit("20/hour")
 async def generate_issues_for_node(
@@ -120,8 +156,6 @@ async def generate_issues_for_node(
     if not blueprint_asset:
         raise HTTPException(status_code=400, detail="Blueprint not generated yet")
 
-    import json
-
     try:
         blueprint_data = json.loads(blueprint_asset.content)
         nodes = blueprint_data.get("nodes", [])
@@ -134,7 +168,12 @@ async def generate_issues_for_node(
                 "type": "component",
                 "subtasks": [],
             }
-    except:
+    except (json.JSONDecodeError, TypeError, KeyError):
+        logger.warning(
+            "Blueprint asset for idea %s has unparseable content, using fallback node details for node %s",
+            idea_id,
+            node_id,
+        )
         node_details = {
             "id": node_id,
             "label": node_id,
@@ -466,10 +505,10 @@ async def create_features_background(idea_id: str, user_id: str):
                 db.add(sub_feature)
 
         db.commit()
-        logging.info(f"Successfully created features for idea {idea_id}")
+        logger.info(f"Successfully created features for idea {idea_id}")
 
-    except Exception as e:
-        logging.error(f"Background feature creation failed: {str(e)}")
+    except Exception:
+        logger.exception(f"Background feature creation failed for idea {idea_id}")
         db.rollback()
     finally:
         db.close()
@@ -709,8 +748,8 @@ async def upload_document(
                 target_id=idea_id,
                 target_type="ai_idea",
             )
-    except Exception as e:
-        logger.warning(f"Document analysis failed for {doc_type.value}: {e}")
+    except Exception:
+        logger.exception(f"Document analysis failed for {doc_type.value}")
 
     asset = crud_project_idea.project_idea.create_or_update_asset(
         db=db,
@@ -807,7 +846,7 @@ async def sync_blueprint_from_docs(
         db=db,
         idea_id=idea_id,
         asset_type=AssetType.DIAGRAM_KANBAN,
-        content=str(blueprint_data.get("kanban_features", [])),
+        content=json.dumps(blueprint_data.get("kanban_features", [])),
         status=AssetStatus.COMPLETED,
     )
 
@@ -844,10 +883,8 @@ async def submit_idea(
         # the strength of an AI call that never happened.
         except HTTPException:
             raise
-        except Exception as e:
-            import logging
-
-            logging.error(f"AI Clarification failed: {str(e)}")
+        except Exception:
+            logger.exception("AI clarification failed")
             questions = []
 
         # If no project_id provided, create a placeholder project
@@ -921,10 +958,7 @@ async def submit_idea(
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-
-        logging.error(f"Submit idea error: {str(e)}")
-        logging.error(traceback.format_exc())
+        logger.exception("Submit idea error")
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 
@@ -1416,8 +1450,8 @@ Now re-validate with ALL improvements applied. The score MUST be HIGHER. Each pi
                 target_id=str(idea.id),
                 target_type="ai_idea",
             )
-        except Exception as notify_err:
-            logger.error(f"Failed to send notification: {str(notify_err)}")
+        except Exception:
+            logger.exception("Failed to send notification")
             # Don't fail the whole request if notification fails
 
         # Return the updated report as a plain dict
@@ -1431,8 +1465,7 @@ Now re-validate with ALL improvements applied. The score MUST be HIGHER. Each pi
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in accept_improvements_and_revalidate: {str(e)}")
-        logger.error(traceback.format_exc())
+        logger.exception("Error in accept_improvements_and_revalidate")
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 
@@ -1469,7 +1502,7 @@ async def generate_blueprint(
     )
 
     # Save kanban features
-    kanban_content = str(blueprint_data.get("kanban_features", []))
+    kanban_content = json.dumps(blueprint_data.get("kanban_features", []))
 
     # Save nodes and edges for frontend visualization
     nodes_data = blueprint_data.get("nodes", [])
@@ -1605,12 +1638,10 @@ async def get_doc_questions(
             project_context["blueprint"] = {"user_flow": blueprint_asset.content}
         if kanban_asset:
             try:
-                import ast
-
-                project_context["blueprint"]["kanban"] = ast.literal_eval(
-                    kanban_asset.content or "[]"
+                project_context["blueprint"]["kanban"] = _parse_asset_json(
+                    kanban_asset.content or "[]", asset_id=kanban_asset.id
                 )
-            except:
+            except AssetParseError:
                 project_context["blueprint"]["kanban"] = []
 
     # Generate questions
@@ -1686,12 +1717,10 @@ async def generate_document(
         context["blueprint"] = {"user_flow": blueprint_asset.content}
         if kanban_asset:
             try:
-                import ast
-
-                context["blueprint"]["kanban"] = ast.literal_eval(
-                    kanban_asset.content or "[]"
+                context["blueprint"]["kanban"] = _parse_asset_json(
+                    kanban_asset.content or "[]", asset_id=kanban_asset.id
                 )
-            except:
+            except AssetParseError:
                 context["blueprint"]["kanban"] = []
 
     # Get chat history from existing asset
@@ -1748,8 +1777,8 @@ async def generate_document(
         )
         db.add(db_doc)
         db.flush()
-    except Exception as e:
-        logger.error(f"Failed to create Google Doc: {e}")
+    except Exception:
+        logger.exception("Failed to create Google Doc")
         # Don't fail the whole request if Drive fails
     # Update chat history
     if chat_history:
@@ -1759,8 +1788,8 @@ async def generate_document(
     try:
         project_id = str(idea.project_id) if idea.project_id else None
         await project_md_service.save_project_md(db, idea_id, project_id)
-    except Exception as e:
-        logger.warning(f"Failed to update project.md after doc generation: {e}")
+    except Exception:
+        logger.exception("Failed to update project.md after doc generation")
 
     # Notify user
     notification_service.notify_user(
@@ -2045,8 +2074,6 @@ async def get_idea_details(
         }
 
         if a.asset_type == AssetType.DIAGRAM_USER_FLOW and a.content:
-            import json
-
             try:
                 # Try to parse as JSON (new format with nodes/edges)
                 flow_data = json.loads(a.content)
@@ -2076,24 +2103,22 @@ async def get_idea_details(
                 else:
                     # Legacy: Content is just mermaid string
                     blueprint_data["user_flow_mermaid"] = a.content
-            except:
-                # Fallback if not JSON
+            except (json.JSONDecodeError, TypeError, KeyError):
+                # Legacy content is a raw mermaid string, not JSON - expected format
+                logger.info(
+                    "User-flow asset %s content is not JSON, treating as legacy mermaid string",
+                    a.id,
+                )
                 blueprint_data["user_flow_mermaid"] = a.content
 
         elif a.asset_type == AssetType.DIAGRAM_KANBAN and a.content:
             try:
-                import json
-
-                kanban_data = json.loads(a.content)
-                blueprint_data["kanban_features"] = kanban_data
-            except:
-                try:
-                    import ast
-
-                    kanban_data = ast.literal_eval(a.content)
-                    blueprint_data["kanban_features"] = kanban_data
-                except:
-                    blueprint_data["kanban_features"] = []
+                blueprint_data["kanban_features"] = _parse_asset_json(
+                    a.content, asset_id=a.id
+                )
+            except AssetParseError:
+                blueprint_data["kanban_features"] = []
+                blueprint_data["kanban_parse_error"] = True
 
         processed_assets.append(asset_dict)
 
@@ -2171,10 +2196,10 @@ async def convert_to_project(
         db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_KANBAN
     )
     if kanban_asset and kanban_asset.content:
-        import ast
-
         try:
-            kanban_data = ast.literal_eval(kanban_asset.content)
+            kanban_data = _parse_asset_json(
+                kanban_asset.content, asset_id=kanban_asset.id
+            )
             current_issue_num = crud_issue.get_max_identifier_num(db, team_prefix)
             for i, issue_data in enumerate(kanban_data):
                 feature_list = list(features_map.values())
@@ -2192,8 +2217,10 @@ async def convert_to_project(
                     identifier=f"{team_prefix}-{current_issue_num}",
                 )
                 db.add(issue)
-        except Exception as e:
-            logger.error(f"Failed to create kanban-derived issues for idea {idea_id}: {e}")
+        except Exception:
+            logger.exception(
+                "Failed to create kanban-derived issues for idea %s", idea_id
+            )
 
     idea.status = IdeaStatus.COMPLETED
     idea.project_id = new_project.id
@@ -2209,8 +2236,8 @@ async def convert_to_project(
             db, idea_id=idea_id, project_id=str(new_project.id)
         )
         logger.info(f"Generated project.md for idea {idea_id}")
-    except Exception as e:
-        logger.error(f"Failed to generate project.md: {e}")
+    except Exception:
+        logger.exception(f"Failed to generate project.md for idea {idea_id}")
 
     return {"project_id": str(new_project.id)}
 
@@ -2244,7 +2271,7 @@ async def regenerate_project_md(
         )
         return {"success": True, "r2_path": r2_path}
     except Exception as e:
-        logger.error(f"Failed to regenerate project.md: {e}")
+        logger.exception(f"Failed to regenerate project.md for idea {idea_id}")
         raise HTTPException(
             status_code=500, detail=f"Failed to regenerate project.md: {str(e)}"
         )
@@ -2351,7 +2378,7 @@ async def generate_document_enhancement(
             else enhanced_content,
         }
     except Exception as e:
-        logger.error(f"Failed to generate enhancement: {e}")
+        logger.exception(f"Failed to generate enhancement for idea {idea_id}")
         raise HTTPException(
             status_code=500, detail=f"Failed to generate enhancement: {str(e)}"
         )
@@ -2390,8 +2417,8 @@ async def accept_document_enhancement(
     try:
         project_id = str(idea.project_id) if idea.project_id else None
         await project_md_service.save_project_md(db, idea_id, project_id)
-    except Exception as e:
-        logger.warning(f"Failed to update project.md after enhancement: {e}")
+    except Exception:
+        logger.exception(f"Failed to update project.md after enhancement for idea {idea_id}")
 
     return {"success": True, "message": "Enhancement accepted and applied"}
 

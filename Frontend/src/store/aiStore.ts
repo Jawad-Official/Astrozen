@@ -61,6 +61,10 @@ export interface Blueprint {
   user_flow_mermaid: string;
   kanban_features: { title: string; status: string; priority: string }[];
   nodes?: FlowNode[];
+  /** True when the stored kanban asset content couldn't be parsed - render
+   * an explicit "couldn't load" state instead of treating this as "no
+   * kanban items yet". */
+  kanban_parse_error?: boolean;
 }
 
 export interface Doc {

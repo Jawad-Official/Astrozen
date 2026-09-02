@@ -123,6 +123,10 @@ interface Blueprint {
   kanban_features: { title: string; status: string; priority: string }[];
   nodes?: BlueprintNode[];
   edges?: BlueprintEdge[];
+  /** True when the stored kanban asset content couldn't be parsed - render
+   * an explicit "couldn't load" state instead of treating this as "no
+   * kanban items yet". */
+  kanban_parse_error?: boolean;
 }
 
 interface DocQuestion {
@@ -837,7 +841,8 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                 user_flow_mermaid: data.blueprint.user_flow_mermaid || '',
                 kanban_features: data.blueprint.kanban_features || [],
                 nodes: nodes,
-                edges: edges
+                edges: edges,
+                kanban_parse_error: Boolean(data.blueprint.kanban_parse_error)
              });
           } else {
               // Fallback: Parsing from assets manually (Legacy)
@@ -2357,14 +2362,20 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                 />
                
                {/* Kanban Preview */}
-               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6">
-                 {blueprint.kanban_features.slice(0, 4).map((f, i) => (
-                    <div key={i} className="p-3 sm:p-4 rounded-lg bg-card border border-border flex flex-col justify-between gap-2 shadow-sm">
-                       <div className="text-[11px] sm:text-xs font-bold text-foreground/70 line-clamp-2">{f.title}</div>
-                       <Badge variant="secondary" className="text-[8px] sm:text-[9px] w-fit bg-muted text-muted-foreground border-none">{f.status}</Badge>
-                    </div>
-                 ))}
-               </div>
+               {blueprint.kanban_parse_error ? (
+                 <div className="mt-6 p-4 rounded-lg border border-destructive/30 bg-destructive/5 text-xs sm:text-sm text-destructive">
+                   This blueprint's kanban data couldn't be loaded. Try regenerating the blueprint above.
+                 </div>
+               ) : (
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6">
+                   {blueprint.kanban_features.slice(0, 4).map((f, i) => (
+                      <div key={i} className="p-3 sm:p-4 rounded-lg bg-card border border-border flex flex-col justify-between gap-2 shadow-sm">
+                         <div className="text-[11px] sm:text-xs font-bold text-foreground/70 line-clamp-2">{f.title}</div>
+                         <Badge variant="secondary" className="text-[8px] sm:text-[9px] w-fit bg-muted text-muted-foreground border-none">{f.status}</Badge>
+                      </div>
+                   ))}
+                 </div>
+               )}
             </div>
           )}
 
