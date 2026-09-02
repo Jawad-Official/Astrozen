@@ -404,7 +404,7 @@ const ProjectDetailPage = () => {
   const handleAddFeature = async () => {
     if (!newFeatureName.trim()) return;
     try {
-      await addFeature({ name: newFeatureName.trim(), project_id: project.id, status: 'discovery' });
+      await addFeature({ name: newFeatureName.trim(), projectId: project.id, status: 'discovery' });
       setNewFeatureName(''); setCreateFeatureOpen(false);
       toast({ title: 'Feature created' });
     } catch {

@@ -1,12 +1,12 @@
 import { create } from 'zustand';
 import { Issue, Label, Project, Comment, Activity, SavedFilter, FilterState, TriageStatus, CustomView } from '@/types/issue';
-import { Feature } from '@/types/feature';
-import { Team } from '@/types/auth';
+import { Feature, FeatureMilestone } from '@/types/feature';
+import { Team, CreateTeamData } from '@/types/auth';
 import { issueService } from '@/services/issues';
 import { projectService } from '@/services/projects';
 import { featureService } from '@/services/features';
-import { teamService } from '@/services/teams';
-import { userService } from '@/services/users';
+import { teamService, TeamUpdateData } from '@/services/teams';
+import { userService, OrgMember } from '@/services/users';
 import { mapFeature, mapFeatureMilestone } from '@/services/mapper';
 
 type ViewType = 'all' | 'my-issues' | 'inbox' | 'triage' | 'insights' | 'settings' | 'project-detail' | 'projects' | 'strategy';
@@ -21,7 +21,7 @@ interface IssueStore {
   activities: Activity[];
   savedFilters: SavedFilter[];
   customViews: CustomView[];
-  orgMembers: any[];
+  orgMembers: OrgMember[];
   
   isLoading: boolean;
   error: string | null;
@@ -68,16 +68,16 @@ interface IssueStore {
   toggleUpdateCommentReaction: (projectId: string, updateId: string, commentId: string, emoji: string) => Promise<void>;
 
   // Team Actions
-  addTeam: (teamData: any) => Promise<void>;
-  updateTeam: (id: string, data: any) => Promise<void>;
+  addTeam: (teamData: CreateTeamData) => Promise<void>;
+  updateTeam: (id: string, data: TeamUpdateData) => Promise<void>;
   deleteTeam: (id: string) => Promise<void>;
 
   // Feature Actions
-  addFeature: (featureData: any) => Promise<void>;
-  updateFeature: (id: string, updates: any) => Promise<void>;
+  addFeature: (featureData: Partial<Feature>) => Promise<void>;
+  updateFeature: (id: string, updates: Partial<Feature>) => Promise<void>;
   deleteFeature: (id: string) => Promise<void>;
-  addFeatureMilestone: (featureId: string, data: any) => Promise<void>;
-  updateFeatureMilestone: (featureId: string, milestoneId: string, updates: any) => Promise<void>;
+  addFeatureMilestone: (featureId: string, data: Partial<FeatureMilestone>) => Promise<void>;
+  updateFeatureMilestone: (featureId: string, milestoneId: string, updates: Partial<FeatureMilestone>) => Promise<void>;
   deleteFeatureMilestone: (featureId: string, milestoneId: string) => Promise<void>;
   toggleFeatureMilestone: (featureId: string, milestoneId: string) => Promise<void>;
 
@@ -289,7 +289,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
 
   addProject: async (projectData) => {
     try {
-      const newProject = await projectService.create(projectData as any);
+      const newProject = await projectService.create(projectData);
       set((state) => ({ projects: [...state.projects, newProject] }));
     } catch (error) {
       console.error('Failed to create project', error);
@@ -298,7 +298,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
 
   updateProject: async (id, updates) => {
     try {
-      const updated = await projectService.update(id, updates as any);
+      const updated = await projectService.update(id, updates);
       set((state) => ({
         projects: state.projects.map((p) => p.id === id ? updated : p)
       }));
@@ -507,7 +507,7 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
       set((state) => ({
         features: state.features.map(f => {
           if (f.id !== featureId) return f;
-          return { ...f, milestones: [...(f.milestones || []), newMilestone] };
+          return { ...f, milestones: [...(f.milestones || []), mapFeatureMilestone(newMilestone)] };
         })
       }));
     } catch (error) {
@@ -561,11 +561,11 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
       });
 
       set((state) => ({
-        features: state.features.map(f => f.id === featureId 
-          ? { 
-              ...f, 
-              milestones: f.milestones?.map(m => m.id === milestoneId ? updated : m) || [] 
-            } 
+        features: state.features.map(f => f.id === featureId
+          ? {
+              ...f,
+              milestones: f.milestones?.map(m => m.id === milestoneId ? mapFeatureMilestone(updated) : m) || []
+            }
           : f
         )
       }));

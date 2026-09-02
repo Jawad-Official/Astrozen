@@ -1,50 +1,60 @@
 import { apiClient } from '@/lib/api-client';
 import { Feature, FeatureMilestone } from '@/types/feature';
+import { RawFeature, RawFeatureMilestone } from './mapper';
 
-// This is a partial migration of strategyService methods to a dedicated featureService
+interface FeatureCreatePayload extends Partial<Feature> {
+  project_id?: string;
+  parent_id?: string;
+  owner_id?: string;
+}
+
+/**
+ * Raw, un-mapped responses - callers pass these through mapFeature /
+ * mapFeatureMilestone (see store/issueStore.ts) to get camelCase domain
+ * objects. The `Feature`/`FeatureMilestone` return types below are
+ * aspirational documentation of the target shape, not what's returned here.
+ */
 export const featureService = {
-  getAll: async (projectId?: string): Promise<Feature[]> => {
+  getAll: async (projectId?: string): Promise<RawFeature[]> => {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get<any[]>('/features', { params });
-    // Note: Mappers are currently in strategy.ts, ideally they move to a central mapper
-    // For now we'll do simple mapping here or import from strategy
-    return response.data; 
-  },
-
-  getById: async (id: string): Promise<Feature> => {
-    const response = await apiClient.get<any>(`/features/${id}`);
+    const response = await apiClient.get<RawFeature[]>('/features', { params });
     return response.data;
   },
 
-  create: async (data: any): Promise<Feature> => {
-    const payload = {
+  getById: async (id: string): Promise<RawFeature> => {
+    const response = await apiClient.get<RawFeature>(`/features/${id}`);
+    return response.data;
+  },
+
+  create: async (data: Partial<Feature>): Promise<RawFeature> => {
+    const payload: FeatureCreatePayload = {
       ...data,
-      project_id: data.projectId ?? data.project_id,
-      parent_id: data.parentId ?? data.parent_id,
-      owner_id: data.ownerId ?? data.owner_id,
+      project_id: data.projectId,
+      parent_id: data.parentId,
+      owner_id: data.ownerId,
     };
-    
+
     // Clean up camelCase keys
     delete payload.projectId;
     delete payload.parentId;
     delete payload.ownerId;
 
-    const response = await apiClient.post<any>('/features', payload);
+    const response = await apiClient.post<RawFeature>('/features', payload);
     return response.data;
   },
 
-  update: async (id: string, data: any): Promise<Feature> => {
-    const response = await apiClient.patch<any>(`/features/${id}`, data);
+  update: async (id: string, data: Partial<Feature>): Promise<RawFeature> => {
+    const response = await apiClient.patch<RawFeature>(`/features/${id}`, data);
     return response.data;
   },
 
-  createMilestone: async (featureId: string, data: any): Promise<FeatureMilestone> => {
-    const response = await apiClient.post<any>(`/features/${featureId}/milestones`, data);
+  createMilestone: async (featureId: string, data: Partial<FeatureMilestone>): Promise<RawFeatureMilestone> => {
+    const response = await apiClient.post<RawFeatureMilestone>(`/features/${featureId}/milestones`, data);
     return response.data;
   },
 
-  updateMilestone: async (featureId: string, milestoneId: string, data: any): Promise<FeatureMilestone> => {
-    const response = await apiClient.patch<any>(`/features/${featureId}/milestones/${milestoneId}`, data);
+  updateMilestone: async (featureId: string, milestoneId: string, data: Partial<FeatureMilestone>): Promise<RawFeatureMilestone> => {
+    const response = await apiClient.patch<RawFeatureMilestone>(`/features/${featureId}/milestones/${milestoneId}`, data);
     return response.data;
   },
 

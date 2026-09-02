@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import { Issue, IssueStatus, IssuePriority, Comment, Activity } from '@/types/issue';
-import { mapIssue, mapComment, mapActivity } from './mapper';
+import { mapIssue, mapComment, mapActivity, RawIssue, RawIssueComment, RawActivity } from './mapper';
 
 export interface IssueFilterParams {
   status?: IssueStatus[];
@@ -19,7 +19,7 @@ export interface IssueListResponse {
 
 export const issueService = {
   getAll: async (params?: IssueFilterParams): Promise<IssueListResponse> => {
-    const response = await apiClient.get<any>('/issues', { params });
+    const response = await apiClient.get<{ issues: RawIssue[]; total: number }>('/issues', { params });
     return {
       issues: response.data.issues.map(mapIssue),
       total: response.data.total
@@ -27,12 +27,12 @@ export const issueService = {
   },
 
   getMyIssues: async (): Promise<Issue[]> => {
-    const response = await apiClient.get<any[]>('/issues/my-issues');
+    const response = await apiClient.get<RawIssue[]>('/issues/my-issues');
     return response.data.map(mapIssue);
   },
-  
+
   getInbox: async (): Promise<Issue[]> => {
-    const response = await apiClient.get<any[]>('/issues/inbox');
+    const response = await apiClient.get<RawIssue[]>('/issues/inbox');
     return response.data.map(mapIssue);
   },
 
@@ -51,19 +51,19 @@ export const issueService = {
       due_date: data.dueDate,
       label_ids: data.labels?.map(l => l.id) || []
     };
-    const response = await apiClient.post<any>('/issues', payload);
+    const response = await apiClient.post<RawIssue>('/issues', payload);
     return mapIssue(response.data);
   },
 
   update: async (id: string, data: Partial<Issue>): Promise<Issue> => {
-    const payload: any = { ...data };
+    const payload: Record<string, unknown> = { ...data };
     if (data.issueType) payload.issue_type = data.issueType;
     if (data.featureId) payload.feature_id = data.featureId;
     if (data.milestoneId !== undefined) payload.milestone_id = data.milestoneId; // Added milestone_id
     if (data.assignee) payload.assignee_id = data.assignee;
     if (data.dueDate) payload.due_date = data.dueDate;
     if (data.labels) payload.label_ids = data.labels.map(l => l.id);
-    
+
     // Remove camelCase keys
     delete payload.issueType;
     delete payload.featureId;
@@ -73,7 +73,7 @@ export const issueService = {
     delete payload.dueDate;
     delete payload.labels;
 
-    const response = await apiClient.patch<any>(`/issues/${id}`, payload);
+    const response = await apiClient.patch<RawIssue>(`/issues/${id}`, payload);
     return mapIssue(response.data);
   },
 
@@ -82,17 +82,17 @@ export const issueService = {
   },
 
   getComments: async (issueId: string): Promise<Comment[]> => {
-    const response = await apiClient.get<any[]>(`/issues/${issueId}/comments`);
+    const response = await apiClient.get<RawIssueComment[]>(`/issues/${issueId}/comments`);
     return response.data.map(mapComment);
   },
 
   addComment: async (issueId: string, content: string): Promise<Comment> => {
-    const response = await apiClient.post<any>(`/issues/${issueId}/comments`, { content });
+    const response = await apiClient.post<RawIssueComment>(`/issues/${issueId}/comments`, { content });
     return mapComment(response.data);
   },
 
   getActivities: async (issueId: string): Promise<Activity[]> => {
-    const response = await apiClient.get<any[]>(`/issues/${issueId}/activities`);
+    const response = await apiClient.get<RawActivity[]>(`/issues/${issueId}/activities`);
     return response.data.map(mapActivity);
   },
 };

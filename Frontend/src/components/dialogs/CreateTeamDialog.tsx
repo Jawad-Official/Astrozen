@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/select';
 import { CreateTeamData, Team } from '@/types/auth';
 import { useAuth } from '@/context/AuthContext';
-import { organizationService } from '@/services/organization';
+import { organizationService, RawOrgMember } from '@/services/organization';
 import { Users, IdentificationCard, ShieldCheck, Database } from '@phosphor-icons/react';
 
 interface CreateTeamDialogProps {
@@ -27,7 +27,7 @@ export function CreateTeamDialog({ open, onOpenChange, onCreateTeam, teams }: Cr
   const [identifier, setIdentifier] = useState('');
   const [leaderId, setLeaderId] = useState<string>('');
   const [importFromTeamId, setImportFromTeamId] = useState<string>('none');
-  const [members, setMembers] = useState<any[]>([]);
+  const [members, setMembers] = useState<RawOrgMember[]>([]);
   const [isIdentifierDirty, setIsIdentifierDirty] = useState(false);
 
   useEffect(() => {
