@@ -204,7 +204,7 @@ export default function FeaturesPage() {
                 setNewMilestone({ name: '', targetDate: '', parentId: parentId || undefined });
                 setMilestoneDialogOpen(true);
               }}
-              onCreateIssueForMilestone={(featureId, milestoneId) => {
+              onCreateIssueForMilestone={(_featureId, milestoneId) => {
                 setSelectedMilestoneId(milestoneId || undefined);
                 setCreateIssueOpen(true);
               }}
@@ -242,7 +242,7 @@ export default function FeaturesPage() {
               setNewMilestone({ name: '', targetDate: '', parentId: parentId || undefined });
               setMilestoneDialogOpen(true);
             }}
-            onCreateIssueForMilestone={(featureId, milestoneId) => {
+            onCreateIssueForMilestone={(_featureId, milestoneId) => {
               setSelectedMilestoneId(milestoneId || undefined);
               setCreateIssueOpen(true);
             }}

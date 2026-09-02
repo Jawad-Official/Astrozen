@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { useIssueStore } from '@/store/issueStore';
@@ -720,7 +720,7 @@ const ProjectDetailPage = () => {
                       setNewFeatureMilestoneParent(parentId);
                       setCreateFeatureMilestoneOpen(true);
                     }}
-                    onCreateIssueForMilestone={(featureId, milestoneId) => {
+                    onCreateIssueForMilestone={(_featureId, milestoneId) => {
                       setSelectedMilestoneId(milestoneId);
                       setCreateIssueOpen(true);
                     }}
@@ -1348,7 +1348,7 @@ const ProjectDetailPage = () => {
           setNewFeatureMilestoneParent(parentId);
           setCreateFeatureMilestoneOpen(true);
         }}
-        onCreateIssueForMilestone={(featureId, milestoneId) => {
+        onCreateIssueForMilestone={(_featureId, milestoneId) => {
           setSelectedMilestoneId(milestoneId);
           setCreateIssueOpen(true);
         }}
