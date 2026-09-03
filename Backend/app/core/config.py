@@ -88,7 +88,7 @@ class Settings(BaseSettings):
 
     # AI (Google AI Studio / Gemini) & Cloudflare R2
     GEMINI_API_KEY: str | None = None
-    MODEL_NAME: str = "gemini-2.5-flash"
+    MODEL_NAME: str = "gemini-3.6-flash"
 
     R2_ACCOUNT_ID: str | None = None
     R2_ACCESS_KEY_ID: str | None = None

@@ -95,6 +95,36 @@ app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 
 cors_origins = [str(origin) for origin in settings.BACKEND_CORS_ORIGINS]
 
+
+@app.middleware("http")
+async def unhandled_error_to_json(request: Request, call_next):
+    """Convert a crash into a normal 500 response, inside the CORS layer.
+
+    Starlette applies user middleware in reverse order of registration, so
+    this - registered before CORSMiddleware - ends up *inside* it. That
+    placement is the entire point: an exception left to escape to the
+    outermost ServerErrorMiddleware produces a 500 that never passes back
+    through CORSMiddleware, so it carries no Access-Control-Allow-Origin
+    header. The browser then reports a CORS policy violation and the real
+    error is invisible from the frontend, which is how an AttributeError
+    in the blueprint route showed up as a CORS failure.
+
+    HTTPException never reaches here (FastAPI's ExceptionMiddleware sits
+    further in and has already turned it into a response), so this only
+    catches genuine crashes.
+    """
+    try:
+        return await call_next(request)
+    except Exception:
+        logging.getLogger(__name__).exception(
+            "Unhandled error on %s %s", request.method, request.url.path
+        )
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": "Internal Server Error"},
+        )
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
@@ -120,5 +150,16 @@ def root():
 
 @app.get("/health")
 def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy"}
+    """Health check endpoint.
+
+    `ai_configured` reports only whether the server booted with a
+    GEMINI_API_KEY present - never the key, and never whether the
+    provider accepted it. It exists because a missing key and a rejected
+    key used to be indistinguishable from the outside (both surfaced as a
+    generic 500 on /ai/idea/{id}/validate), which made a deployed
+    instance impossible to triage without shell access to its logs.
+    """
+    return {
+        "status": "healthy",
+        "ai_configured": bool(settings.GEMINI_API_KEY),
+    }

@@ -6,7 +6,7 @@ be logged and degrade to a safe, well-defined value.
 
 Covers:
 - `_parse_asset_json` / `AssetParseError` (app/api/v1/ai/_shared.py)
-- `AIClient.parse_json` (app/services/ai_client.py) - the JSON repair path
+- `AIService._parse_json` - the JSON repair path
 - `AIService.generate_clarification_questions` against a mocked model
   client: success, malformed JSON, and empty-response paths
 - idea -> project conversion (app/api/v1/ai/conversion.py), including the
@@ -19,7 +19,6 @@ from types import SimpleNamespace
 import pytest
 
 from app.api.v1.ai._shared import AssetParseError, _parse_asset_json
-from app.services.ai_client import AIClient
 from app.services.ai_service import AIService
 from app.core.security import create_access_token
 from app.models.organization import Organization
@@ -57,34 +56,34 @@ def test_parse_asset_json_raises_on_total_garbage():
 
 
 # --------------------------------------------------------------------------
-# AIClient.parse_json
+# AIService._parse_json
 # --------------------------------------------------------------------------
 
 
-def test_ai_client_parse_json_success():
-    client = AIClient.__new__(AIClient)  # skip __init__'s API-key setup
-    assert client.parse_json('{"questions": ["a", "b"]}') == {"questions": ["a", "b"]}
+def test_parse_json_success():
+    service = AIService.__new__(AIService)  # skip __init__'s API-key setup
+    assert service._parse_json('{"questions": ["a", "b"]}') == {"questions": ["a", "b"]}
 
 
-def test_ai_client_parse_json_repairs_truncated_json():
-    client = AIClient.__new__(AIClient)
+def test_parse_json_repairs_truncated_json():
+    service = AIService.__new__(AIService)
     # Missing closing brace/bracket - the kind of truncation a
     # token-limited model response produces.
     truncated = '{"questions": ["a", "b"'
-    result = client.parse_json(truncated)
+    result = service._parse_json(truncated)
     assert result == {"questions": ["a", "b"]}
 
 
-def test_ai_client_parse_json_raises_when_unrecoverable():
-    client = AIClient.__new__(AIClient)
+def test_parse_json_raises_when_unrecoverable():
+    service = AIService.__new__(AIService)
     with pytest.raises(json.JSONDecodeError):
-        client.parse_json("this is not json at all, no braces")
+        service._parse_json("this is not json at all, no braces")
 
 
-def test_ai_client_parse_json_returns_none_on_empty_content():
-    client = AIClient.__new__(AIClient)
-    assert client.parse_json("") is None
-    assert client.parse_json(None) is None
+def test_parse_json_returns_none_on_empty_content():
+    service = AIService.__new__(AIService)
+    assert service._parse_json("") is None
+    assert service._parse_json(None) is None
 
 
 # --------------------------------------------------------------------------
@@ -122,10 +121,10 @@ def configured_ai_service(monkeypatch):
 
     def set_response(content: str):
         state["content"] = content
-        service._client.client = _FakeOpenAIClient(content)
+        service.client = _FakeOpenAIClient(content)
 
     set_response("")
-    service._client._response_cache = {}
+    service._response_cache = {}
     return service, set_response
 
 

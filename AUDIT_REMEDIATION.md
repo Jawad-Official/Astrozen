@@ -84,10 +84,17 @@ Backend:
   blueprint,documents,conversion,_shared}.py`, aggregated back into one
   router so the mount point (`prefix="/ai"`) is unchanged.
 - `ai_service.py` (1355 lines) → extracted `AIClient` (model invocation,
-  caching, JSON parsing) into `app/services/ai_client.py`; `AIService` keeps
+  caching, JSON parsing) into `app/services/ai_client.py`; `AIService` kept
   thin delegating methods so its existing test suite
   (`tests/test_ai_unconfigured.py`, which pins `service.client`,
   `_call_ai`, `_is_auth_error` as a stable contract) needed no changes.
+  **This split was later retired** (see "Post-Phase-8 merge" below) when
+  `main` grew retry/backoff and error-classification logic directly inside
+  `AIService`/`ai_service.py`, tested by patching `asyncio.sleep` at the
+  `app.services.ai_service` module level — reintroducing the `AIClient`
+  split on top of that would have either broken those tests or required
+  moving them, so `ai_service.py` reverted to a single class and
+  `ai_client.py` was deleted.
 - Verified via a byte-identical OpenAPI schema diff before/after the full
   backend split, plus the full `pytest` suite.
 
@@ -206,11 +213,43 @@ an unrequested blanket eslint exception for test files.
   default, stays off for falsy env values, starts when explicitly enabled,
   and the sync task's concurrent-run guard.
 
+## Post-Phase-8 merge — reconciling with `main`
+
+Before this branch was merged, `main` had moved forward independently with
+3 real bug-fix commits touching `Backend/app/services/ai_service.py`:
+retrying transient provider overload (503) instead of failing the request,
+fixing an empty AI response crashing the blueprint route as an
+unhelpful CORS error (it was actually a 500 that never passed back through
+`CORSMiddleware`), and surfacing a rejected `MODEL_NAME` as an actionable
+error instead of a generic 500. `main` also added a CORS-safe global
+exception-handling middleware in `app/main.py` and an `ai_configured` field
+on `/health`.
+
+This conflicted with this branch's Phase 5b split (`AIClient` extracted out
+of `AIService`). Neither side could be blindly preferred — accepting this
+branch's version would have silently reintroduced the 3 bugs `main` had
+already fixed; accepting `main`'s wholesale would have discarded the
+Phase 5b split. The conflict was resolved by adopting `main`'s
+`ai_service.py` in full (all 3 fixes, including their own new test files —
+`test_ai_retry.py`, `test_ai_empty_response.py`, an updated
+`test_ai_unconfigured.py`) and retiring the `AIClient` split: `main`'s new
+tests patch `asyncio.sleep` at the `app.services.ai_service` module level
+and call `AIService._is_transient_error`/`_raise_if_misconfigured`/
+`_is_model_error` directly, which only works if that logic lives in
+`ai_service.py` itself rather than delegated to a separate client class.
+`app/services/ai_client.py` was deleted; this branch's own
+`test_ai_pipeline.py` was updated to test `AIService._parse_json` directly
+instead of the now-removed `AIClient.parse_json`. `render.yaml`'s
+`MODEL_NAME` bump and `ENABLE_SCHEDULER` addition merged cleanly with no
+conflict, as did `app/main.py`'s scheduler gating and the new exception
+middleware. Full backend suite after the merge: 83 passed (64 from this
+branch + 19 from `main`'s 3 commits).
+
 ## Phase 8 — Final verification
 
 | Check | Result |
 |---|---|
-| Backend `pytest -q` | 64 passed |
+| Backend `pytest -q` | 83 passed (post-merge; see "Post-Phase-8 merge" above) |
 | Frontend `npm run typecheck` (`tsc -b`) | clean |
 | Frontend `npm run lint` | 0 errors, 147 warnings (see Phase 6 note) |
 | Frontend `npm test` (vitest) | 43 passed |
