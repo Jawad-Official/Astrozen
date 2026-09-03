@@ -2,32 +2,15 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   MagicWand,
   Layout,
-  FileText,
   ArrowClockwise,
-  Plus,
-  UploadSimple,
-  Trash,
-  X,
-  Database,
-  Lightbulb,
-  Rocket,
-  CheckCircle,
-  XCircle,
-  ArrowRight,
-  ArrowSquareOut,
-  Warning,
 } from '@phosphor-icons/react';
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { aiService } from '@/services/ai.service';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Tooltip,
   TooltipContent,
@@ -39,6 +22,10 @@ import { Phase, ValidationReport, BlueprintNode, BlueprintEdge, Blueprint, DocQu
 import { DOC_INFO } from './plans/constants';
 import { BlueprintCanvas } from './plans/BlueprintCanvas';
 import { ValidationSection } from './plans/ValidationSection';
+import { DocumentationSection } from './plans/DocumentationSection';
+import { BlueprintModal } from './plans/BlueprintModal';
+import { DocQuestionsDialog } from './plans/DocQuestionsDialog';
+import { DocumentAnalysisModal } from './plans/DocumentAnalysisModal';
 
 interface PlansTabProps {
   projectId: string;
@@ -846,522 +833,62 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
             </div>
           )}
 
-          {/* 4. Documentation Section (Bottom) */}
           {(validationReport || blueprint) && (
-            <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-700 pt-8 sm:pt-12 border-t border-border">
-               <div className="flex items-center justify-between">
-                   <div className="flex items-center gap-3 sm:gap-4">
-                     <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center shadow-lg shadow-purple-500/10 shrink-0 border border-purple-500/20">
-                       <FileText size={18} weight="bold" className="sm:hidden" />
-                       <FileText size={20} weight="bold" className="hidden sm:block" />
-                     </div>
-                     <div>
-                        <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground/90">Documentation</h2>
-                        <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Technical specifications and guides</p>
-                     </div>
-                   </div>
-               </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                   {Object.entries(DOC_INFO).map(([id, info]) => {
-                      const isGenerated = docs.find(d => d.asset_type === id);
-                      const hasAnalysis = docAnalysis[id];
-                      const analysisSeverity = hasAnalysis?.severity;
-                      return (
-                         <Card 
-                           key={id} 
-                           className={cn(
-                             "cursor-pointer hover:border-primary/30 transition-all group overflow-hidden flex flex-col shadow-sm",
-                             hasAnalysis && analysisSeverity === 'critical' ? "bg-red-500/5 border-red-500/20" :
-                             hasAnalysis && analysisSeverity === 'warning' ? "bg-yellow-500/5 border-yellow-500/20" :
-                             isGenerated ? "bg-emerald-500/5 border-emerald-500/20" : "bg-card border-border"
-                           )}
-                           onClick={(e) => {
-                               if ((e.target as HTMLElement).closest('.action-btn')) return;
-                               if (hasAnalysis) {
-                                 setAnalysisDocType(id);
-                                 setShowAnalysisModal(true);
-                               } else if (isGenerated) handleDownloadDoc(id);
-                               else handleGenerateDocFlow(id);
-                           }}
-                         >
-                            <CardHeader className="pb-2 sm:pb-3 p-4 sm:p-6">
-                               <div className="flex justify-between items-start">
-                                  <info.icon className={isGenerated ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/40"} size={24} />
-                                  {hasAnalysis && analysisSeverity === 'critical' && (
-                                    <Warning className="text-red-600 dark:text-red-400" weight="fill" />
-                                  )}
-                                  {hasAnalysis && analysisSeverity === 'warning' && (
-                                    <Lightbulb className="text-yellow-600 dark:text-yellow-400" weight="fill" />
-                                  )}
-                                  {isGenerated && !hasAnalysis && <CheckCircle className="text-emerald-600 dark:text-emerald-400" weight="fill" />}
-                               </div>
-                               <CardTitle className="text-sm sm:text-base mt-2 sm:mt-3">{info.label}</CardTitle>
-                            </CardHeader>
-                            <CardContent className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0">
-                               <p className="text-[11px] sm:text-xs text-muted-foreground/80 line-clamp-2 sm:line-clamp-none sm:min-h-[40px]">{info.summary}</p>
-                               {hasAnalysis && (
-                                 <p className="text-[10px] mt-2 text-muted-foreground/60 font-medium">
-                                   Quality: {hasAnalysis.quality_score}% - Click to review
-                                 </p>
-                               )}
-                            </CardContent>
-                            <CardFooter className="p-4 pt-0 sm:p-6 sm:pt-0 flex gap-2">
-                               {!isGenerated ? (
-                                <>
-                                    <Button 
-                                        variant="outline" 
-                                        size="sm" 
-                                        className="action-btn h-7 text-[9px] sm:text-[10px] w-full border-border hover:bg-accent"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleUploadClick(id);
-                                        }}
-                                    >
-                                        <UploadSimple className="mr-1" /> Upload
-                                    </Button>
-                                    <Button 
-                                        size="sm" 
-                                        className="action-btn h-7 text-[9px] sm:text-[10px] w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleGenerateDocFlow(id);
-                                        }}
-                                    >
-                                        <MagicWand className="mr-1" /> Generate
-                                    </Button>
-                                </>
-                              ) : (
-                                <span 
-                                    className="text-[10px] sm:text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1 group-hover:translate-x-1 transition-transform"
-                                >
-                                    {isGenerated.content.startsWith('http') ? 'Open in Docs' : 'Download'} <ArrowRight size={12} />
-                                </span>
-                              )}
-                           </CardFooter>
-                        </Card>
-                     )
-                  })}
-               </div>
-            </div>
+            <DocumentationSection
+              docs={docs}
+              docAnalysis={docAnalysis}
+              handleDownloadDoc={handleDownloadDoc}
+              handleGenerateDocFlow={handleGenerateDocFlow}
+              handleUploadClick={handleUploadClick}
+              setAnalysisDocType={setAnalysisDocType}
+              setShowAnalysisModal={setShowAnalysisModal}
+            />
           )}
 
         </div>
       </div>
 
-      {/* Blueprint Full-Page Modal */}
-      <Dialog open={blueprintModalOpen} onOpenChange={setBlueprintModalOpen}>
-        <DialogContent 
-          className="!max-w-none bg-background border-border w-[98vw] md:w-[95vw] h-[98vh] md:h-[90vh] p-0 overflow-hidden flex flex-col" 
-          key={blueprintModalOpen ? 'open' : 'closed'}
-        >
-          <VisuallyHidden>
-            <DialogTitle>Blueprint Viewer</DialogTitle>
-            <DialogDescription>
-              Interactive blueprint canvas with node details and issue generation
-            </DialogDescription>
-          </VisuallyHidden>
-          <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
-            {/* Full Canvas Area */}
-            <div className="flex-1 relative overflow-hidden min-w-0 h-full flex flex-col">
-              <BlueprintCanvas 
-                className="flex-1 border-0 rounded-none"
-                nodes={blueprint?.nodes || []} 
-                edges={blueprint?.edges || []}
-                onNodeClick={(node) => {
-                  setSelectedNode(node);
-                }}
-                onNodesChange={handleSaveBlueprint}
-              />
-              {/* Close Button - positioned inside canvas area for mobile */}
-              <Button
-                size="icon"
-                variant="ghost"
-                className="absolute top-3 right-3 h-8 w-8 rounded-full bg-background/80 backdrop-blur-md hover:bg-muted text-muted-foreground hover:text-foreground z-[60] border border-border"
-                onClick={() => {
-                  setBlueprintModalOpen(false);
-                  setSelectedNode(null);
-                }}
-              >
-                <X size={16} />
-              </Button>
-            </div>
+      <BlueprintModal
+        blueprintModalOpen={blueprintModalOpen}
+        setBlueprintModalOpen={setBlueprintModalOpen}
+        blueprint={blueprint}
+        selectedNode={selectedNode}
+        setSelectedNode={setSelectedNode}
+        handleSaveBlueprint={handleSaveBlueprint}
+        nodeDetails={nodeDetails}
+        isLinkingIssue={isLinkingIssue}
+        setIsLinkingIssue={setIsLinkingIssue}
+        issueSearchQuery={issueSearchQuery}
+        setIssueSearchQuery={setIssueSearchQuery}
+        projectIssues={projectIssues}
+        handleLinkIssue={handleLinkIssue}
+        handleUnlinkIssue={handleUnlinkIssue}
+        ideaId={ideaId}
+        generatingIssues={generatingIssues}
+        setGeneratingIssues={setGeneratingIssues}
+      />
 
-            {/* Sidebar / Bottom Sheet */}
-            <div className={cn(
-                "w-full md:w-[350px] lg:w-[400px] border-t md:border-t-0 md:border-l border-border bg-card p-4 md:p-6 overflow-y-auto flex-shrink-0 transition-all duration-300 shadow-xl",
-                "h-1/2 md:h-full", // Takes more space on mobile if node is selected
-                !selectedNode && "hidden md:flex" // Hide on mobile if no node selected
-            )}>
-              {selectedNode ? (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 md:slide-in-from-right-4 duration-300">
-                  {/* Node Header */}
-                  <div className="flex items-center justify-between md:block">
-                    <div className="flex items-center gap-3 mb-0 md:mb-4">
-                      <div className={cn(
-                        "h-10 w-10 rounded-lg flex items-center justify-center bg-gradient-to-br shrink-0",
-                        selectedNode.type === 'entry' ? "from-purple-500/20 to-purple-500/5 text-purple-600 dark:text-purple-400" :
-                        selectedNode.type === 'action' ? "from-blue-500/20 to-blue-500/5 text-blue-600 dark:text-blue-400" :
-                        selectedNode.type === 'service' ? "from-cyan-500/20 to-cyan-500/5 text-cyan-600 dark:text-cyan-400" :
-                        selectedNode.type === 'database' ? "from-amber-500/20 to-amber-500/5 text-amber-600 dark:text-amber-400" :
-                        selectedNode.type === 'external' ? "from-pink-500/20 to-pink-500/5 text-pink-600 dark:text-pink-400" :
-                        "from-emerald-500/20 to-emerald-500/5 text-emerald-600 dark:text-emerald-400"
-                      )}>
-                        {selectedNode.type === 'database' ? <Database size={20} weight="duotone" /> : 
-                         selectedNode.type === 'external' ? <ArrowSquareOut size={20} weight="duotone" /> :
-                         <Layout size={20} weight="duotone" />}
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="text-base sm:text-lg font-bold text-foreground truncate">{selectedNode.label}</h3>
-                        <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-bold">{selectedNode.type}</p>
-                      </div>
-                    </div>
-                    
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="md:hidden h-8 w-8 text-muted-foreground/40"
-                        onClick={() => setSelectedNode(null)}
-                    >
-                        <XCircle size={20} />
-                    </Button>
-                  </div>
+      <DocQuestionsDialog
+        docQuestionsOpen={docQuestionsOpen}
+        setDocQuestionsOpen={setDocQuestionsOpen}
+        docQuestionIndex={docQuestionIndex}
+        docQuestions={docQuestions}
+        generatingDocType={generatingDocType}
+        docAiSuggestion={docAiSuggestion}
+        setDocAiSuggestion={setDocAiSuggestion}
+        handleDocQuestionAnswer={handleDocQuestionAnswer}
+      />
 
-                  {/* Completion */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-[10px] sm:text-xs font-bold text-muted-foreground/60">
-                      <span>COMPLETION</span>
-                      <span>{(nodeDetails?.completion ?? selectedNode.completion) || 0}%</span>
-                    </div>
-                    <div className="h-1.5 sm:h-2 w-full bg-muted rounded-full overflow-hidden">
-                      <div 
-                        className={cn(
-                          "h-full rounded-full transition-all duration-1000",
-                          ((nodeDetails?.completion ?? selectedNode.completion) || 0) === 100 ? "bg-emerald-500" : 
-                          selectedNode.type === 'database' ? "bg-amber-500" :
-                          selectedNode.type === 'service' ? "bg-cyan-500" :
-                          "bg-primary"
-                        )}
-                        style={{ width: `${(nodeDetails?.completion ?? selectedNode.completion) || 0}%` }}
-                      />
-                    </div>
-                    {nodeDetails?.stats && (
-                      <p className="text-[9px] sm:text-[10px] text-muted-foreground/40 text-right font-medium">
-                        {nodeDetails.stats.done_issues} / {nodeDetails.stats.total_issues} issues completed
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Issues Section */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground/60">Linked Issues</h4>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-6 px-2 text-[10px] text-primary hover:text-primary hover:bg-primary/10 font-bold"
-                        onClick={() => setIsLinkingIssue(!isLinkingIssue)}
-                      >
-                        {isLinkingIssue ? 'Cancel' : <><Plus className="mr-1" size={12} /> Add Issue</>}
-                      </Button>
-                    </div>
-
-                    {/* Add Issue Search/List */}
-                    <AnimatePresence>
-                      {isLinkingIssue && (
-                        <motion.div 
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="p-2 sm:p-3 rounded-lg bg-muted/30 border border-border space-y-3">
-                            <Input 
-                              placeholder="Search project issues..."
-                              value={issueSearchQuery}
-                              onChange={(e) => setIssueSearchQuery(e.target.value)}
-                              className="h-8 text-xs bg-background/50 border-border"
-                            />
-                            <div className="max-h-[150px] sm:max-h-[200px] overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                              {projectIssues
-                                .filter(i => i.title.toLowerCase().includes(issueSearchQuery.toLowerCase()))
-                                .filter(i => !nodeDetails?.issues.some((ni: any) => ni.id === i.id))
-                                .map(issue => (
-                                  <div 
-                                    key={issue.id} 
-                                    className="flex items-center justify-between p-2 rounded-md hover:bg-accent group cursor-pointer transition-colors"
-                                    onClick={() => handleLinkIssue(issue.id)}
-                                  >
-                                    <div className="flex flex-col min-w-0">
-                                      <span className="text-[9px] font-mono text-muted-foreground/40">{issue.identifier}</span>
-                                      <span className="text-[11px] text-foreground/70 truncate">{issue.title}</span>
-                                    </div>
-                                    <Plus size={12} className="text-muted-foreground/20 group-hover:text-primary transition-colors shrink-0" />
-                                  </div>
-                                ))}
-                              {projectIssues.length === 0 && <p className="text-[10px] text-muted-foreground/40 text-center py-4">No other issues found</p>}
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                    {/* Linked Issues List */}
-                    <div className="space-y-2">
-                      {nodeDetails?.issues && nodeDetails.issues.length > 0 ? (
-                        nodeDetails.issues.map((issue: any) => (
-                          <div key={issue.id} className="group flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-card border border-border hover:border-primary/20 transition-all shadow-sm">
-                            <div className="flex flex-col min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-[9px] font-mono text-muted-foreground/40">{issue.identifier}</span>
-                                <Badge variant="outline" className={cn(
-                                  "text-[7px] h-3.5 px-1 uppercase font-black",
-                                  issue.status === 'done' ? "text-emerald-600 dark:text-emerald-400 border-emerald-500/20 bg-emerald-500/5" :
-                                  issue.status === 'in_progress' ? "text-blue-600 dark:text-blue-400 border-blue-500/20 bg-blue-500/5" :
-                                  "text-muted-foreground/40 border-border bg-muted"
-                                )}>
-                                  {issue.status.replace('_', ' ')}
-                                </Badge>
-                              </div>
-                              <span className="text-[11px] sm:text-xs font-medium text-foreground/80 truncate">{issue.title}</span>
-                            </div>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-7 w-7 text-muted-foreground/20 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => handleUnlinkIssue(issue.id)}
-                            >
-                              <Trash size={14} />
-                            </Button>
-                          </div>
-                        ))
-                      ) : !isLinkingIssue && (
-                        <div className="py-6 sm:py-8 text-center space-y-2">
-                          <p className="text-[11px] text-muted-foreground/40">No issues linked to this component.</p>
-                          <p className="text-[9px] text-muted-foreground/20 italic">Generate issues or link existing ones to track progress.</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Generate Issues Button */}
-                  <div className="pt-4 border-t border-border">
-                    <Button
-                      onClick={async () => {
-                        if (!ideaId || !selectedNode) return;
-                        setGeneratingIssues(true);
-                        try {
-                          const response = await aiService.generateIssuesForNode(ideaId, selectedNode.id);
-                          toast.success(response.data?.message || 'Issues generated successfully!');
-                          setTimeout(() => {
-                            setBlueprintModalOpen(false);
-                            setSelectedNode(null);
-                          }, 1500);
-                        } catch (error: any) {
-                          toast.error(error.response?.data?.detail || 'Failed to generate issues');
-                        } finally {
-                          setGeneratingIssues(false);
-                        }
-                      }}
-                      disabled={generatingIssues}
-                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 h-10 sm:h-11"
-                    >
-                      {generatingIssues ? (
-                        <>
-                          <ArrowClockwise className="mr-2 animate-spin" size={16} />
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <Rocket className="mr-2" weight="duotone" size={18} />
-                          Generate Issues
-                        </>
-                      )}
-                    </Button>
-                    <p className="text-[10px] text-muted-foreground/40 mt-2 text-center font-medium">
-                      AI will create tasks, features, and milestones
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground/20">
-                  <Layout size={40} weight="thin" className="mb-4 opacity-50" />
-                  <p className="text-xs uppercase tracking-widest font-black">Select a node</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Doc Questions Dialog */}
-      <Dialog open={docQuestionsOpen} onOpenChange={setDocQuestionsOpen}>
-        <DialogContent className="bg-popover border-border w-[95vw] sm:max-w-[500px] p-4 sm:p-6 rounded-2xl shadow-2xl">
-          <DialogHeader>
-             <DialogTitle className="text-lg sm:text-xl">Clarification Needed</DialogTitle>
-             <DialogDescription className="text-xs sm:text-sm">
-                Question {docQuestionIndex + 1} of {docQuestions.length} for {DOC_INFO[generatingDocType || '']?.label}
-             </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2 sm:py-4">
-             <p className="text-base sm:text-lg font-medium leading-relaxed text-foreground/80">{docQuestions[docQuestionIndex]?.question}</p>
-             <Textarea 
-                value={docAiSuggestion || ''}
-                onChange={e => setDocAiSuggestion(e.target.value)}
-                placeholder="Your answer..."
-                className="bg-muted/30 border-border min-h-[100px] text-sm sm:text-base text-foreground"
-             />
-             <div className="flex flex-col sm:flex-row justify-between gap-3 pt-2 sm:pt-4">
-                <Button variant="ghost" size="sm" onClick={() => setDocAiSuggestion(docQuestions[docQuestionIndex].suggestion || '')} className="text-[10px] sm:text-xs order-3 sm:order-1 w-full sm:w-auto hover:bg-accent">
-                   <Lightbulb className="mr-2" /> Use Suggestion
-                </Button>
-                <div className="flex gap-2 order-1 sm:order-2 w-full sm:w-auto">
-                   <Button variant="outline" size="sm" className="flex-1 sm:flex-none text-xs" onClick={() => handleDocQuestionAnswer(docQuestions[docQuestionIndex].suggestion || "Skipped")}>Skip</Button>
-                   <Button size="sm" className="flex-1 sm:flex-none text-xs" onClick={() => handleDocQuestionAnswer(docAiSuggestion || '')} disabled={!docAiSuggestion}>Next</Button>
-                </div>
-             </div>
-          </div>
-         </DialogContent>
-       </Dialog>
-
-      <Dialog open={showAnalysisModal} onOpenChange={setShowAnalysisModal}>
-        <DialogContent className="bg-popover border-border w-[95vw] sm:max-w-[600px] p-4 sm:p-6 rounded-2xl shadow-2xl">
-          {(() => {
-            const analysis = analysisDocType ? docAnalysis[analysisDocType] : undefined;
-            return (
-          <>
-          <DialogHeader>
-            <DialogTitle className="text-lg sm:text-xl flex items-center gap-2">
-              {analysis?.severity === 'critical' && (
-                <span className="text-red-400">Document Review Required</span>
-              )}
-              {analysis?.severity === 'warning' && (
-                <span className="text-yellow-400">Document Enhancement Available</span>
-              )}
-            </DialogTitle>
-            <DialogDescription className="text-xs sm:text-sm">
-              {DOC_INFO[analysisDocType || '']?.label} - {analysis?.summary}
-            </DialogDescription>
-          </DialogHeader>
-
-          {analysis && (
-            <div className="space-y-4 py-2 sm:py-4">
-              <div className="flex items-center gap-3">
-                <div className={cn(
-                  "h-12 w-12 rounded-xl flex items-center justify-center text-lg font-bold",
-                  analysis.quality_score >= 80 ? "bg-emerald-500/20 text-emerald-400" :
-                  analysis.quality_score >= 60 ? "bg-yellow-500/20 text-yellow-400" :
-                  analysis.quality_score >= 40 ? "bg-orange-500/20 text-orange-400" :
-                  "bg-red-500/20 text-red-400"
-                )}>
-                  {analysis.quality_score}%
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Quality Score</p>
-                  <p className="text-xs text-white/40">
-                    {analysis.is_valid ? "Valid document format" : "Document format issues detected"}
-                  </p>
-                </div>
-              </div>
-
-              {analysis.issues?.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-red-400 uppercase tracking-wider">Issues Found</p>
-                  <ul className="space-y-1">
-                    {analysis.issues.map((issue: string, i: number) => (
-                      <li key={i} className="text-sm text-white/70 flex items-start gap-2">
-                        <span className="text-red-400 mt-1">•</span>
-                        {issue}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {analysis.missing_sections?.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-yellow-400 uppercase tracking-wider">Missing Sections</p>
-                  <div className="flex flex-wrap gap-1">
-                    {analysis.missing_sections.map((section: string, i: number) => (
-                      <span key={i} className="px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-400 text-xs">
-                        {section}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {analysis.suggestions?.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Suggestions</p>
-                  <ul className="space-y-1">
-                    {analysis.suggestions.map((suggestion: string, i: number) => (
-                      <li key={i} className="text-sm text-white/70 flex items-start gap-2">
-                        <span className="text-blue-400 mt-1">•</span>
-                        {suggestion}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {analysis.ai_can_enhance && !analysis.enhanced_content && (
-                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                  <p className="text-sm text-emerald-400 font-medium">AI Can Enhance This Document</p>
-                  <p className="text-xs text-white/60 mt-1">{analysis.enhancement_preview}</p>
-                </div>
-              )}
-
-              {analysis.enhanced_content && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Enhanced Version Preview</p>
-                  <div className="p-3 rounded-lg bg-white/5 border border-white/10 max-h-40 overflow-y-auto">
-                    <pre className="text-xs text-white/70 whitespace-pre-wrap">{analysis.preview}</pre>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex flex-col sm:flex-row justify-between gap-3 pt-4 border-t border-white/10">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDeclineEnhancement}
-                  className="text-white/60 hover:text-white text-xs"
-                >
-                  Keep Original
-                </Button>
-                <div className="flex gap-2">
-                  {analysis.ai_can_enhance && !analysis.enhanced_content && (
-                    <Button
-                      size="sm"
-                      onClick={handleGenerateEnhancement}
-                      disabled={enhancingDoc}
-                      className="bg-blue-600 hover:bg-blue-700 text-xs"
-                    >
-                      {enhancingDoc ? <ArrowClockwise className="animate-spin mr-2 h-3 w-3" /> : <MagicWand className="mr-2 h-3 w-3" />}
-                      Generate Enhancement
-                    </Button>
-                  )}
-                  {analysis.enhanced_content && (
-                    <Button
-                      size="sm"
-                      onClick={handleAcceptEnhancement}
-                      disabled={enhancingDoc}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-xs"
-                    >
-                      <CheckCircle className="mr-2 h-3 w-3" />
-                      Accept Enhancement
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-          </>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
+      <DocumentAnalysisModal
+        showAnalysisModal={showAnalysisModal}
+        setShowAnalysisModal={setShowAnalysisModal}
+        analysisDocType={analysisDocType}
+        docAnalysis={docAnalysis}
+        handleDeclineEnhancement={handleDeclineEnhancement}
+        handleGenerateEnhancement={handleGenerateEnhancement}
+        handleAcceptEnhancement={handleAcceptEnhancement}
+        enhancingDoc={enhancingDoc}
+      />
     </div>
   );
 }
