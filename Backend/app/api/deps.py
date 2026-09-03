@@ -256,3 +256,22 @@ def get_owned_document(
         raise not_found
 
     return doc
+
+
+def get_owned_idea(
+    idea_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Fetch a ProjectIdea and verify it belongs to the current user.
+
+    Raises 404 (not 403) whether the idea is missing or simply not the
+    caller's, so a cross-user request can't distinguish "doesn't exist"
+    from "exists but isn't yours".
+    """
+    from app.crud import crud_project_idea
+
+    idea = crud_project_idea.project_idea.get(db=db, id=idea_id)
+    if not idea or idea.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Idea not found")
+    return idea

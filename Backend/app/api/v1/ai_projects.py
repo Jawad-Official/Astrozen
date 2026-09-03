@@ -131,13 +131,13 @@ async def generate_issues_for_node(
     request: Request,
     idea_id: str,
     node_id: str,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     AI generates detailed Features, Milestones, and Issues for a specific blueprint node.
     """
-    idea = _get_owned_idea(db, idea_id, current_user)
     if not idea.project_id:
         raise HTTPException(status_code=404, detail="Idea or linked project not found")
 
@@ -518,6 +518,7 @@ async def create_features_background(idea_id: str, user_id: str):
 async def approve_validation_report(
     idea_id: str,
     background_tasks: BackgroundTasks,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
@@ -525,7 +526,6 @@ async def approve_validation_report(
     Phase 2 Approval: Accepts the validation report and triggers automatic feature creation.
     This runs in the background and creates features/sub-features in the database.
     """
-    idea = _get_owned_idea(db, idea_id, current_user)
 
     if not idea.validation_report:
         raise HTTPException(
@@ -610,11 +610,11 @@ async def list_ideas_for_project(
 @router.get("/idea/{idea_id}/progress")
 async def get_idea_progress(
     idea_id: str,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get progress dashboard for an idea."""
-    idea = _get_owned_idea(db, idea_id, current_user)
 
     # Count completed docs
     completed_docs = (
@@ -673,6 +673,7 @@ async def upload_document(
     idea_id: str,
     doc_type: AssetType,
     file: UploadFile = File(...),
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ):
@@ -682,7 +683,6 @@ async def upload_document(
     """
     MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
-    idea = _get_owned_idea(db, idea_id, current_user)
 
     content = ""
     filename = file.filename.lower() if file.filename else ""
@@ -775,13 +775,13 @@ async def upload_document(
 async def sync_blueprint_from_docs(
     request: Request,
     idea_id: str,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Syncs validation and blueprint from existing manual docs.
     """
-    idea = _get_owned_idea(db, idea_id, current_user)
 
     # Fetch all completed assets (docs) for this idea
     assets = (
@@ -968,13 +968,13 @@ async def suggest_answer(
     request: Request,
     idea_id: str,
     question_index: int,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Phase 1: Skip & Suggest - AI suggests an answer for a specific clarification question.
     """
-    idea = _get_owned_idea(db, idea_id, current_user)
     if not idea.clarification_questions:
         raise HTTPException(status_code=404, detail="Idea or questions not found")
 
@@ -1005,13 +1005,13 @@ async def suggest_answer(
 async def answer_questions(
     idea_id: str,
     answers: List[schemas.ClarificationAnswer],
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Phase 1: Answer Clarifications - Updates the idea with answers.
     """
-    idea = _get_owned_idea(db, idea_id, current_user)
 
     # Update questions with answers
     answer_dict = {a.question: a.answer for a in answers}
@@ -1042,13 +1042,13 @@ async def validate_idea(
     request: Request,
     idea_id: str,
     feedback: Optional[str] = None,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Phase 2: Validation & Analysis - Validates idea against 6 core pillars.
     """
-    idea = _get_owned_idea(db, idea_id, current_user)
 
     # If validation report exists and no feedback, return serialized version
     if idea.validation_report and not feedback:
@@ -1157,6 +1157,7 @@ async def validate_idea(
 async def update_validation_report(
     idea_id: str,
     report_in: schemas.ValidationReportResponse,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
@@ -1164,7 +1165,6 @@ async def update_validation_report(
     Phase 2: Manual Edit Update - Saves manual changes to the validation report.
     Auto-saves user edits.
     """
-    idea = _get_owned_idea(db, idea_id, current_user)
     if not idea.validation_report:
         raise HTTPException(status_code=404, detail="Report not found")
 
@@ -1206,6 +1206,7 @@ async def regenerate_validation_field(
     idea_id: str,
     field_name: str,
     feedback: str,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
@@ -1213,7 +1214,6 @@ async def regenerate_validation_field(
     Phase 2: Regenerate a specific validation field based on user feedback.
     Supports nested fields like 'tech_stack.database'.
     """
-    idea = _get_owned_idea(db, idea_id, current_user)
     if not idea.validation_report:
         raise HTTPException(status_code=404, detail="Report not found")
 
@@ -1280,6 +1280,7 @@ async def accept_improvements_and_revalidate(
     accepted_improvements: List[int] = Body(
         ..., description="List of improvement indices to accept (0-based)"
     ),
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
@@ -1290,7 +1291,6 @@ async def accept_improvements_and_revalidate(
     - AI re-validates 6 core pillars considering accepted improvements
     """
     try:
-        idea = _get_owned_idea(db, idea_id, current_user)
         if not idea.validation_report:
             raise HTTPException(status_code=404, detail="Report not found")
 
@@ -1474,13 +1474,13 @@ Now re-validate with ALL improvements applied. The score MUST be HIGHER. Each pi
 async def generate_blueprint(
     request: Request,
     idea_id: str,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Phase 3: Visual Blueprint - Generates User Flow and Kanban.
     """
-    idea = _get_owned_idea(db, idea_id, current_user)
     if not idea.validation_report:
         raise HTTPException(status_code=400, detail="Idea not validated yet")
 
@@ -1553,13 +1553,13 @@ async def generate_blueprint(
 async def save_blueprint(
     idea_id: str,
     blueprint_in: schemas.BlueprintSaveRequest,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Manually save updated blueprint data (node positions, etc.).
     """
-    idea = _get_owned_idea(db, idea_id, current_user)
 
     import json
 
@@ -1588,6 +1588,7 @@ async def get_doc_questions(
     request: Request,
     idea_id: str,
     doc_type: AssetType,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
@@ -1596,7 +1597,6 @@ async def get_doc_questions(
     Returns empty if no questions are needed.
     Includes AI suggestions for skipping questions.
     """
-    idea = _get_owned_idea(db, idea_id, current_user)
 
     # Build project context
     project_context = {
@@ -1659,6 +1659,7 @@ async def generate_document(
     idea_id: str,
     doc_type: AssetType,
     answers: Optional[List[Dict[str, str]]] = None,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
@@ -1667,7 +1668,6 @@ async def generate_document(
     Checks if previous docs are completed before proceeding.
     Answers are from the question flow that users answered (or skipped with AI suggestions).
     """
-    idea = _get_owned_idea(db, idea_id, current_user)
 
     # Check dependencies - previous doc must be completed
     doc_index = ai_service.get_doc_index(doc_type.value)
@@ -1812,6 +1812,7 @@ async def chat_document(
     idea_id: str,
     doc_type: AssetType,
     chat_req: schemas.DocChatRequest,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
@@ -1819,7 +1820,6 @@ async def chat_document(
     Phase 4: Chat about Doc - Regenerates/Edits doc based on user feedback.
     Each doc has its own chat session.
     """
-    idea = _get_owned_idea(db, idea_id, current_user)
 
     asset = crud_project_idea.project_idea.get_asset(
         db=db, idea_id=idea_id, asset_type=doc_type
@@ -1868,6 +1868,7 @@ async def regenerate_doc_section(
     doc_type: AssetType,
     section_content: str,
     user_message: str,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
@@ -1875,7 +1876,6 @@ async def regenerate_doc_section(
     Phase 4: Regenerate a specific section of a document.
     User can select text and ask AI to regenerate a better version.
     """
-    idea = _get_owned_idea(db, idea_id, current_user)
 
     asset = crud_project_idea.project_idea.get_asset(
         db=db, idea_id=idea_id, asset_type=doc_type
@@ -1915,6 +1915,7 @@ async def regenerate_doc_section(
 async def download_doc_as_docx(
     idea_id: str,
     doc_type: AssetType,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ):
@@ -1922,7 +1923,6 @@ async def download_doc_as_docx(
     Downloads a document as a .docx file.
     Converts Markdown content to HTML, then to Docx in memory.
     """
-    _get_owned_idea(db, idea_id, current_user)
 
     asset = crud_project_idea.project_idea.get_asset(
         db=db, idea_id=idea_id, asset_type=doc_type
@@ -1956,11 +1956,11 @@ async def download_doc_as_docx(
 async def get_blueprint_node_details(
     idea_id: str,
     node_id: str,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get detailed issues and features linked to a specific node."""
-    _get_owned_idea(db, idea_id, current_user)
 
     issues = db.query(Issue).filter(Issue.blueprint_node_id == node_id).all()
     features = db.query(Feature).filter(Feature.blueprint_node_id == node_id).all()
@@ -1995,11 +1995,11 @@ async def link_issue_to_node(
     idea_id: str,
     node_id: str,
     issue_id: str,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Manually link an issue to a blueprint node."""
-    _get_owned_idea(db, idea_id, current_user)
     if not deps.check_can_edit_issue(current_user, issue_id, db):
         raise HTTPException(status_code=404, detail="Issue not found")
 
@@ -2014,11 +2014,11 @@ async def unlink_issue_from_node(
     idea_id: str,
     node_id: str,
     issue_id: str,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Unlink an issue from a blueprint node."""
-    _get_owned_idea(db, idea_id, current_user)
     if not deps.check_can_edit_issue(current_user, issue_id, db):
         raise HTTPException(status_code=404, detail="Issue link not found")
 
@@ -2038,11 +2038,11 @@ async def unlink_issue_from_node(
 @router.get("/idea/{idea_id}", response_model=schemas.IdeaDetailsResponse)
 async def get_idea_details(
     idea_id: str,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get full idea details including assets and dynamic blueprint completion."""
-    idea = _get_owned_idea(db, idea_id, current_user)
 
     # Load assets
     assets = (
@@ -2141,13 +2141,13 @@ async def get_idea_details(
 async def convert_to_project(
     idea_id: str,
     team_id: str,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Phase 3: Finalize - Converts the validated idea and blueprint into a real Project.
     """
-    idea = _get_owned_idea(db, idea_id, current_user)
     if not idea.validation_report:
         raise HTTPException(status_code=400, detail="Idea not validated")
 
@@ -2257,11 +2257,11 @@ async def get_core_pillars() -> Any:
 @router.post("/idea/{idea_id}/project-md/regenerate")
 async def regenerate_project_md(
     idea_id: str,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Regenerate project.md file for an idea."""
-    idea = _get_owned_idea(db, idea_id, current_user)
 
     project_id = str(idea.project_id) if idea.project_id else None
 
@@ -2280,11 +2280,11 @@ async def regenerate_project_md(
 @router.get("/idea/{idea_id}/project-md")
 async def get_project_md(
     idea_id: str,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get project.md content for an idea."""
-    _get_owned_idea(db, idea_id, current_user)
 
     asset = crud_project_idea.project_idea.get_asset(
         db, idea_id=idea_id, asset_type=AssetType.PROJECT_MD
@@ -2303,11 +2303,11 @@ async def get_project_md(
 async def get_document_analysis(
     idea_id: str,
     doc_type: AssetType,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get the quality analysis for an uploaded document."""
-    _get_owned_idea(db, idea_id, current_user)
 
     asset = crud_project_idea.project_idea.get_asset(
         db, idea_id=idea_id, asset_type=doc_type
@@ -2329,11 +2329,11 @@ async def generate_document_enhancement(
     request: Request,
     idea_id: str,
     doc_type: AssetType,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Generate AI-enhanced version of the document."""
-    idea = _get_owned_idea(db, idea_id, current_user)
 
     asset = crud_project_idea.project_idea.get_asset(
         db, idea_id=idea_id, asset_type=doc_type
@@ -2388,11 +2388,11 @@ async def generate_document_enhancement(
 async def accept_document_enhancement(
     idea_id: str,
     doc_type: AssetType,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Accept the AI enhancement and replace the original document."""
-    idea = _get_owned_idea(db, idea_id, current_user)
 
     asset = crud_project_idea.project_idea.get_asset(
         db, idea_id=idea_id, asset_type=doc_type
@@ -2427,11 +2427,11 @@ async def accept_document_enhancement(
 async def decline_document_enhancement(
     idea_id: str,
     doc_type: AssetType,
+    idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Decline the AI enhancement and keep the original document."""
-    _get_owned_idea(db, idea_id, current_user)
 
     asset = crud_project_idea.project_idea.get_asset(
         db, idea_id=idea_id, asset_type=doc_type
