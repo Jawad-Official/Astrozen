@@ -1,3 +1,4 @@
+import logging
 from sqlalchemy.orm import Session
 from app.crud import issue as crud_issue, activity as crud_activity
 from app.models.issue import Issue, IssueStatus, IssuePriority
@@ -6,6 +7,8 @@ from app.schemas.issue import IssueCreate, IssueUpdate
 from app.services.notification_service import notification_service
 from app.models.notification import NotificationType
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 
 
 class IssueService:
@@ -77,7 +80,6 @@ class IssueService:
         from app.models.feature import Feature
         from app.models.issue import Issue
         import json
-        import logging
 
         db = SessionLocal()
         try:
@@ -123,13 +125,13 @@ class IssueService:
                 if matched_node_id:
                     issue.blueprint_node_id = matched_node_id
                     db.commit()
-                    logging.info(
+                    logger.info(
                         f"Auto-linked issue {issue_id} to node {matched_node_id}"
                     )
-            except Exception as e:
-                logging.error(f"AI auto-linking logic failed: {str(e)}")
-        except Exception as e:
-            logging.error(f"Background auto-linking failed: {str(e)}")
+            except Exception:
+                logger.exception(f"AI auto-linking logic failed for issue {issue_id}")
+        except Exception:
+            logger.exception(f"Background auto-linking failed for issue {issue_id}")
         finally:
             db.close()
 

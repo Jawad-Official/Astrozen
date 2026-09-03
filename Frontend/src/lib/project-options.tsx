@@ -1,4 +1,4 @@
-import { ProjectStatus, ProjectPriority, ProjectHealth } from '@/types/issue';
+import { ProjectStatus, ProjectHealth } from '@/types/issue';
 import { 
   Circle, 
   CircleHalf, 

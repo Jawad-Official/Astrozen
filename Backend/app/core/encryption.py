@@ -27,8 +27,8 @@ def _get_fernet() -> Fernet | None:
 
     try:
         _fernet = Fernet(key)
-    except Exception as e:
-        logger.error(f"Failed to initialize Fernet: {e}")
+    except Exception:
+        logger.exception("Failed to initialize Fernet")
         return None
 
     return _fernet
@@ -61,6 +61,6 @@ def decrypt_token(ciphertext: str | None) -> str | None:
         return ciphertext
     try:
         return f.decrypt(ciphertext.encode("utf-8")).decode("utf-8")
-    except Exception as e:
-        logger.error(f"Failed to decrypt token: {e}")
+    except Exception:
+        logger.exception("Failed to decrypt token")
         return None

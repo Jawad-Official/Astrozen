@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { aiService, DocumentMeta } from '@/services/ai.service';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/utils';
 
 export type Phase = 'INPUT' | 'CLARIFICATION' | 'VALIDATION' | 'BLUEPRINT' | 'DOCUMENTATION';
 
@@ -61,6 +62,10 @@ export interface Blueprint {
   user_flow_mermaid: string;
   kanban_features: { title: string; status: string; priority: string }[];
   nodes?: FlowNode[];
+  /** True when the stored kanban asset content couldn't be parsed - render
+   * an explicit "couldn't load" state instead of treating this as "no
+   * kanban items yet". */
+  kanban_parse_error?: boolean;
 }
 
 export interface Doc {
@@ -170,8 +175,8 @@ export const useAIStore = create<AIStore>((set, get) => ({
         // Auto-trigger validation if no clarification needed
         get().validateIdea();
       }
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.detail || error?.message || "Failed to submit idea";
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, "Failed to submit idea");
       toast.error(errorMessage);
       set({ isGenerating: false, generationMessage: null });
     }
@@ -190,8 +195,8 @@ export const useAIStore = create<AIStore>((set, get) => ({
         await aiService.answerQuestions(ideaId!, newAnswers);
         set({ phase: 'VALIDATION' });
         get().validateIdea();
-      } catch (error: any) {
-        const errorMessage = error?.response?.data?.detail || error?.message || "Failed to save answers";
+      } catch (error) {
+        const errorMessage = getErrorMessage(error, "Failed to save answers");
         toast.error(errorMessage);
         set({ isGenerating: false, generationMessage: null });
       }
@@ -211,8 +216,8 @@ export const useAIStore = create<AIStore>((set, get) => ({
         generationMessage: null
       });
       if (feedback) toast.success("Analysis regenerated with your feedback");
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.detail || error?.message || "Validation failed";
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, "Validation failed");
       toast.error(errorMessage);
       set({ isGenerating: false, generationMessage: null });
     }
@@ -236,8 +241,8 @@ export const useAIStore = create<AIStore>((set, get) => ({
         isGenerating: false,
         generationMessage: null
       });
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.detail || error?.message || "Blueprint generation failed";
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, "Blueprint generation failed");
       toast.error(errorMessage);
       set({ isGenerating: false, generationMessage: null });
     }
@@ -255,8 +260,8 @@ export const useAIStore = create<AIStore>((set, get) => ({
         isGenerating: false,
         generationMessage: null
       }));
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.detail || error?.message || `Failed to generate ${type}`;
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, `Failed to generate ${type}`);
       toast.error(errorMessage);
       set({ isGenerating: false, generationMessage: null });
     }
@@ -275,8 +280,8 @@ export const useAIStore = create<AIStore>((set, get) => ({
         generationMessage: null
       }));
       toast.success("Document updated");
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.detail || error?.message || "Failed to update document";
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, "Failed to update document");
       toast.error(errorMessage);
       set({ isGenerating: false, generationMessage: null });
     }
@@ -291,8 +296,8 @@ export const useAIStore = create<AIStore>((set, get) => ({
       await aiService.generateIssuesForNode(ideaId, nodeId);
       toast.success(`Successfully generated and linked issues for ${nodeId}`);
       set({ isGenerating: false, generationMessage: null });
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.detail || error?.message || "Failed to generate issues";
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, "Failed to generate issues");
       toast.error(errorMessage);
       set({ isGenerating: false, generationMessage: null });
     }
@@ -312,8 +317,8 @@ export const useAIStore = create<AIStore>((set, get) => ({
         generationMessage: null
       });
       toast.success(`Successfully applied ${acceptedIndices.length} improvements and re-validated!`);
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.detail || error?.message || "Failed to apply improvements";
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, "Failed to apply improvements");
       toast.error(errorMessage);
       set({ isGenerating: false, generationMessage: null });
     }
@@ -323,8 +328,8 @@ export const useAIStore = create<AIStore>((set, get) => ({
     try {
       const res = await aiService.listDocuments(projectId, ideaId);
       set({ documents: res.data });
-    } catch (error: any) {
-      toast.error(error?.response?.data?.detail || error?.message || "Failed to fetch documents");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to fetch documents"));
     }
   },
 
@@ -338,8 +343,8 @@ export const useAIStore = create<AIStore>((set, get) => ({
       const { projectId } = get();
       if (projectId) await get().fetchDocuments(projectId);
       set({ isGenerating: false, generationMessage: null });
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.detail || error?.message || "Failed to apply change";
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, "Failed to apply change");
       toast.error(errorMessage);
       set({ isGenerating: false, generationMessage: null });
     }
@@ -349,7 +354,7 @@ export const useAIStore = create<AIStore>((set, get) => ({
     try {
       await aiService.syncDocument(docId);
       toast.success("Sync started");
-    } catch (error: any) {
+    } catch {
       toast.error("Sync failed");
     }
   },
@@ -362,7 +367,7 @@ export const useAIStore = create<AIStore>((set, get) => ({
         activeDocumentId: state.activeDocumentId === docId ? null : state.activeDocumentId
       }));
       toast.success("Document deleted");
-    } catch (error: any) {
+    } catch {
       toast.error("Failed to delete document");
     }
   }

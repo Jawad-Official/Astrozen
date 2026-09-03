@@ -51,7 +51,6 @@ export function PixelGrid({ className }: PixelGridProps) {
     let cols = 0;
     let rows = 0;
     let intensities = new Float32Array(0);
-    let frame = 0;
     let running = false;
     let visible = true;
 
@@ -115,7 +114,6 @@ export function PixelGrid({ className }: PixelGridProps) {
 
     function step() {
       if (!running) return;
-      frame++;
 
       for (let i = 0; i < intensities.length; i++) {
         if (intensities[i] > 0.001) intensities[i] *= DECAY_PER_FRAME;

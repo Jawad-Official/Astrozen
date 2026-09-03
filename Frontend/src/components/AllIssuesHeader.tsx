@@ -12,7 +12,7 @@ interface AllIssuesHeaderProps {
   onOpenCommandPalette: () => void;
 }
 
-export function AllIssuesHeader({ onCreateIssue, onOpenCommandPalette }: AllIssuesHeaderProps) {
+export function AllIssuesHeader({ onCreateIssue, onOpenCommandPalette: _onOpenCommandPalette }: AllIssuesHeaderProps) {
   const [searchParams] = useSearchParams();
   const teamId = searchParams.get('team');
   const { teams } = useAuth();

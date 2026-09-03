@@ -1,3 +1,4 @@
+import logging
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
@@ -10,6 +11,8 @@ from app.services.auth_service import AuthService
 from app.services.google_auth import GoogleAuthService
 from app.services.audit_service import log_event, OAUTH_LOGIN, OAUTH_FAILURE
 from app.core.rate_limit import limiter
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -57,6 +60,7 @@ def google_callback(request: Request, code: str | None = None, state: str | None
         user_info = result["user"]
         tokens = result["tokens"]
     except Exception as e:
+        logger.exception("Google OAuth code exchange failed")
         log_event(OAUTH_FAILURE, success=False, ip_address=request.client.host if request.client else None, detail=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Google authentication failed")
 

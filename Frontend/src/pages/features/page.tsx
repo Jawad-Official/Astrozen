@@ -21,11 +21,10 @@ export default function FeaturesPage() {
   const { featureId } = useParams();
   const { user, teams } = useAuth();
   const { 
-    features, 
-    projects, 
-    isLoading, 
-    fetchData, 
-    updateFeature, 
+    features,
+    projects,
+    isLoading,
+    updateFeature,
     deleteFeature, 
     addFeature,
     addFeatureMilestone,
@@ -62,7 +61,7 @@ export default function FeaturesPage() {
   const [createSubFeatureOpen, setCreateSubFeatureOpen] = useState(false);
   const [parentFeatureForSub, setParentFeatureForSub] = useState<Feature | null>(null);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | undefined>();
-  const { teams: allTeams, addIssue } = useIssueStore();
+  const { addIssue } = useIssueStore();
 
   // Create Milestone Form State
   const [newMilestone, setNewMilestone] = useState({
@@ -98,7 +97,7 @@ export default function FeaturesPage() {
     try {
       await addFeature(data);
       toast({ title: 'Feature created successfully' });
-    } catch (error) {
+    } catch {
       toast({ title: 'Failed to create feature', variant: 'destructive' });
     }
   };
@@ -115,25 +114,11 @@ export default function FeaturesPage() {
       setMilestoneDialogOpen(false);
       setNewMilestone({ name: '', targetDate: '', parentId: '' });
       toast({ title: 'Milestone added' });
-    } catch (error) {
+    } catch {
       toast({ title: 'Failed to add milestone', variant: 'destructive' });
     }
   };
 
-  const getFlatMilestones = (featureId: string | null) => {
-    if (!featureId) return [];
-    const feature = features.find(f => f.id === featureId);
-    if (!feature || !feature.milestones) return [];
-    
-    const flat: { id: string, name: string }[] = [];
-    const recurse = (list: any[]) => {
-      list.forEach(m => {
-        flat.push({ id: m.id, name: m.name });
-      });
-    };
-    recurse(feature.milestones);
-    return flat;
-  };
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
@@ -219,7 +204,7 @@ export default function FeaturesPage() {
                 setNewMilestone({ name: '', targetDate: '', parentId: parentId || undefined });
                 setMilestoneDialogOpen(true);
               }}
-              onCreateIssueForMilestone={(featureId, milestoneId) => {
+              onCreateIssueForMilestone={(_featureId, milestoneId) => {
                 setSelectedMilestoneId(milestoneId || undefined);
                 setCreateIssueOpen(true);
               }}
@@ -257,7 +242,7 @@ export default function FeaturesPage() {
               setNewMilestone({ name: '', targetDate: '', parentId: parentId || undefined });
               setMilestoneDialogOpen(true);
             }}
-            onCreateIssueForMilestone={(featureId, milestoneId) => {
+            onCreateIssueForMilestone={(_featureId, milestoneId) => {
               setSelectedMilestoneId(milestoneId || undefined);
               setCreateIssueOpen(true);
             }}

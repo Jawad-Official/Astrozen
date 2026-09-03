@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { useIssueStore } from '@/store/issueStore';
 import { Button } from '@/components/ui/button';
@@ -19,7 +18,6 @@ import {
   CircleNotch,
   Check
 } from '@phosphor-icons/react';
-import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -37,7 +35,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 
 export default function TeamSettingsPage() {
@@ -109,7 +106,7 @@ export default function TeamSettingsPage() {
     try {
       await updateTeam(team.id, { member_ids: updatedMemberIds });
       toast({ title: 'Member removed' });
-    } catch (error) {
+    } catch {
       toast({ title: 'Error', description: 'Failed to remove member.', variant: 'destructive' });
     } finally {
       setIsUpdating(false);
@@ -124,7 +121,7 @@ export default function TeamSettingsPage() {
     try {
       await updateTeam(team.id, { member_ids: updatedMemberIds });
       toast({ title: 'Member added', description: 'The user has been added to the team.' });
-    } catch (error) {
+    } catch {
       toast({ title: 'Error', description: 'Failed to add member.', variant: 'destructive' });
     } finally {
       setIsUpdating(false);
@@ -149,7 +146,7 @@ export default function TeamSettingsPage() {
     try {
       await updateTeam(team.id, { leader_ids: updatedLeaderIds });
       toast({ title: isLeader ? 'Leader access removed' : 'Leader appointed' });
-    } catch (error) {
+    } catch {
       toast({ title: 'Error', description: 'Failed to update leader permissions.', variant: 'destructive' });
     } finally {
       setIsUpdating(false);
@@ -162,7 +159,7 @@ export default function TeamSettingsPage() {
       await deleteTeam(team.id);
       toast({ title: 'Team deleted', description: `Team ${team.name} has been permanently removed.` });
       navigate('/all-issues');
-    } catch (error) {
+    } catch {
       toast({ title: 'Error', description: 'Only organization admins can delete teams.', variant: 'destructive' });
       setIsDeleting(false);
     }

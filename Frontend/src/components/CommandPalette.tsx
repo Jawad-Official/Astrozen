@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -9,12 +9,10 @@ import {
   CommandSeparator,
 } from '@/components/ui/command';
 import { useIssueStore } from '@/store/issueStore';
-import { IssueBar } from './IssueBar';
 import { Plus, List, Columns, FolderSimple } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { STATUS_CONFIG } from '@/types/issue';
-import { cn } from '@/lib/utils';
 
 interface CommandPaletteProps {
   open: boolean;

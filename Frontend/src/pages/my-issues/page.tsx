@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { MagnifyingGlass, List, Kanban, Funnel, Plus } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
 
 interface MainLayoutContext {
   onCreateIssue: () => void;
@@ -17,8 +16,7 @@ const MyIssuesPage = () => {
   const { user } = useAuth();
   const { onCreateIssue } = useOutletContext<MainLayoutContext>();
   const { getMyIssues, currentUser, updateIssue, deleteIssue, setSelectedIssue, projects, features, orgMembers, viewMode, setViewMode, searchQuery, setSearchQuery } = useIssueStore();
-  const [showSubIssues, setShowSubIssues] = useState(true);
-  
+
   const myIssues = getMyIssues();
   const displayName = user?.fullName || currentUser || 'User';
   const getInitials = (name: string) => name.split(' ').map(n => n[0] || '').join('').toUpperCase().slice(0, 2);

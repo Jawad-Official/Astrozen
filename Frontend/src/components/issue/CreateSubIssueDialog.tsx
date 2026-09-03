@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  IssueStatus, 
-  IssuePriority, 
-  IssueType, 
-  STATUS_CONFIG, 
+import {
+  IssueStatus,
+  IssuePriority,
+  IssueType,
+  STATUS_CONFIG,
   PRIORITY_CONFIG,
   TYPE_CONFIG,
   Project,
@@ -13,22 +13,19 @@ import {
 import { Feature } from '@/types/feature';
 import { Team } from '@/types/auth';
 import { useToast } from '@/hooks/use-toast';
-import { useIssueStore } from '@/store/issueStore';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Check, User, FolderSimple, Package } from '@phosphor-icons/react';
+import { Check, User } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
-import { 
-  IssueStatusBadge, 
-  IssuePriorityIcon, 
+import {
+  IssueStatusBadge,
+  IssuePriorityIcon,
   IssueTypeIcon
 } from './IssueAtomicComponents';
 

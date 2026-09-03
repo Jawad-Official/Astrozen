@@ -81,6 +81,34 @@ under the `backend` service's `environment` block. Everything else -
 auth, projects, issues, features, teams - works against the containerized
 Postgres out of the box.
 
+## Deployment
+
+`render.yaml` deploys the backend as a single Render web service plus a
+Postgres database, both on Render's **free plan**:
+
+- The web service runs a single instance - the free plan doesn't offer
+  horizontal scaling, so there's no risk of multiple processes running the
+  app at once.
+- The free Postgres database is subject to Render's free-tier limits
+  (e.g. it expires after a fixed period unless upgraded) - see Render's
+  own docs for current terms before relying on this for anything beyond a
+  demo/staging deployment.
+- The free web service spins down on inactivity and cold-starts on the
+  next request, so the first request after idle periods will be slow.
+
+The backend also starts an in-process APScheduler job (`ENABLE_SCHEDULER`,
+see `render.yaml` and `app/main.py`) that syncs Google Docs to R2 storage
+every 15 minutes. This scheduler is **in-process**, not a separate worker:
+every process that boots the app and has `ENABLE_SCHEDULER` set starts its
+own copy of the same scheduled job. That's safe today only because the
+free plan runs exactly one instance. If this service is ever scaled to
+more than one instance or worker process, `ENABLE_SCHEDULER` must be
+unset everywhere except one designated instance (or the sync job moved to
+a separate Render Cron Job) before scaling - otherwise every instance
+fires the same 15-minute sync job independently. `run_sync_task` guards
+against overlapping runs *within* a single process, but that guard can't
+see across separate processes.
+
 ## Planned and In Progress
 
 - Frontend linting and theme passes remain open in several screens.

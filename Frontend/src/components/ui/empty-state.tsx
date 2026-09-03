@@ -1,16 +1,14 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { type LucideIcon } from "lucide-react";
-import { 
-  FolderSimple, 
-  CircleDashed, 
-  MagnifyingGlass, 
+import {
+  FolderSimple,
+  CircleDashed,
+  MagnifyingGlass,
   FileText,
   Users,
   CheckCircle,
   Warning,
-  Rocket,
-  Sparkle
+  Rocket
 } from "@phosphor-icons/react";
 
 interface EmptyStateProps {

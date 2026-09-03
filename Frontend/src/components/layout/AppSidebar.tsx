@@ -1,32 +1,23 @@
 import { useState, useEffect } from 'react';
-import { 
-  MagnifyingGlass, 
-  FolderSimple, 
+import {
+  MagnifyingGlass,
+  FolderSimple,
   CaretDown,
   CaretRight,
   Plus,
   User as UserIcon,
-  DotsThree,
-  Circle as CircleIcon,
   NotePencil,
-  Buildings,
-  Users,
-  Target,
   SidebarSimple,
-  Star,
   Layout,
   Diamond,
   Tray,
-  Lock,
-  Bell,
-  Sliders,
-  MagicWand
+  Sliders
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { useIssueStore } from '@/store/issueStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { useAuth } from '@/context/AuthContext';
-import { hasTeamAccess, canManageTeam } from '@/lib/permissions';
+import { canManageTeam } from '@/lib/permissions';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {

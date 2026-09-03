@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  MagicWand,
-  ArrowClockwise
+  MagicWand
 } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,7 +24,7 @@ interface AIPlannerDialogProps {
   initialIdeaName?: string;
 }
 
-export function AIPlannerDialog({ open, onOpenChange, projectId, initialIdeaId, initialIdeaName }: AIPlannerDialogProps) {
+export function AIPlannerDialog({ open, onOpenChange, projectId, initialIdeaName }: AIPlannerDialogProps) {
   const navigate = useNavigate();
   const [rawInput, setRawInput] = useState(initialIdeaName || '');
   const [loading, setLoading] = useState(false);
@@ -50,7 +49,7 @@ export function AIPlannerDialog({ open, onOpenChange, projectId, initialIdeaId, 
       onOpenChange(false);
       navigate(`/projects/${project_id}?tab=plans&ideaId=${idea_id}`);
       toast.success("Project created and AI Architect initialized");
-    } catch (error) {
+    } catch {
       toast.error("Failed to submit project description");
     } finally {
       setLoading(false);

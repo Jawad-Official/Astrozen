@@ -1,9 +1,10 @@
 from fastapi import APIRouter
 from app.api.v1 import (
-    auth, issues, projects, organizations, 
-    teams, features, ai_projects, notifications,
+    auth, issues, projects, organizations,
+    teams, features, notifications,
     google_auth, documents
 )
+from app.api.v1 import ai as ai_projects
 
 api_router = APIRouter()
 

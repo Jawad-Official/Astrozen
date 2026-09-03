@@ -60,7 +60,7 @@ export const AIDocChatPanel: React.FC<AIDocChatPanelProps> = ({
         proposal: data.proposal
       };
       setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
+    } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I encountered an error processing your request." }]);
     } finally {
       setIsGenerating(false);
@@ -90,7 +90,9 @@ export const AIDocChatPanel: React.FC<AIDocChatPanelProps> = ({
 
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-6 pb-4" ref={scrollRef}>
-          {messages.map((msg, i) => (
+          {messages.map((msg, i) => {
+            const proposal = msg.proposal;
+            return (
             <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
               <div className={`mt-1 rounded-full p-1.5 ${msg.role === 'user' ? 'bg-primary' : 'border border-border bg-muted'}`}>
                 {msg.role === 'user' ? <User className="h-3.5 w-3.5 text-primary-foreground" /> : <Bot className="h-3.5 w-3.5 text-muted-foreground" />}
@@ -104,17 +106,18 @@ export const AIDocChatPanel: React.FC<AIDocChatPanelProps> = ({
                   {msg.content}
                 </div>
                 
-                {msg.proposal && (
-                  <ChangeProposal 
-                    find={msg.proposal.find}
-                    replace={msg.proposal.replace}
-                    onAccept={() => handleAcceptProposal(msg.proposal, i)}
+                {proposal && (
+                  <ChangeProposal
+                    find={proposal.find}
+                    replace={proposal.replace}
+                    onAccept={() => handleAcceptProposal(proposal, i)}
                     onReject={() => handleRejectProposal(i)}
                   />
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
           {isTyping && (
             <div className="flex gap-3">
               <div className="mt-1 rounded-full border border-border bg-muted p-1.5">

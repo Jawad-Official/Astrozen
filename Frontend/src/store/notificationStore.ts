@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { notificationService, Notification } from '@/services/notifications';
+import { getErrorMessage } from '@/lib/utils';
 
 interface NotificationStore {
   notifications: Notification[];
@@ -12,7 +13,7 @@ interface NotificationStore {
   markAllAsRead: () => Promise<void>;
 }
 
-export const useNotificationStore = create<NotificationStore>((set, get) => ({
+export const useNotificationStore = create<NotificationStore>((set) => ({
   notifications: [],
   unreadCount: 0,
   isLoading: false,
@@ -26,9 +27,9 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         unreadCount: res.data.unread_count,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to fetch notifications', error);
-      toast.error(error?.response?.data?.detail || error?.message || "Failed to fetch notifications");
+      toast.error(getErrorMessage(error, "Failed to fetch notifications"));
       set({ isLoading: false });
     }
   },
@@ -42,9 +43,9 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         ),
         unreadCount: Math.max(0, state.unreadCount - 1)
       }));
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to mark notification as read', error);
-      toast.error(error?.response?.data?.detail || error?.message || "Failed to mark notification as read");
+      toast.error(getErrorMessage(error, "Failed to mark notification as read"));
     }
   },
 
@@ -55,9 +56,9 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         notifications: state.notifications.map(n => ({ ...n, is_read: true })),
         unreadCount: 0
       }));
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to mark all notifications as read', error);
-      toast.error(error?.response?.data?.detail || error?.message || "Failed to mark all notifications as read");
+      toast.error(getErrorMessage(error, "Failed to mark all notifications as read"));
     }
   }
 }));

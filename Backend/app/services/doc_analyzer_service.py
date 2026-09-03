@@ -201,8 +201,8 @@ class DocAnalyzerService:
 
             return result
 
-        except Exception as e:
-            logger.error(f"Document analysis failed: {str(e)}")
+        except Exception:
+            logger.exception("Document analysis failed")
             return {
                 "is_valid": True,
                 "quality_score": 50,
@@ -272,8 +272,8 @@ class DocAnalyzerService:
             return enhanced
 
         except Exception as e:
-            logger.error(f"Enhancement generation failed: {str(e)}")
-            raise Exception(f"Failed to generate enhanced content: {str(e)}")
+            logger.exception("Enhancement generation failed")
+            raise Exception(f"Failed to generate enhanced content: {str(e)}") from e
 
 
 doc_analyzer_service = DocAnalyzerService()

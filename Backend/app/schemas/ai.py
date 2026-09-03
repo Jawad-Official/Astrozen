@@ -265,3 +265,7 @@ class IdeaDetailsResponse(BaseModel):
     validation_report: Optional[Dict[str, Any]] = None
     assets: List[IdeaDetailsAsset] = []
     blueprint: Optional[Dict[str, Any]] = None
+    """blueprint may include `kanban_parse_error: true` when the stored
+    kanban asset content could not be parsed - callers should render an
+    explicit error state rather than treating `kanban_features: []` as
+    "no kanban items yet"."""

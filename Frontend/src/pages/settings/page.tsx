@@ -1,18 +1,10 @@
-import { useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { themes, ThemeName } from '@/lib/themes';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
-import { organizationService } from '@/services/organization';
-import { 
-  Gear as SettingsIcon, 
-  User,
-  Buildings,
-  Copy,
-  ArrowClockwise,
+import {
+  Gear as SettingsIcon,
   Palette,
   Check,
   Desktop,
@@ -20,12 +12,9 @@ import {
   Moon
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
 
 const SettingsPage = () => {
-  const { user } = useAuth();
   const { theme, setTheme } = useTheme();
-  const { toast } = useToast();
 
   // ... (invite code logic)
 

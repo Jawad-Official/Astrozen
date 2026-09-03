@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 import logging
+import os
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,14 +34,32 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from apscheduler.schedulers.background import BackgroundScheduler
-    from app.tasks.sync_drive_to_r2 import run_sync_task
+    # The scheduler is in-process (APScheduler's BackgroundScheduler), not
+    # a separate worker - every process that imports this app and runs
+    # this lifespan would start its own copy. With more than one uvicorn/
+    # gunicorn worker, or more than one deployed instance, that means the
+    # doc-sync job fires once per process on the same 15-minute interval,
+    # all racing to sync the same documents. Gated behind ENABLE_SCHEDULER
+    # (default off) so scaling to multiple workers/instances is a
+    # conscious choice, not a silent multiplication of this job - see
+    # render.yaml and README for the operational trade-off this implies.
+    scheduler_enabled = os.getenv("ENABLE_SCHEDULER", "false").strip().lower() in ("1", "true", "yes")
 
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(run_sync_task, 'interval', minutes=15, id='doc_sync_job')
-    scheduler.start()
-    app.state.scheduler = scheduler
-    logger.info("Started background scheduler for document sync")
+    if scheduler_enabled:
+        from apscheduler.schedulers.background import BackgroundScheduler
+        from app.tasks.sync_drive_to_r2 import run_sync_task
+
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(run_sync_task, 'interval', minutes=15, id='doc_sync_job')
+        scheduler.start()
+        app.state.scheduler = scheduler
+        logger.info("Started background scheduler for document sync")
+    else:
+        logger.info(
+            "Background scheduler disabled (ENABLE_SCHEDULER is not set). "
+            "Document sync will not run automatically on this process."
+        )
+
     try:
         yield
     finally:

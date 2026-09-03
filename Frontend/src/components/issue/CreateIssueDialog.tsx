@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Issue, 
-  IssueStatus, 
-  IssuePriority, 
+import {
+  IssueStatus,
+  IssuePriority,
   IssueType,
-  STATUS_CONFIG, 
+  STATUS_CONFIG,
   PRIORITY_CONFIG,
   TYPE_CONFIG,
   Project
@@ -15,26 +14,23 @@ import { Team } from '@/types/auth';
 import { useToast } from '@/hooks/use-toast';
 import { useIssueStore } from '@/store/issueStore';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Check, User, FolderSimple, Package, Target, CalendarBlank, Link as LinkIcon, X } from '@phosphor-icons/react';
+import { Check, User, FolderSimple, Package, CalendarBlank, Link as LinkIcon, X } from '@phosphor-icons/react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { 
-  IssueStatusBadge, 
-  IssuePriorityIcon, 
-  IssueTypeIcon, 
-  getStatusColorClass 
+import {
+  IssueStatusBadge,
+  IssuePriorityIcon,
+  IssueTypeIcon
 } from './IssueAtomicComponents';
 
 interface CreateIssueDialogProps {
@@ -181,7 +177,6 @@ export function CreateIssueDialog({
 
   const assigneeMember = orgMembers.find(m => m.id === assignee);
   const currentFeature = features.find(f => f.id === featureId);
-  const featureMilestones = currentFeature?.milestones || [];
   const currentTeam = teams.find(t => t.id === teamId);
   const currentProject = projects.find(p => p.id === projectId);
 

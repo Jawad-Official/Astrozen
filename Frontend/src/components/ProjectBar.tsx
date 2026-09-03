@@ -1,16 +1,12 @@
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { 
-  Project, 
-  ProjectStatus, 
-  ProjectHealth, 
-  ProjectPriority, 
+import {
+  Project,
+  ProjectHealth,
+  ProjectPriority,
   Issue,
-  Milestone,
   ProjectUpdate,
   UpdateComment,
-  UpdateAttachment,
-  EmojiReaction,
 } from '@/types/issue';
 import { Feature } from '@/types/feature';
 import { Team } from '@/types/auth';
@@ -19,28 +15,12 @@ import {
   Square,
   CheckSquare,
   WarningCircle,
-  CircleHalf,
-  X,
   Plus,
   DotsThree,
   Trash,
-  Users,
-  CaretRight,
-  CaretDown,
-  Star,
   ChatTeardrop,
   Smiley,
-  Paperclip,
-  Image,
-  FileText,
-  File,
-  CaretUp,
   PaperPlaneRight,
-  ChatTeardropText,
-  ClockCounterClockwise,
-  Info,
-  CalendarBlank,
-  Stack,
   CircleNotch,
 } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
@@ -50,13 +30,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
@@ -202,10 +177,9 @@ export const ProjectBar = {
   },
 
 
-  UpdateCard: ({ 
-    update, 
-    onDelete, 
-    onUpdate, 
+  UpdateCard: ({
+    update,
+    onDelete,
     currentUser,
     onAddComment,
     onDeleteComment,
@@ -498,10 +472,9 @@ export const ProjectBar = {
     );
   },
 
-  Properties: ({ project, projectIssues, onUpdate, currentUser, onAddMilestone }: { project: Project; projectIssues: Issue[]; onUpdate: (updates: Partial<Project>) => void; currentUser: string; onAddMilestone: () => void; }) => {
+  Properties: ({ project, projectIssues, onAddMilestone }: { project: Project; projectIssues: Issue[]; onUpdate: (updates: Partial<Project>) => void; currentUser: string; onAddMilestone: () => void; }) => {
     const completedCount = projectIssues.filter(i => i.status === 'done').length;
     const progress = projectIssues.length > 0 ? Math.round((completedCount / projectIssues.length) * 100) : 0;
-    const progressPercent = projectIssues.length > 0 ? Math.round((completedCount / projectIssues.length) * 100) : 0;
     return (
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-background">
         <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">Status</span><Badge variant="outline">{project.status}</Badge></div>

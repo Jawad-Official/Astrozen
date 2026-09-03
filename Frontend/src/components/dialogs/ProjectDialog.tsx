@@ -11,7 +11,7 @@ import {
 import { cn } from '@/lib/utils';
 import { PROJECT_ICONS, LABEL_COLOR_OPTIONS, LABEL_COLORS, PROJECT_STATUS_CONFIG, PROJECT_PRIORITY_OPTIONS } from '@/lib/constants';
 import { ProjectStatus, ProjectPriority } from '@/types/issue';
-import { CaretDown, Check, MagicWand } from '@phosphor-icons/react';
+import { Check, MagicWand } from '@phosphor-icons/react';
 import { aiService } from '@/services/ai.service';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -84,7 +84,7 @@ export function ProjectDialog({ open, onOpenChange, project, onSave, onPlanWithA
         onOpenChange(false);
         navigate(`/projects/${project_id}?tab=plans&ideaId=${res.data.id}`);
         toast.success("AI Architect initialized");
-      } catch (error) {
+      } catch {
         toast.error("Failed to initialize AI Architect");
       } finally {
         setIsPlanningWithAI(false);

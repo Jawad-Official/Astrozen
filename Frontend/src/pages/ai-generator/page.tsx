@@ -8,7 +8,6 @@ import {
   Stack,
   Layout,
   FileText,
-  ChatCircleText,
   ArrowClockwise,
   Rocket,
   ArrowsIn,
@@ -76,22 +75,19 @@ export default function AIGeneratorPage() {
     currentQuestionIndex, 
     validationReport, 
     updateValidationReport,
-    blueprint, 
-    docs, 
+    blueprint,
     documents,
     activeDocumentId,
-    isGenerating, 
+    isGenerating,
     generationMessage,
     submitIdea,
     answerQuestion,
     validateIdea,
     generateBlueprint,
     generateDoc,
-    chatDoc,
     generateIssues,
     ideaId,
     projectId,
-    reset,
     selectedImprovementIndices,
     setSelectedImprovements,
     acceptImprovements,
@@ -124,25 +120,6 @@ export default function AIGeneratorPage() {
   const { fetchData } = useIssueStore();
 
   const selectedNode = blueprint?.nodes?.find(n => n.id === selectedNodeId);
-
-  const handleDownloadDoc = async (docType: string) => {
-    if (!ideaId) return;
-    try {
-      const res = await aiService.downloadDoc(ideaId, docType);
-      const filename = `${docType.replace('_', ' ')}.docx`;
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      toast.success(`Downloaded ${filename}`);
-    } catch (error) {
-      toast.error("Download failed");
-    }
-  };
 
   const handleNodeClick = (id: string) => {
     setSelectedNodeId(id);
@@ -518,8 +495,8 @@ export default function AIGeneratorPage() {
                                 // If switching TO one-time, remove /mo indicators
                                 if (newModel === 'One-Time Purchase') {
                                   newPrice = newPrice.replace(/\s*\/\s*(month|mo|year|yr|user)/gi, '').trim();
-                                  newAnnual = null;
-                                } 
+                                  newAnnual = undefined;
+                                }
                                 // If switching TO recurring, ensure / month exists if missing and not $0
                                 else if ((newModel === 'Subscription' || newModel === 'Freemium') && newPrice !== '$0' && !newPrice.includes('/')) {
                                   newPrice = `${newPrice} / month`;
@@ -529,7 +506,7 @@ export default function AIGeneratorPage() {
                                   if (!newPrice.includes('/ user')) {
                                     newPrice = newPrice.replace(/\/\s*(month|mo)/gi, '').trim() + ' / user / month';
                                   }
-                                  newAnnual = null;
+                                  newAnnual = undefined;
                                 }
 
                                 return { ...tier, name: newName, price: newPrice, annual_price: newAnnual };
@@ -824,7 +801,7 @@ export default function AIGeneratorPage() {
                              <div className="space-y-4">
                                <h4 className="text-xs font-black uppercase tracking-[0.2em] text-white/30">Detailed Subtasks</h4>
                                <div className="space-y-3">
-                                 {selectedNode.subtasks.map((task, i) => (
+                                 {(selectedNode.subtasks || []).map((task, i) => (
                                    <div key={i} className="flex gap-3 p-3 rounded-xl bg-white/5 border border-white/5 items-start">
                                      <div className="h-5 w-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0 mt-0.5">{i+1}</div>
                                      <p className="text-sm text-white/80 leading-relaxed">{task}</p>
@@ -867,18 +844,24 @@ export default function AIGeneratorPage() {
                   <CardDescription>Features mapped to initial development tasks.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {['Todo', 'In Progress', 'Done'].map(col => (
-                      <div key={col} className="space-y-3">
-                        <h3 className="text-xs font-semibold uppercase text-muted-foreground px-2">{col}</h3>
-                        {blueprint.kanban_features.filter((f: any) => f.status === col || (col === 'Todo' && (!f.status || f.status === 'pending'))).map((f: any, i: number) => (
-                           <div key={i} className="p-3 rounded-md bg-white/5 border border-white/10 text-sm">
-                             {f.title}
-                           </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
+                  {blueprint.kanban_parse_error ? (
+                    <div className="p-4 rounded-md border border-destructive/30 bg-destructive/5 text-sm text-destructive">
+                      This blueprint's kanban data couldn't be loaded. Try regenerating the blueprint.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {['Todo', 'In Progress', 'Done'].map(col => (
+                        <div key={col} className="space-y-3">
+                          <h3 className="text-xs font-semibold uppercase text-muted-foreground px-2">{col}</h3>
+                          {blueprint.kanban_features.filter((f: any) => f.status === col || (col === 'Todo' && (!f.status || f.status === 'pending'))).map((f: any, i: number) => (
+                             <div key={i} className="p-3 rounded-md bg-white/5 border border-white/10 text-sm">
+                               {f.title}
+                             </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
              </Card>
 
