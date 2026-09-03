@@ -7,7 +7,16 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
+    # This plan runs a single instance (Render's free web service plan
+    # doesn't offer horizontal scaling), so it's safe to enable the
+    # in-process document-sync scheduler here. If this service is ever
+    # scaled to more than one instance/worker, ENABLE_SCHEDULER must be
+    # unset (or the sync job moved to a separate Render Cron Job) first -
+    # otherwise every instance runs its own copy of the same scheduled
+    # job. See app/main.py's lifespan() and app/tasks/sync_drive_to_r2.py.
     envVars:
+      - key: ENABLE_SCHEDULER
+        value: "true"
       - key: PYTHON_VERSION
         value: 3.11
       - key: ENVIRONMENT
