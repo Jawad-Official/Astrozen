@@ -1013,7 +1013,9 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
       <DocViewerDialog
         doc={docs.find(d => d.asset_type === viewerDocType) ?? null}
         open={!!viewerDocType && docs.some(d => d.asset_type === viewerDocType)}
-        onOpenChange={(open) => { if (!open && !viewerBusy) setViewerDocType(null); }}
+        // Closing never cancels the request: it keeps running, shows in the
+        // progress pill, and the card updates when it lands.
+        onOpenChange={(open) => { if (!open) setViewerDocType(null); }}
         busy={viewerBusy}
         onChat={handleViewerChat}
         onRewriteSelection={handleViewerRewriteSelection}

@@ -95,6 +95,10 @@ class Settings(BaseSettings):
     # and fast. Set to false for a model that rejects the parameter (the
     # service also detects that and stops sending it on its own).
     AI_REASONING_EFFORT_ENABLED: bool = True
+    # Ask the user a few clarifying questions before writing each document.
+    # Costs one extra AI request per document; turn off to halve the docs
+    # phase's request count on a tight quota.
+    AI_DOC_QUESTIONS_ENABLED: bool = True
 
     R2_ACCOUNT_ID: str | None = None
     R2_ACCESS_KEY_ID: str | None = None

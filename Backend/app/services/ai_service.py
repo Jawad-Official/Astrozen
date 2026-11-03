@@ -27,6 +27,10 @@ AI_CACHE_MAX_ENTRIES = 500
 # that already takes many, and turns a momentary spike into a slower
 # success rather than a failed blueprint.
 AI_MAX_ATTEMPTS = 3
+# Hard cap per provider call. A full document at 14k output tokens takes a
+# minute or two; past this the request is a lost cause and the user should
+# hear so instead of waiting on a hung socket.
+AI_REQUEST_TIMEOUT_SECONDS = 180
 
 # ---------------------------------------------------------------------------
 # Token budgets, one per kind of AI request.
@@ -207,6 +211,12 @@ class AIService:
             self.client = OpenAI(
                 base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
                 api_key=api_key,
+                # The SDK retries 429/5xx twice on its own by default. Stacked
+                # on _call_ai's retry loop that was up to 9 attempts per
+                # request, and a spent quota was hit three times before this
+                # code even saw the error. One retry policy, in _call_ai.
+                max_retries=0,
+                timeout=AI_REQUEST_TIMEOUT_SECONDS,
             )
         else:
             self.client = None
@@ -288,7 +298,12 @@ class AIService:
     @staticmethod
     def _is_quota_error(error_msg: str) -> bool:
         haystack = error_msg.lower()
-        return "resource_exhausted" in haystack or "quota" in haystack or "429" in haystack
+        return (
+            "resource_exhausted" in haystack
+            or "quota" in haystack
+            or "error code: 429" in haystack
+            or "status_code: 429" in haystack
+        )
 
     def _raise_unavailable(self, error_msg: str) -> None:
         """Report an exhausted retry as what it is: upstream, and temporary.
@@ -1324,7 +1339,15 @@ class AIService:
     ) -> Dict[str, Any]:
         """
         Generate clarification questions for a specific document type.
+
+        One extra model call per document. On a small daily quota that
+        doubles the cost of the docs phase, so operators can turn it off
+        with AI_DOC_QUESTIONS_ENABLED=false; the generate step then runs on
+        the project context alone.
         """
+        if not settings.AI_DOC_QUESTIONS_ENABLED:
+            return {"has_questions": False, "questions": []}
+
         prev_docs_text = ""
         if previous_docs:
             for doc_name, content in previous_docs.items():

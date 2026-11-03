@@ -41,6 +41,10 @@ services:
         sync: false
       - key: MODEL_NAME
         value: gemini-3.6-flash
+      - key: AI_REASONING_EFFORT_ENABLED
+        value: "true"
+      - key: AI_DOC_QUESTIONS_ENABLED
+        value: "true"
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET

@@ -129,3 +129,21 @@ def test_blueprint_summary_keeps_names_only():
     assert "Login (entry)" in summary
     assert "Sign up" in summary
     assert "long text" not in summary
+
+
+def test_sdk_level_retries_are_off(ai):
+    """Only _call_ai retries. The SDK's own retries would hide 429s from
+    the fail-fast quota path and multiply attempts on 503s."""
+    assert ai.client.max_retries == 0
+    assert ai.client.timeout == ai_module.AI_REQUEST_TIMEOUT_SECONDS
+
+
+@pytest.mark.asyncio
+async def test_doc_questions_can_be_turned_off(ai, monkeypatch):
+    from app.core import config
+
+    monkeypatch.setattr(config.settings, "AI_DOC_QUESTIONS_ENABLED", False)
+    calls = _recording_client(ai, monkeypatch)
+    result = await ai.generate_doc_questions("PRD", {"idea": "x"}, {})
+    assert result == {"has_questions": False, "questions": []}
+    assert calls == []
