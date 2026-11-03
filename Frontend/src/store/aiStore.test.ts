@@ -9,6 +9,9 @@ vi.mock('@/services/ai.service', () => ({
     generateBlueprint: vi.fn(),
     generateDoc: vi.fn(),
     chatDoc: vi.fn(),
+    regenerateDocSection: vi.fn(),
+    uploadDoc: vi.fn(),
+    getIdea: vi.fn(),
     generateIssuesForNode: vi.fn(),
     acceptImprovementsAndRevalidate: vi.fn(),
     listDocuments: vi.fn(),
@@ -18,7 +21,7 @@ vi.mock('@/services/ai.service', () => ({
   },
 }));
 vi.mock('sonner', () => ({
-  toast: { error: vi.fn(), success: vi.fn() },
+  toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn() },
 }));
 
 import { useAIStore } from './aiStore';
@@ -147,5 +150,69 @@ describe('acceptImprovements', () => {
     const state = useAIStore.getState();
     expect(state.validationReport).toEqual(revalidated);
     expect(state.selectedImprovementIndices).toEqual([]);
+  });
+});
+
+describe('doc assets', () => {
+  it('fetchDocAssets loads non-empty assets from the idea, without needing Google Docs', async () => {
+    useAIStore.setState({ ideaId: 'idea-1' });
+    svc.getIdea.mockResolvedValue({
+      data: {
+        id: 'idea-1',
+        raw_input: '',
+        status: 'COMPLETED',
+        assets: [
+          { id: 'a1', asset_type: 'PRD', content: '# PRD', status: 'COMPLETED' },
+          { id: 'a2', asset_type: 'APP_FLOW', content: '  ', status: 'COMPLETED' },
+        ],
+      },
+    } as any);
+
+    await useAIStore.getState().fetchDocAssets();
+
+    expect(useAIStore.getState().docs.map(d => d.asset_type)).toEqual(['PRD']);
+  });
+
+  it('fetchDocAssets drops a response for an idea the user already left', async () => {
+    useAIStore.setState({ ideaId: 'idea-1' });
+    svc.getIdea.mockImplementation(async () => {
+      useAIStore.setState({ ideaId: 'idea-2' });
+      return { data: { assets: [{ id: 'a1', asset_type: 'PRD', content: '# PRD', status: 'COMPLETED' }] } } as any;
+    });
+
+    await useAIStore.getState().fetchDocAssets();
+
+    expect(useAIStore.getState().docs).toEqual([]);
+  });
+
+  it('generateDoc returns the doc and replaces an existing one of the same type', async () => {
+    useAIStore.setState({ ideaId: 'idea-1', docs: [{ id: 'old', asset_type: 'PRD', content: 'old', status: 'COMPLETED' }] });
+    const fresh = { id: 'new', asset_type: 'PRD', content: 'new', status: 'COMPLETED' };
+    svc.generateDoc.mockResolvedValue({ data: fresh } as any);
+
+    const result = await useAIStore.getState().generateDoc('PRD');
+
+    expect(result).toEqual(fresh);
+    expect(useAIStore.getState().docs).toEqual([fresh]);
+    expect(useAIStore.getState().isGenerating).toBe(false);
+  });
+
+  it('generateDoc returns null and toasts on failure', async () => {
+    useAIStore.setState({ ideaId: 'idea-1' });
+    svc.generateDoc.mockRejectedValue(new Error('down'));
+
+    expect(await useAIStore.getState().generateDoc('PRD')).toBeNull();
+    expect(toast.error).toHaveBeenCalled();
+  });
+
+  it('rewriteDocSection updates the doc and reports success', async () => {
+    useAIStore.setState({ ideaId: 'idea-1', docs: [{ id: 'a1', asset_type: 'PRD', content: 'old', status: 'COMPLETED' }] });
+    svc.regenerateDocSection.mockResolvedValue({ data: { id: 'a1', asset_type: 'PRD', content: 'rewritten', status: 'COMPLETED' } } as any);
+
+    const ok = await useAIStore.getState().rewriteDocSection('PRD', 'some selected text', 'shorter');
+
+    expect(ok).toBe(true);
+    expect(svc.regenerateDocSection).toHaveBeenCalledWith('idea-1', 'PRD', 'some selected text', 'shorter');
+    expect(useAIStore.getState().docs[0].content).toBe('rewritten');
   });
 });
