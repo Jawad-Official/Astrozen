@@ -340,15 +340,37 @@ class AIService:
         """Turn a provider rejection that only an operator can fix into a
         response that says so."""
         if self._is_auth_error(error_msg):
+            # The user only sees the summary below; the provider's own
+            # wording (API_KEY_INVALID vs PERMISSION_DENIED vs a leaked
+            # key) is what the operator needs, so put it in the logs.
+            logger.error(
+                "Provider rejected GEMINI_API_KEY for model %s. Provider said: %s",
+                self.model,
+                error_msg,
+            )
+            haystack = error_msg.lower()
+            if "permission_denied" in haystack or "403" in haystack:
+                hint = (
+                    "The key exists but is not allowed to use this API: enable the "
+                    "'Generative Language API' for its Google Cloud project, remove any "
+                    "API/referrer restrictions on the key, and check MODEL_NAME is "
+                    "available on your tier."
+                )
+            else:
+                hint = (
+                    "The key itself was not accepted: it was deleted, regenerated, or "
+                    "pasted incorrectly. Create one at https://aistudio.google.com/apikey, "
+                    "set GEMINI_API_KEY on the server, and make sure the deploy that "
+                    "picks it up actually succeeds."
+                )
             raise HTTPException(
                 status_code=503,
-                detail=(
-                    "AI is misconfigured on this server: the provider rejected "
-                    "GEMINI_API_KEY. Check the key is current and enabled for the "
-                    "Generative Language API."
-                ),
+                detail=f"AI is misconfigured on this server: the provider rejected GEMINI_API_KEY. {hint}",
             )
         if self._is_model_error(error_msg):
+            logger.error(
+                "Provider rejected model %s. Provider said: %s", self.model, error_msg
+            )
             raise HTTPException(
                 status_code=503,
                 detail=(
