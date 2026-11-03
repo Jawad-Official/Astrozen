@@ -375,6 +375,10 @@ async def get_idea_details(
             "content": a.content,
             "status": a.status.value,
             "chat_history": a.chat_history,
+            # Lets the UI restore an uploaded doc's review (and a pending
+            # AI enhancement) after a reload instead of losing it.
+            "analysis_result": a.analysis_result,
+            "has_enhancement": bool(a.enhanced_content),
         }
 
         if a.asset_type == AssetType.DIAGRAM_USER_FLOW and a.content:

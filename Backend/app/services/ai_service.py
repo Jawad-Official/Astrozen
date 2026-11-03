@@ -27,6 +27,11 @@ AI_CACHE_MAX_ENTRIES = 500
 # that already takes many, and turns a momentary spike into a slower
 # success rather than a failed blueprint.
 AI_MAX_ATTEMPTS = 3
+
+# Output budget for full-document calls (generate / chat / section edit).
+# Gemini's OpenAI-compatible endpoint counts thinking tokens against
+# max_tokens, so 8000 left long docs truncated or empty on thinking models.
+DOC_MAX_TOKENS = 16000
 AI_RETRY_BASE_DELAY_SECONDS = 1.0
 
 # 6 Core Pillars for validation
@@ -361,6 +366,38 @@ class AIService:
                 ),
             )
         return parsed
+
+    @staticmethod
+    def _require_markdown(response: Any, what: str) -> str:
+        """Pull the Markdown body out of a completion, or fail loudly.
+
+        A thinking-capable model can spend its whole max_tokens budget on
+        reasoning and return no message content, and a safety block also
+        returns None. Saving that (or a placeholder string) as a COMPLETED
+        document hid the failure from the user, so raise a 502 instead.
+        Models also like to wrap the whole document in a ```markdown
+        fence, which then renders as one big code block - strip it.
+        """
+        try:
+            content = response.choices[0].message.content
+        except (AttributeError, IndexError, TypeError):
+            content = None
+
+        text = (content or "").strip()
+        fence = re.match(r"^```[a-zA-Z]*\s*\n([\s\S]*?)\n?```\s*$", text)
+        if fence:
+            text = fence.group(1).strip()
+
+        if not text:
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    f"The AI returned an empty {what}. This is usually a truncated "
+                    f"or filtered response - try again, and if it persists check "
+                    f"MODEL_NAME and the token limit for this call."
+                ),
+            )
+        return text
 
     def _build_prompt(self, user_content: str) -> str:
         """Prepend the guardrail to user-facing prompts to prevent prompt injection."""
@@ -1183,18 +1220,34 @@ class AIService:
                 max_tokens=3000,
             )
             result = self._parse_json(response.choices[0].message.content)
-
-            if result.get("questions"):
-                for i, q in enumerate(result["questions"]):
-                    if "id" not in q:
-                        q["id"] = f"q{i + 1}"
-
-            return result
         except HTTPException:
             raise
         except Exception as e:
             logger.error(f"Doc questions generation failed: {str(e)}")
             return {"has_questions": False, "questions": []}
+
+        # Normalise whatever came back. Questions are optional - an empty,
+        # malformed or non-object answer just means "generate directly",
+        # never a crash on result.get() / q["id"].
+        if not isinstance(result, dict):
+            return {"has_questions": False, "questions": []}
+
+        questions = []
+        for i, q in enumerate(result.get("questions") or []):
+            if isinstance(q, str):
+                q = {"question": q}
+            if not isinstance(q, dict) or not str(q.get("question") or "").strip():
+                continue
+            questions.append(
+                {
+                    "id": str(q.get("id") or f"q{i + 1}"),
+                    "question": str(q["question"]).strip(),
+                    "suggestion": str(q.get("suggestion") or ""),
+                    "optional": bool(q.get("optional", False)),
+                }
+            )
+
+        return {"has_questions": bool(questions), "questions": questions}
 
     async def generate_doc(
         self,
@@ -1207,16 +1260,21 @@ class AIService:
         """Generate a comprehensive document based on project context and chat history."""
         chat_text = ""
         if chat_history:
-            chat_text = "\n\nChat History:\n" + "\n".join(
-                [f"{msg['role']}: {msg['content']}" for msg in chat_history]
+            chat_text = "\n\nPrevious Edit Requests For This Document:\n" + "\n".join(
+                [
+                    f"{msg.get('role', 'user')}: {msg.get('content', '')}"
+                    for msg in chat_history[-10:]
+                    if isinstance(msg, dict)
+                ]
             )
 
         answers_text = ""
         if user_answers:
             answers_text = "\n\nUser Answers to Questions:\n" + "\n".join(
                 [
-                    f"Q: {ans['question']}\nA: {ans.get('answer', ans.get('suggestion', ''))}"
+                    f"Q: {ans.get('question', '')}\nA: {ans.get('answer') or ans.get('suggestion') or ''}"
                     for ans in user_answers
+                    if isinstance(ans, dict) and ans.get("question")
                 ]
             )
 
@@ -1322,21 +1380,24 @@ class AIService:
         {chat_text}
         {answers_text}
 
-        Use web search knowledge for up-to-date best practices and industry standards.
-        Return the COMPLETE Markdown content for the document with proper formatting.
+        Use up-to-date best practices and industry standards.
+        Return ONLY the complete Markdown document, starting with a "# " title.
+        Do not wrap it in a code fence and do not add commentary before or after it.
         """
         try:
             response = await self._call_ai(
                 prompt,
-                max_tokens=8000,
+                max_tokens=DOC_MAX_TOKENS,
             )
-            return response.choices[0].message.content
         except HTTPException:
             raise
         except Exception as e:
-            error_msg = str(e)
-            logger.error(f"Doc generation failed: {error_msg}")
-            return f"# {doc_type}\n\nError generating document."
+            logger.exception(f"Doc generation failed for {doc_type}")
+            raise HTTPException(
+                status_code=502,
+                detail=f"The AI failed to generate the {doc_type} document. Please try again.",
+            ) from e
+        return self._require_markdown(response, f"{doc_type} document")
 
     async def regenerate_doc_section(
         self,
@@ -1362,19 +1423,23 @@ class AIService:
         User Request: {user_message}
 
         Regenerate ONLY the specified section based on the user's request.
-        Return the complete updated Markdown content for the entire document with the regenerated section.
+        Keep every other part of the document exactly as it is.
+        Return ONLY the complete updated Markdown document, with no code fence and no commentary.
         """
         try:
             response = await self._call_ai(
                 prompt,
-                max_tokens=8000,
+                max_tokens=DOC_MAX_TOKENS,
             )
-            return response.choices[0].message.content
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Doc section regeneration failed: {str(e)}")
-            return current_content
+            logger.exception(f"Doc section regeneration failed for {doc_type}")
+            raise HTTPException(
+                status_code=502,
+                detail="The AI failed to regenerate that section. Please try again.",
+            ) from e
+        return self._require_markdown(response, f"{doc_type} document")
 
     async def chat_about_doc(
         self,
@@ -1398,7 +1463,7 @@ class AIService:
         You are editing a {doc_type} document.
 
         Current Document Content:
-        {current_content[:6000]}  {current_content[6000:] and "...[truncated]"}
+        {current_content}
 
         Project Context:
         {json.dumps(context, indent=2)}
@@ -1407,19 +1472,23 @@ class AIService:
 
         User Request: {user_message}
 
-        Return the COMPLETE UPDATED Markdown content for the document, incorporating the user's changes.
+        Return ONLY the complete updated Markdown document, incorporating the user's changes.
+        Keep every part the user did not ask to change. No code fence, no commentary.
         """
         try:
             response = await self._call_ai(
                 prompt,
-                max_tokens=8000,
+                max_tokens=DOC_MAX_TOKENS,
             )
-            return response.choices[0].message.content
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Doc chat failed: {str(e)}")
-            return current_content
+            logger.exception(f"Doc chat failed for {doc_type}")
+            raise HTTPException(
+                status_code=502,
+                detail="The AI failed to update the document. Please try again.",
+            ) from e
+        return self._require_markdown(response, f"{doc_type} document")
 
     async def chat_about_doc_structured(
         self,

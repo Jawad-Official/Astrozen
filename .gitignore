@@ -40,6 +40,8 @@ venv/
 
 # Local AI / tooling
 .claude/
+CLAUDE.md
+**/CLAUDE.md
 .specify/
 graphify-out/
 dooo.md
