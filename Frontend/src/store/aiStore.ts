@@ -256,7 +256,8 @@ export const useAIStore = create<AIStore>((set, get) => ({
     try {
       const res = await aiService.generateDoc(ideaId, type);
       set((state) => ({
-        docs: [...state.docs, res.data],
+        // Regenerating replaces the doc instead of appending a duplicate.
+        docs: [...state.docs.filter(d => d.asset_type !== res.data.asset_type), res.data],
         isGenerating: false,
         generationMessage: null
       }));

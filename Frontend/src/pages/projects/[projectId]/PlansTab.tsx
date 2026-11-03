@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Badge } from '@/components/ui/badge';
 import { aiService } from '@/services/ai.service';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, getErrorMessage } from '@/lib/utils';
 import {
   Tooltip,
   TooltipContent,
@@ -18,7 +18,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-import { Phase, ValidationReport, BlueprintNode, BlueprintEdge, Blueprint, DocQuestion, Doc } from './plans/types';
+import { Phase, ValidationReport, BlueprintNode, BlueprintEdge, Blueprint, DocQuestion, Doc, DocAnalysis } from './plans/types';
 import { DOC_INFO } from './plans/constants';
 import { BlueprintCanvas } from './plans/BlueprintCanvas';
 import { ValidationSection } from './plans/ValidationSection';
@@ -26,6 +26,7 @@ import { DocumentationSection } from './plans/DocumentationSection';
 import { BlueprintModal } from './plans/BlueprintModal';
 import { DocQuestionsDialog } from './plans/DocQuestionsDialog';
 import { DocumentAnalysisModal } from './plans/DocumentAnalysisModal';
+import { DocViewerDialog } from './plans/DocViewerDialog';
 
 interface PlansTabProps {
   projectId: string;
@@ -74,29 +75,29 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
   const [uploadingDocType, setUploadingDocType] = useState<string | null>(null);
   
   // Doc Analysis State
-  const [docAnalysis, setDocAnalysis] = useState<Record<string, any>>({});
+  const [docAnalysis, setDocAnalysis] = useState<Record<string, DocAnalysis>>({});
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [analysisDocType, setAnalysisDocType] = useState<string | null>(null);
   const [enhancingDoc, setEnhancingDoc] = useState(false);
-  
+
+  // Doc work in flight (questions / generation / upload) - drives the card spinner
+  const [busyDocType, setBusyDocType] = useState<string | null>(null);
+
+  // Doc viewer
+  const [viewerDocType, setViewerDocType] = useState<string | null>(null);
+  const [viewerBusy, setViewerBusy] = useState<'chat' | 'regenerate' | 'download' | null>(null);
+
   const handleDownloadDoc = async (docType: string) => {
     const doc = docs.find(d => d.asset_type === docType);
     if (!doc || !ideaId) return;
-    
-    // If it's an external URL, just open it
-    if (doc.content.startsWith('http')) {
-      window.open(doc.content, '_blank');
-      return;
-    }
-    
-    setLoading(true);
+
+    setViewerBusy(prev => prev ?? 'download');
     try {
       const res = await aiService.downloadDoc(ideaId, docType);
-      
+
       const docName = DOC_INFO[docType]?.label || 'document';
       const filename = `${docName.replace(/\s+/g, '_')}.docx`;
-      
-      // Handle blob response from axios
+
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -105,13 +106,13 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      
+
       toast.success(`Downloaded ${filename}`);
     } catch (error) {
       console.error("Download failed", error);
-      toast.error("Failed to download as .docx. Try copying content manually.");
+      toast.error("Failed to download as .docx. Open the document and use Copy Markdown instead.");
     } finally {
-      setLoading(false);
+      setViewerBusy(prev => (prev === 'download' ? null : prev));
     }
   };
 
@@ -226,16 +227,33 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
 
       // Load assets
       if (data.assets) {
-          const fetchedDocs = data.assets
-            .filter((a: any) => Object.keys(DOC_INFO).includes(a.asset_type))
-            .map((a: any) => ({
+          const fetchedDocs: Doc[] = data.assets
+            .filter((a) => Object.keys(DOC_INFO).includes(a.asset_type) && a.content)
+            .map((a) => ({
                 id: a.id,
                 asset_type: a.asset_type,
-                content: a.content,
+                content: a.content ?? '',
                 status: a.status,
-                chat_history: a.chat_history
+                chat_history: a.chat_history ?? [],
+                analysis_result: a.analysis_result ?? null,
+                has_enhancement: !!a.has_enhancement,
             }));
           setDocs(fetchedDocs);
+
+          // Restore uploaded docs' reviews, plus any enhancement still
+          // waiting for accept/decline, so a reload doesn't lose them.
+          const restored: Record<string, DocAnalysis> = {};
+          for (const d of fetchedDocs) {
+            if (d.analysis_result) restored[d.asset_type] = d.analysis_result;
+          }
+          setDocAnalysis(restored);
+          fetchedDocs
+            .filter(d => d.has_enhancement && d.analysis_result)
+            .forEach(d => {
+              aiService.getDocAnalysis(id, d.asset_type)
+                .then(r => setDocAnalysis(prev => ({ ...prev, [d.asset_type]: r.data })))
+                .catch(() => { /* review stays without the preview */ });
+            });
 
           // Try to set blueprint from backend response first (it aggregates data)
           if (data.blueprint && (data.blueprint.nodes || data.blueprint.kanban_features || data.blueprint.user_flow_mermaid)) {
@@ -475,71 +493,87 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !uploadingDocType || !ideaId) return;
+    const docType = uploadingDocType;
+    if (!file || !docType || !ideaId) return;
 
-    setLoading(true);
+    setBusyDocType(docType);
     try {
-      const res = await aiService.uploadDoc(ideaId, uploadingDocType, file);
-      setDocs(prev => [...prev, res.data]);
-      toast.success(`${DOC_INFO[uploadingDocType].label} uploaded successfully`);
-      
-      if (res.data.analysis) {
-        setDocAnalysis(prev => ({ ...prev, [uploadingDocType]: res.data.analysis }));
-        if (res.data.analysis.severity !== 'info') {
-          setAnalysisDocType(uploadingDocType);
-          setShowAnalysisModal(true);
-        }
+      const res = await aiService.uploadDoc(ideaId, docType, file);
+      const { analysis, ...doc } = res.data;
+      updateDocState(docType, doc);
+      toast.success(`${DOC_INFO[docType].label} uploaded`);
+
+      setDocAnalysis(prev => {
+        const next = { ...prev };
+        if (analysis) next[docType] = analysis;
+        else delete next[docType];
+        return next;
+      });
+      if (analysis && (analysis.severity === 'critical' || analysis.severity === 'warning')) {
+        setAnalysisDocType(docType);
+        setShowAnalysisModal(true);
       }
-    } catch {
-      toast.error("Upload failed");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Upload failed"));
     } finally {
-      setLoading(false);
+      setBusyDocType(null);
       setUploadingDocType(null);
     }
   };
 
+  const openAnalysis = (docType: string) => {
+    setAnalysisDocType(docType);
+    setShowAnalysisModal(true);
+  };
+
   const handleGenerateEnhancement = async () => {
     if (!analysisDocType || !ideaId) return;
+    const docType = analysisDocType;
     setEnhancingDoc(true);
     try {
-      const res = await aiService.generateDocEnhancement(ideaId, analysisDocType);
+      const res = await aiService.generateDocEnhancement(ideaId, docType);
       setDocAnalysis(prev => ({
         ...prev,
-        [analysisDocType]: {
-          ...prev[analysisDocType],
+        [docType]: {
+          ...prev[docType],
           enhanced_content: res.data.enhanced_content,
           preview: res.data.preview,
         }
       }));
       toast.success("Enhancement generated");
-    } catch (error: any) {
-      toast.error(error.response?.data?.detail || "Failed to generate enhancement");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to generate enhancement"));
     } finally {
       setEnhancingDoc(false);
     }
   };
 
+  const clearAnalysis = (docType: string) => {
+    setDocAnalysis(prev => {
+      const next = { ...prev };
+      delete next[docType];
+      return next;
+    });
+    setShowAnalysisModal(false);
+    setAnalysisDocType(null);
+  };
+
   const handleAcceptEnhancement = async () => {
     if (!analysisDocType || !ideaId) return;
+    const docType = analysisDocType;
     setEnhancingDoc(true);
     try {
-      await aiService.acceptDocEnhancement(ideaId, analysisDocType);
-      const analysis = docAnalysis[analysisDocType];
-      setDocs(prev => prev.map(d => 
-        d.asset_type === analysisDocType 
-          ? { ...d, content: analysis.enhanced_content }
-          : d
-      ));
-      setDocAnalysis(prev => {
-        const newAnalysis = { ...prev };
-        delete newAnalysis[analysisDocType];
-        return newAnalysis;
-      });
-      setShowAnalysisModal(false);
-      setAnalysisDocType(null);
-      toast.success("Enhancement applied successfully");
-    } catch (error: any) {
-      toast.error(error.response?.data?.detail || "Failed to apply enhancement");
+      const res = await aiService.acceptDocEnhancement(ideaId, docType);
+      const enhanced = docAnalysis[docType]?.enhanced_content;
+      if (res.data.doc) {
+        updateDocState(docType, res.data.doc);
+      } else if (enhanced) {
+        setDocs(prev => prev.map(d => (d.asset_type === docType ? { ...d, content: enhanced } : d)));
+      }
+      clearAnalysis(docType);
+      toast.success("Enhancement applied");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to apply enhancement"));
     } finally {
       setEnhancingDoc(false);
     }
@@ -547,97 +581,113 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
 
   const handleDeclineEnhancement = async () => {
     if (!analysisDocType || !ideaId) return;
+    const docType = analysisDocType;
     try {
-      await aiService.declineDocEnhancement(ideaId, analysisDocType);
-      setDocAnalysis(prev => {
-        const newAnalysis = { ...prev };
-        delete newAnalysis[analysisDocType];
-        return newAnalysis;
-      });
-      setShowAnalysisModal(false);
-      setAnalysisDocType(null);
+      await aiService.declineDocEnhancement(ideaId, docType);
+      clearAnalysis(docType);
       toast.success("Kept original document");
-    } catch (error: any) {
-      toast.error(error.response?.data?.detail || "Failed to decline");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to dismiss review"));
     }
   };
 
   // Doc Generation Logic
-  const handleGenerateDocFlow = async (type: string) => {
-    if (!ideaId) return;
-    setLoading(true);
-    setGeneratingDocType(type);
+  const resetDocQuestions = () => {
+    setDocQuestions([]);
+    setDocQuestionIndex(0);
+    setDocAnswers({});
+    setDocAiSuggestion(null);
+    setGeneratingDocType(null);
+  };
 
+  const handleGenerateDocFlow = async (type: string) => {
+    if (!ideaId || busyDocType) return;
+    setBusyDocType(type);
+
+    let askedQuestions = false;
     try {
       const questionsRes = await aiService.getDocQuestions(ideaId, type);
       if (questionsRes.data.has_questions && questionsRes.data.questions.length > 0) {
+        askedQuestions = true;
+        setGeneratingDocType(type);
         setDocQuestions(questionsRes.data.questions);
         setDocQuestionIndex(0);
         setDocAnswers({});
         setDocAiSuggestion(null);
         setDocQuestionsOpen(true);
-      } else {
-        await handleGenerateDoc(type);
       }
-    } catch {
-      toast.error(`Failed to prepare ${type}`);
+    } catch (error) {
+      // Questions only refine the doc - if they fail, generate without them
+      // rather than blocking the user. A config error (503) will resurface
+      // from the generate call with the same message.
+      console.warn("Doc questions unavailable, generating directly", error);
     } finally {
-      setLoading(false);
+      if (askedQuestions) setBusyDocType(null);
+    }
+
+    if (!askedQuestions) {
+      await runDocGeneration(type);
     }
   };
 
+  const runDocGeneration = async (type: string, answers?: Array<{ question: string; answer: string }>) => {
+    if (!ideaId) return;
+    setBusyDocType(type);
+    try {
+      const res = await aiService.generateDoc(ideaId, type, answers);
+      updateDocState(type, res.data);
+      setDocAnalysis(prev => {
+        const next = { ...prev };
+        delete next[type];
+        return next;
+      });
+      toast.success(`${DOC_INFO[type].label} generated`, {
+        action: { label: 'Open', onClick: () => setViewerDocType(type) },
+      });
+    } catch (error) {
+      toast.error(getErrorMessage(error, `Failed to generate ${DOC_INFO[type]?.label ?? type}`));
+    } finally {
+      setBusyDocType(null);
+    }
+  };
+
+  const collectAnswers = (overrides: Record<string, string>) =>
+    docQuestions.map(q => ({
+      question: q.question,
+      answer: (overrides[q.id] ?? docAnswers[q.id] ?? '').trim() || q.suggestion || '',
+    }));
+
   const handleDocQuestionAnswer = async (answer: string) => {
-    setDocAnswers(prev => ({ ...prev, [docQuestions[docQuestionIndex].id]: answer }));
+    const current = docQuestions[docQuestionIndex];
+    if (!current || !generatingDocType) return;
+    const nextAnswers = { ...docAnswers, [current.id]: answer };
+    setDocAnswers(nextAnswers);
     setDocAiSuggestion(null);
 
     if (docQuestionIndex < docQuestions.length - 1) {
       setDocQuestionIndex(prev => prev + 1);
-    } else {
-      setDocQuestionsOpen(false);
-      await handleGenerateDocWithAnswers(answer);
+      return;
     }
+
+    const type = generatingDocType;
+    const answers = collectAnswers(nextAnswers);
+    setDocQuestionsOpen(false);
+    resetDocQuestions();
+    await runDocGeneration(type, answers);
   };
 
-  const handleGenerateDocWithAnswers = async (lastAnswer?: string) => {
-    if (!generatingDocType || !ideaId) return;
-    setLoading(true);
-    try {
-      const finalAnswers = { ...docAnswers };
-      if (lastAnswer && docQuestions[docQuestionIndex]) {
-        finalAnswers[docQuestions[docQuestionIndex].id] = lastAnswer;
-      }
-
-      const answersArray = docQuestions.map(q => ({
-        question: q.question,
-        answer: finalAnswers[q.id] || q.suggestion || ''
-      }));
-
-      const res = await aiService.generateDoc(ideaId, generatingDocType, answersArray);
-      updateDocState(generatingDocType, res.data);
-      toast.success(`${DOC_INFO[generatingDocType].label} generated`);
-    } catch {
-      toast.error(`Failed to generate ${generatingDocType}`);
-    } finally {
-      setLoading(false);
-      setGeneratingDocType(null);
-    }
+  const handleSkipAllQuestions = async () => {
+    if (!generatingDocType) return;
+    const type = generatingDocType;
+    const current = docQuestions[docQuestionIndex];
+    const overrides = current && docAiSuggestion?.trim() ? { [current.id]: docAiSuggestion } : {};
+    const answers = collectAnswers(overrides);
+    setDocQuestionsOpen(false);
+    resetDocQuestions();
+    await runDocGeneration(type, answers);
   };
 
-  const handleGenerateDoc = async (type: string) => {
-    if (!ideaId) return;
-    setLoading(true);
-    try {
-      const res = await aiService.generateDoc(ideaId, type);
-      updateDocState(type, res.data);
-      toast.success(`${DOC_INFO[type].label} generated`);
-    } catch {
-      toast.error(`Failed to generate ${type}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateDocState = (type: string, data: any) => {
+  const updateDocState = (type: string, data: Doc) => {
     setDocs(prev => {
         const exists = prev.findIndex(d => d.asset_type === type);
         if (exists !== -1) {
@@ -648,7 +698,55 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
         return [...prev, data];
     });
   };
-  
+
+  // Doc viewer actions
+  const handleViewerChat = async (message: string) => {
+    if (!ideaId || !viewerDocType) return false;
+    const type = viewerDocType;
+    setViewerBusy('chat');
+    try {
+      const res = await aiService.chatDoc(ideaId, type, message);
+      updateDocState(type, res.data);
+      toast.success("Document updated");
+      return true;
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to update document"));
+      return false;
+    } finally {
+      setViewerBusy(null);
+    }
+  };
+
+  const handleViewerRewriteSelection = async (selection: string, message: string) => {
+    if (!ideaId || !viewerDocType) return false;
+    const type = viewerDocType;
+    setViewerBusy('chat');
+    try {
+      const res = await aiService.regenerateDocSection(ideaId, type, selection, message);
+      updateDocState(type, res.data);
+      toast.success("Section rewritten");
+      return true;
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to rewrite section"));
+      return false;
+    } finally {
+      setViewerBusy(null);
+    }
+  };
+
+  const handleViewerRegenerate = async () => {
+    if (!viewerDocType) return;
+    const label = DOC_INFO[viewerDocType]?.label ?? 'this document';
+    if (!window.confirm(`Regenerate ${label} from scratch? The current version will be replaced.`)) return;
+    const type = viewerDocType;
+    setViewerBusy('regenerate');
+    try {
+      await runDocGeneration(type);
+    } finally {
+      setViewerBusy(null);
+    }
+  };
+
   // Tech Stack Local State
   const [editingTech, setEditingTech] = useState<string | null>(null);
   const [techFeedback, setTechFeedback] = useState<Record<string, string>>({});
@@ -685,7 +783,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
         ref={fileInputRef} 
         className="hidden" 
         onChange={handleFileChange}
-        accept=".md,.txt,.pdf,.docx" 
+        accept=".md,.markdown,.txt,.docx" 
       />
 
       <div className="flex-1">
@@ -837,11 +935,12 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
             <DocumentationSection
               docs={docs}
               docAnalysis={docAnalysis}
+              busyDocType={busyDocType}
+              handleOpenDoc={setViewerDocType}
               handleDownloadDoc={handleDownloadDoc}
               handleGenerateDocFlow={handleGenerateDocFlow}
               handleUploadClick={handleUploadClick}
-              setAnalysisDocType={setAnalysisDocType}
-              setShowAnalysisModal={setShowAnalysisModal}
+              openAnalysis={openAnalysis}
             />
           )}
 
@@ -877,6 +976,20 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
         docAiSuggestion={docAiSuggestion}
         setDocAiSuggestion={setDocAiSuggestion}
         handleDocQuestionAnswer={handleDocQuestionAnswer}
+        handleSkipAllQuestions={handleSkipAllQuestions}
+        handleCancelQuestions={resetDocQuestions}
+      />
+
+      <DocViewerDialog
+        doc={docs.find(d => d.asset_type === viewerDocType) ?? null}
+        open={!!viewerDocType && docs.some(d => d.asset_type === viewerDocType)}
+        onOpenChange={(open) => { if (!open && !viewerBusy) setViewerDocType(null); }}
+        busy={viewerBusy}
+        onChat={handleViewerChat}
+        onRewriteSelection={handleViewerRewriteSelection}
+        onRegenerate={handleViewerRegenerate}
+        onDownload={() => viewerDocType && handleDownloadDoc(viewerDocType)}
+        onReplace={() => viewerDocType && handleUploadClick(viewerDocType)}
       />
 
       <DocumentAnalysisModal
