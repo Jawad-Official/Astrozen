@@ -89,6 +89,12 @@ class Settings(BaseSettings):
     # AI (Google AI Studio / Gemini) & Cloudflare R2
     GEMINI_API_KEY: str | None = None
     MODEL_NAME: str = "gemini-3.6-flash"
+    # Send a per-task reasoning_effort (see AI_TASK_BUDGETS in
+    # app/services/ai_service.py). Thinking tokens are billed as output and
+    # count against max_tokens, so tuning it per task keeps short calls cheap
+    # and fast. Set to false for a model that rejects the parameter (the
+    # service also detects that and stops sending it on its own).
+    AI_REASONING_EFFORT_ENABLED: bool = True
 
     R2_ACCOUNT_ID: str | None = None
     R2_ACCESS_KEY_ID: str | None = None

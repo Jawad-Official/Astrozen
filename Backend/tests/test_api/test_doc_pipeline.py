@@ -170,19 +170,44 @@ def test_answers_are_not_piled_into_chat_history(client, db_session, fake_ai):
     assert resp.json()["chat_history"] == []
 
 
-def test_regenerate_section_takes_json_body(client, db_session, fake_ai):
+def test_regenerate_section_takes_json_body_and_splices(client, db_session, fake_ai):
     _, idea, headers = _owner_with_idea(db_session, "regen@example.com")
-    fake_ai.replies = ["# PRD\n\n## Goals\nOld", "# PRD\n\n## Goals\nNew"]
+    fake_ai.replies = [
+        "# PRD\n\n## Goals\n\n**Old** goal text.\n\n## Metrics\n\nKeep me.",
+        # Only the changed passage comes back - not the whole document.
+        '{"original": "**Old** goal text.", "replacement": "Sharper goal text."}',
+    ]
     client.post(_url(idea, "PRD"), json={}, headers=headers)
 
     resp = client.post(
         _url(idea, "PRD/regenerate-section"),
-        json={"section_content": "## Goals\nOld", "user_message": "Make it sharper"},
+        # Selected from the rendered page, so the ** markup is missing.
+        json={"section_content": "Old goal text.", "user_message": "Make it sharper"},
         headers=headers,
     )
 
     assert resp.status_code == 200, resp.text
-    assert resp.json()["content"].endswith("New")
+    assert resp.json()["content"] == "# PRD\n\n## Goals\n\nSharper goal text.\n\n## Metrics\n\nKeep me."
+    assert len(fake_ai.prompts) == 2
+
+
+def test_regenerate_section_falls_back_to_full_rewrite(client, db_session, fake_ai):
+    _, idea, headers = _owner_with_idea(db_session, "regen_fallback@example.com")
+    fake_ai.replies = [
+        "# PRD\n\nAlpha.",
+        '{"original": "text that is not in the doc", "replacement": "x"}',
+        "# PRD\n\nBeta.",
+    ]
+    client.post(_url(idea, "PRD"), json={}, headers=headers)
+
+    resp = client.post(
+        _url(idea, "PRD/regenerate-section"),
+        json={"section_content": "Alpha.", "user_message": "Change it"},
+        headers=headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["content"] == "# PRD\n\nBeta."
 
 
 def test_chat_updates_doc_sends_full_content_and_records_history(client, db_session, fake_ai):

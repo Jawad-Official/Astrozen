@@ -28,10 +28,106 @@ AI_CACHE_MAX_ENTRIES = 500
 # success rather than a failed blueprint.
 AI_MAX_ATTEMPTS = 3
 
-# Output budget for full-document calls (generate / chat / section edit).
-# Gemini's OpenAI-compatible endpoint counts thinking tokens against
-# max_tokens, so 8000 left long docs truncated or empty on thinking models.
-DOC_MAX_TOKENS = 16000
+# ---------------------------------------------------------------------------
+# Token budgets, one per kind of AI request.
+#
+# Each entry is (max_tokens, reasoning_effort). On Gemini's OpenAI-compatible
+# endpoint, thinking tokens count against max_tokens, and they are billed as
+# output. So the two have to be set together:
+# - Too small a max_tokens with default (high) thinking = the model spends the
+#   whole budget thinking and returns nothing (an empty doc, a failed parse).
+# - Default thinking on every call = slower answers and several times the
+#   output tokens, which burns the free tier's per-minute token limit.
+# Short structured tasks get "low" effort and a tight cap. Validation and
+# blueprint planning need more reasoning, so they get "medium". Long-form
+# writing needs output room more than reasoning, so it gets "low" effort and
+# a large cap.
+# ---------------------------------------------------------------------------
+AI_TASK_BUDGETS: Dict[str, tuple] = {
+    "clarification_questions": (2500, "low"),
+    "suggest_answer": (1500, "low"),
+    "validate_idea": (10000, "medium"),
+    "regenerate_validation_field": (3000, "low"),
+    "blueprint": (10000, "medium"),
+    "node_issues": (6000, "low"),
+    "auto_link_issue": (1500, "low"),
+    "expand_features": (4000, "low"),
+    "doc_questions": (2500, "low"),
+    "doc_write": (14000, "low"),       # generate / chat-edit / enhance a whole doc
+    "doc_section": (4000, "low"),      # rewrite one selected passage
+    "doc_chat_structured": (3000, "low"),
+    "doc_analysis": (3000, "low"),
+}
+DEFAULT_TASK_BUDGET = (4000, "low")
+
+# Kept for callers that size a full-document call directly.
+DOC_MAX_TOKENS = AI_TASK_BUDGETS["doc_write"][0]
+
+# Input caps. Context JSON is sent compact (no indent) and long inputs are cut
+# to these sizes so one request can't eat the free tier's tokens-per-minute.
+PREV_DOC_CHARS_QUESTIONS = 1500   # per earlier doc, when asking doc questions
+PREV_DOC_CHARS_GENERATE = 3000    # per earlier doc, when writing the next doc
+DOC_EDIT_MAX_CHARS = 80000        # whole-doc AI edits beyond this are refused
+
+
+def summarize_blueprint(blueprint: Any, max_items: int = 40) -> str:
+    """A short text outline of the blueprint for doc prompts.
+
+    The raw blueprint (node coordinates, edges, subtasks, full kanban
+    objects) was dumped into every doc prompt and then partly repeated, which
+    could be the biggest part of the input. Docs only need what the screens
+    and features are called.
+    """
+    if not isinstance(blueprint, dict):
+        return ""
+    lines = []
+    flow = blueprint.get("user_flow")
+    if isinstance(flow, str) and flow.strip():
+        try:
+            flow_data = json.loads(flow)
+        except (json.JSONDecodeError, TypeError):
+            flow_data = None
+        if isinstance(flow_data, dict) and isinstance(flow_data.get("nodes"), list):
+            labels = [
+                f"{n.get('label')} ({n.get('type')})"
+                for n in flow_data["nodes"][:max_items]
+                if isinstance(n, dict) and n.get("label")
+            ]
+            if labels:
+                lines.append("Architecture nodes: " + "; ".join(labels))
+        else:
+            lines.append("User flow (mermaid): " + flow[:1500])
+    kanban = blueprint.get("kanban")
+    if isinstance(kanban, list) and kanban:
+        titles = [
+            str(k.get("title"))
+            for k in kanban[:max_items]
+            if isinstance(k, dict) and k.get("title")
+        ]
+        if titles:
+            lines.append("Planned features: " + "; ".join(titles))
+    return "\n".join(lines)
+
+
+def _without_blueprint(context: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: v for k, v in (context or {}).items() if k != "blueprint"}
+
+
+def _slim_context(context: Dict[str, Any]) -> Dict[str, Any]:
+    """Just what an edit to an existing doc needs. The doc already carries
+    the validation and blueprint detail, so resending the full report on
+    every edit only adds input tokens."""
+    context = context or {}
+    return {
+        "idea": context.get("idea"),
+        "refined_description": context.get("refined_description"),
+    }
+
+
+def compact_json(value: Any) -> str:
+    """JSON for prompts: no indentation or spaces. indent=2 on a nested
+    validation report adds roughly a third more input tokens for nothing."""
+    return json.dumps(value, separators=(",", ":"), ensure_ascii=False, default=str)
 AI_RETRY_BASE_DELAY_SECONDS = 1.0
 
 # 6 Core Pillars for validation
@@ -120,6 +216,7 @@ class AIService:
             )
 
         self.model = settings.MODEL_NAME
+        self._reasoning_effort_supported = True
         self._response_cache: Dict[str, tuple] = {}  # cache_key -> (expires_at, response)
 
     def _require_client(self) -> None:
@@ -188,6 +285,11 @@ class AIService:
             )
         )
 
+    @staticmethod
+    def _is_quota_error(error_msg: str) -> bool:
+        haystack = error_msg.lower()
+        return "resource_exhausted" in haystack or "quota" in haystack or "429" in haystack
+
     def _raise_unavailable(self, error_msg: str) -> None:
         """Report an exhausted retry as what it is: upstream, and temporary.
 
@@ -196,13 +298,18 @@ class AIService:
         worth their time.
         """
         haystack = error_msg.lower()
-        if "resource_exhausted" in haystack or "quota" in haystack:
+        if self._is_quota_error(error_msg):
+            per_day = "per day" in haystack or "perday" in haystack
             raise HTTPException(
                 status_code=429,
                 detail=(
-                    "The AI provider's rate limit for this key has been reached. "
-                    "Wait a moment and try again; if it persists, the key's quota "
-                    "for the day may be spent."
+                    "The AI key's daily request quota is used up. It resets at "
+                    "midnight Pacific time; a paid key or a lighter MODEL_NAME "
+                    "raises the limit."
+                    if per_day
+                    else "The AI provider's rate limit for this key has been reached. "
+                    "Wait about a minute and try again; if it persists, the key's "
+                    "quota for the day may be spent."
                 ),
             )
         raise HTTPException(
@@ -411,7 +518,26 @@ class AIService:
         )
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
-    async def _call_ai(self, prompt: str, **kwargs) -> Any:
+    def _budget_kwargs(self, task: Optional[str], kwargs: dict) -> dict:
+        """Merge the task's token budget into the request kwargs. An explicit
+        max_tokens / reasoning_effort from the caller wins."""
+        max_tokens, effort = AI_TASK_BUDGETS.get(task or "", DEFAULT_TASK_BUDGET)
+        merged = dict(kwargs)
+        merged.setdefault("max_tokens", max_tokens)
+        if self._reasoning_effort_supported and settings.AI_REASONING_EFFORT_ENABLED and effort:
+            merged.setdefault("reasoning_effort", effort)
+        else:
+            merged.pop("reasoning_effort", None)
+        return merged
+
+    @staticmethod
+    def _is_reasoning_effort_rejected(error_msg: str) -> bool:
+        haystack = error_msg.lower()
+        return ("reasoning_effort" in haystack or "thinking" in haystack) and (
+            "400" in haystack or "invalid" in haystack or "not supported" in haystack
+        )
+
+    async def _call_ai(self, prompt: str, task: Optional[str] = None, **kwargs) -> Any:
         """Call the AI model with the prompt.
 
         The OpenAI SDK client here is the synchronous variant (`OpenAI`,
@@ -424,6 +550,7 @@ class AIService:
         """
         self._require_client()
 
+        kwargs = self._budget_kwargs(task, kwargs)
         cache_key = self._cache_key(prompt, kwargs)
         now = time.monotonic()
 
@@ -444,6 +571,30 @@ class AIService:
             except Exception as e:
                 error_msg = str(e)
 
+                # A model that doesn't take reasoning_effort (e.g. one whose
+                # thinking can't be tuned) rejects the request outright.
+                # Drop the parameter for the rest of this process and resend
+                # at once - that rejection costs no quota and isn't an attempt.
+                if "reasoning_effort" in kwargs and self._is_reasoning_effort_rejected(error_msg):
+                    logger.warning(
+                        "Model %s rejected reasoning_effort; sending requests without it: %s",
+                        self.model,
+                        error_msg,
+                    )
+                    self._reasoning_effort_supported = False
+                    kwargs.pop("reasoning_effort", None)
+                    try:
+                        response = await run_in_threadpool(
+                            self.client.chat.completions.create,
+                            model=self.model,
+                            messages=[{"role": "user", "content": self._build_prompt(prompt)}],
+                            **kwargs,
+                        )
+                        break
+                    except Exception as retry_error:
+                        e = retry_error
+                        error_msg = str(retry_error)
+
                 # Translate the provider's own misconfiguration errors here,
                 # at the one point every AI call passes through, rather than
                 # in each of the dozen callers. These become HTTPException,
@@ -451,6 +602,12 @@ class AIService:
                 # into their generic fallbacks. A retry cannot fix a bad key
                 # or a bad model name, so this fails fast.
                 self._raise_if_misconfigured(error_msg)
+
+                # A spent quota (HTTP 429 RESOURCE_EXHAUSTED) won't clear in
+                # the 1-4 seconds a retry waits - the free tier's limits are
+                # per minute and per day. Retrying only delayed the error.
+                if self._is_quota_error(error_msg):
+                    self._raise_unavailable(error_msg)
 
                 if not self._is_transient_error(error_msg):
                     raise
@@ -506,7 +663,7 @@ class AIService:
             response = await self._call_ai(
                 prompt,
                 response_format={"type": "json_object"},
-                max_tokens=2000,
+                task="clarification_questions",
             )
             content = response.choices[0].message.content
             try:
@@ -540,7 +697,7 @@ class AIService:
         qa_text = "\n".join(
             [f"Q: {qa['question']}\nA: {qa['answer']}" for qa in previous_qa]
         )
-        context_text = json.dumps(context) if context else "{}"
+        context_text = compact_json(context) if context else "{}"
         prompt = f"""
         Project Idea: "{idea}"
         Previous Context:
@@ -556,7 +713,7 @@ class AIService:
         try:
             response = await self._call_ai(
                 prompt,
-                max_tokens=3000,
+                task="suggest_answer",
             )
             return response.choices[0].message.content.strip()
         except HTTPException:
@@ -609,7 +766,7 @@ class AIService:
             feedback_text = f"\n\nUser Feedback: {feedback}" if feedback else ""
 
         edited_text = (
-            f"\n\nUser Edited Data: {json.dumps(edited_data, indent=2)}"
+            f"\n\nUser Edited Data: {compact_json(edited_data)}"
             if edited_data
             else ""
         )
@@ -768,7 +925,7 @@ class AIService:
             response = await self._call_ai(
                 prompt,
                 response_format={"type": "json_object"},
-                max_tokens=8192,
+                task="validate_idea",
             )
             logger.info(f"Full response: {response}")
             logger.info(
@@ -929,12 +1086,12 @@ class AIService:
         The user wants to regenerate this field: {field_name}
 
         Current value:
-        {json.dumps(current_value, indent=2) if current_value else "None (empty field)"}
+        {compact_json(current_value) if current_value else "None (empty field)"}
 
         User feedback: "{feedback}"
 
         Project context:
-        {json.dumps(context, indent=2)}
+        {compact_json(context)}
 
         {field_instruction}
         """
@@ -942,7 +1099,7 @@ class AIService:
             response = await self._call_ai(
                 prompt,
                 response_format={"type": "json_object"},
-                max_tokens=3000,
+                task="regenerate_validation_field",
             )
             result = self._parse_json(response.choices[0].message.content)
 
@@ -966,7 +1123,7 @@ class AIService:
         """
         prompt = f"""
         Based on this project validation:
-        {json.dumps(idea_context, indent=2)}
+        {compact_json(idea_context)}
 
         Generate a COMPREHENSIVE and DETAILED technical blueprint.
 
@@ -993,7 +1150,7 @@ class AIService:
             response = await self._call_ai(
                 prompt,
                 response_format={"type": "json_object"},
-                max_tokens=8192,
+                task="blueprint",
             )
             return self._require_object(
                 self._parse_json(response.choices[0].message.content),
@@ -1029,13 +1186,13 @@ class AIService:
         Task: Breakdown this blueprint component into a production-ready engineering plan.
 
         Target Component (Node):
-        {json.dumps(node_details, indent=2)}
+        {compact_json(node_details)}
 
         Project Context:
-        {json.dumps(project_context, indent=2)}
+        {compact_json(project_context)}
 
         Existing Project Features:
-        {json.dumps(existing_features, indent=2)}
+        {compact_json(existing_features)}
 
         Requirements:
         1. STRATEGIC LINKING: If the component matches an existing feature, use it. If not, create a New Feature. 
@@ -1053,7 +1210,7 @@ class AIService:
             response = await self._call_ai(
                 prompt,
                 response_format={"type": "json_object"},
-                max_tokens=8192,
+                task="node_issues",
             )
             return self._require_object(
                 self._parse_json(response.choices[0].message.content),
@@ -1108,7 +1265,7 @@ class AIService:
             response = await self._call_ai(
                 prompt,
                 response_format={"type": "json_object"},
-                max_tokens=500,
+                task="auto_link_issue",
             )
             data = self._parse_json(response.choices[0].message.content)
             return data.get("node_id")
@@ -1129,7 +1286,7 @@ class AIService:
         Based on the validated project idea and core features below, expand them into a detailed feature breakdown for implementation.
 
         Project Context:
-        {json.dumps(idea_context, indent=2)}
+        {compact_json(idea_context)}
 
         For EACH core feature, make a strategic decision to assign:
         1. A clear, actionable Name.
@@ -1148,7 +1305,7 @@ class AIService:
             response = await self._call_ai(
                 prompt,
                 response_format={"type": "json_object"},
-                max_tokens=4000,
+                task="expand_features",
             )
             data = self._parse_json(response.choices[0].message.content)
             return data.get("features", [])
@@ -1171,7 +1328,7 @@ class AIService:
         prev_docs_text = ""
         if previous_docs:
             for doc_name, content in previous_docs.items():
-                prev_docs_text += f"\n\n=== {doc_name} ===\n{content[:2000]}..."
+                prev_docs_text += f"\n\n=== {doc_name} ===\n{content[:PREV_DOC_CHARS_QUESTIONS]}"
 
         doc_guidance = {
             "PRD": "Focus on: target audience, user personas, key features, success metrics, timeline",
@@ -1188,7 +1345,10 @@ class AIService:
         You are generating a {doc_type} document for a project.
 
         Project Context:
-        {json.dumps(project_context, indent=2)}
+        {compact_json(_without_blueprint(project_context))}
+
+        Blueprint:
+        {summarize_blueprint(project_context.get("blueprint")) or "Not created yet"}
 
         Previous Documents:
         {prev_docs_text}
@@ -1217,7 +1377,7 @@ class AIService:
             response = await self._call_ai(
                 prompt,
                 response_format={"type": "json_object"},
-                max_tokens=3000,
+                task="doc_questions",
             )
             result = self._parse_json(response.choices[0].message.content)
         except HTTPException:
@@ -1281,15 +1441,12 @@ class AIService:
         prev_docs_text = ""
         if previous_docs:
             for doc_name, content in previous_docs.items():
-                prev_docs_text += f"\n\n=== {doc_name} ===\n{content[:3000]}..."
+                prev_docs_text += f"\n\n=== {doc_name} ===\n{content[:PREV_DOC_CHARS_GENERATE]}"
 
         blueprint_text = ""
-        if context.get("blueprint"):
-            blueprint_text = "\n\n=== Visual Blueprint ===\n"
-            if context["blueprint"].get("user_flow"):
-                blueprint_text += f"User Flow Diagram:\n{context['blueprint']['user_flow'][:1000]}...\n"
-            if context["blueprint"].get("kanban"):
-                blueprint_text += f"Kanban Features: {len(context['blueprint']['kanban'])} features identified\n"
+        blueprint_summary = summarize_blueprint(context.get("blueprint"))
+        if blueprint_summary:
+            blueprint_text = "\n\n=== Visual Blueprint ===\n" + blueprint_summary
 
         doc_prompts = {
             "PRD": """
@@ -1370,7 +1527,7 @@ class AIService:
         {sections_text}
 
         Project Context:
-        {json.dumps(context, indent=2)}
+        {compact_json(_without_blueprint(context))}
 
         {blueprint_text}
 
@@ -1387,7 +1544,7 @@ class AIService:
         try:
             response = await self._call_ai(
                 prompt,
-                max_tokens=DOC_MAX_TOKENS,
+                task="doc_write",
             )
         except HTTPException:
             raise
@@ -1399,6 +1556,25 @@ class AIService:
             ) from e
         return self._require_markdown(response, f"{doc_type} document")
 
+    @staticmethod
+    def _splice_section(content: str, original: str, replacement: str) -> Optional[str]:
+        """Swap `original` for `replacement` in content, if it can be found
+        unambiguously - exactly first, then ignoring whitespace differences."""
+        original = (original or "").strip()
+        if not original:
+            return None
+        if content.count(original) == 1:
+            return content.replace(original, replacement.strip(), 1)
+        words = original.split()
+        if not words:
+            return None
+        pattern = re.compile(r"\s+".join(re.escape(w) for w in words))
+        matches = list(pattern.finditer(content))
+        if len(matches) == 1:
+            m = matches[0]
+            return content[: m.start()] + replacement.strip() + content[m.end():]
+        return None
+
     async def regenerate_doc_section(
         self,
         doc_type: str,
@@ -1407,30 +1583,49 @@ class AIService:
         user_message: str,
         project_context: Dict[str, Any],
     ) -> str:
-        """Regenerate a specific section of a document based on user feedback."""
-        prompt = f"""
-        You are editing a {doc_type} document.
+        """Rewrite one passage of a document.
 
-        Current Document Content:
+        The model returns only the passage it changed, as JSON, and the
+        server splices it in. Asking it to echo the whole document back for
+        a one-paragraph edit cost the full doc in output tokens every time.
+        The user selects text in the RENDERED doc, which loses Markdown
+        markup, so the model also returns the exact source excerpt it
+        replaced. If that excerpt can't be located, fall back to one
+        whole-document rewrite.
+        """
+        if len(current_content) > DOC_EDIT_MAX_CHARS:
+            raise HTTPException(
+                status_code=413,
+                detail="This document is too long for AI editing. Split it or edit it by hand.",
+            )
+
+        slim_context = _slim_context(project_context)
+        prompt = f"""
+        You are editing a {doc_type} document written in Markdown.
+
+        Full Document (Markdown source):
         {current_content}
 
-        Specific Section to Regenerate:
+        Passage the user selected (copied from the rendered page, so Markdown symbols may be missing):
         {section_content}
 
-        Project Context:
-        {json.dumps(project_context, indent=2)}
+        Project: {compact_json(slim_context)}
 
         User Request: {user_message}
 
-        Regenerate ONLY the specified section based on the user's request.
-        Keep every other part of the document exactly as it is.
-        Return ONLY the complete updated Markdown document, with no code fence and no commentary.
+        Rewrite ONLY that passage as the user asks. Return JSON:
+        {{
+          "original": "the EXACT Markdown source text from the full document that the selection covers, copied character for character",
+          "replacement": "the rewritten Markdown for that passage"
+        }}
         """
         try:
             response = await self._call_ai(
                 prompt,
-                max_tokens=DOC_MAX_TOKENS,
+                task="doc_section",
+                response_format={"type": "json_object"},
             )
+            parsed = self._parse_json(response.choices[0].message.content)
         except HTTPException:
             raise
         except Exception as e:
@@ -1439,7 +1634,21 @@ class AIService:
                 status_code=502,
                 detail="The AI failed to regenerate that section. Please try again.",
             ) from e
-        return self._require_markdown(response, f"{doc_type} document")
+
+        if isinstance(parsed, dict) and str(parsed.get("replacement") or "").strip():
+            spliced = self._splice_section(
+                current_content, str(parsed.get("original") or ""), str(parsed["replacement"])
+            )
+            if spliced is not None:
+                return spliced
+            logger.info("Section excerpt not found in %s; falling back to a full rewrite", doc_type)
+
+        return await self.chat_about_doc(
+            doc_type,
+            current_content,
+            f'Rewrite only this passage: "{section_content[:2000]}". Request: {user_message}',
+            project_context,
+        )
 
     async def chat_about_doc(
         self,
@@ -1452,11 +1661,19 @@ class AIService:
         """Chat about a document and regenerate/refine based on feedback."""
         history_text = ""
         if chat_history:
-            history_text = "\n\nChat History:\n" + "\n".join(
-                [
-                    f"{msg['role']}: {msg['content']}"
-                    for msg in chat_history[-10:]
-                ]
+            # Only the user's own recent requests matter here; the assistant
+            # turns are just "Updated the document." acknowledgements.
+            requests = [
+                str(msg.get("content", ""))[:1000]
+                for msg in chat_history
+                if isinstance(msg, dict) and msg.get("role") == "user"
+            ][-6:]
+            history_text = "\n\nEarlier Edit Requests:\n" + "\n".join(f"- {r}" for r in requests)
+
+        if len(current_content) > DOC_EDIT_MAX_CHARS:
+            raise HTTPException(
+                status_code=413,
+                detail="This document is too long for AI editing. Split it or edit it by hand.",
             )
 
         prompt = f"""
@@ -1466,7 +1683,7 @@ class AIService:
         {current_content}
 
         Project Context:
-        {json.dumps(context, indent=2)}
+        {compact_json(_slim_context(context))}
 
         {history_text}
 
@@ -1478,7 +1695,7 @@ class AIService:
         try:
             response = await self._call_ai(
                 prompt,
-                max_tokens=DOC_MAX_TOKENS,
+                task="doc_write",
             )
         except HTTPException:
             raise
@@ -1506,7 +1723,7 @@ class AIService:
         {current_content[:4000]}
 
         Project Context:
-        {json.dumps(context, indent=2)}
+        {compact_json(context)}
 
         User Request: "{user_message}"
 
@@ -1529,7 +1746,7 @@ class AIService:
             response = await self._call_ai(
                 prompt,
                 response_format={"type": "json_object"},
-                max_tokens=4000,
+                task="doc_chat_structured",
             )
             return self._require_object(
                 self._parse_json(response.choices[0].message.content),

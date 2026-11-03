@@ -1,4 +1,5 @@
 import json
+from app.services.ai_service import compact_json
 from typing import Any, Dict, List, Optional
 import logging
 
@@ -154,7 +155,7 @@ class DocAnalyzerService:
         Analyze this {doc_type} ({requirements["name"]}) document.
 
         DOCUMENT CONTENT:
-        {content[:20000]}
+        {content[:12000]}
 
         EXPECTED FOR {doc_type}:
         Description: {requirements["description"]}
@@ -162,7 +163,7 @@ class DocAnalyzerService:
         Minimum Recommended Length: {requirements["min_words"]} words
 
         PROJECT CONTEXT:
-        {json.dumps(project_context, indent=2, default=str) if project_context else "Not provided"}
+        {compact_json(project_context) if project_context else "Not provided"}
 
         Analyze the document and return a JSON response with:
 
@@ -190,8 +191,8 @@ class DocAnalyzerService:
         try:
             response = await ai._call_ai(
                 prompt,
+                task="doc_analysis",
                 response_format={"type": "json_object"},
-                max_tokens=4000,
             )
             parsed = ai._parse_json(response.choices[0].message.content)
             if not isinstance(parsed, dict):
@@ -247,8 +248,6 @@ class DocAnalyzerService:
         original, and the old 6000-character cut meant everything past it
         was silently dropped from the user's doc.
         """
-        from app.services.ai_service import DOC_MAX_TOKENS
-
         requirements = DOC_REQUIREMENTS.get(doc_type, DOC_REQUIREMENTS["PRD"])
 
         prompt = f"""
@@ -263,7 +262,7 @@ class DocAnalyzerService:
         - Suggestions: {", ".join(analysis.get("suggestions", []) or [])}
 
         PROJECT CONTEXT:
-        {json.dumps(project_context, indent=2, default=str) if project_context else "Not provided"}
+        {compact_json(project_context) if project_context else "Not provided"}
 
         REQUIREMENTS FOR {doc_type}:
         {requirements["description"]}
@@ -281,7 +280,7 @@ class DocAnalyzerService:
         """
 
         ai = self._ai()
-        response = await ai._call_ai(prompt, max_tokens=DOC_MAX_TOKENS)
+        response = await ai._call_ai(prompt, task="doc_write")
         enhanced = ai._require_markdown(response, f"enhanced {doc_type} document")
         logger.info(f"Generated enhanced content for {doc_type}")
         return enhanced
