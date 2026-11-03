@@ -80,10 +80,4 @@ export interface DocQuestion {
   optional?: boolean;
 }
 
-export interface Doc {
-  id: string;
-  asset_type: string;
-  content: string;
-  chat_history?: Array<{ role: string; content: string }>;
-  status?: string;
-}
+export type { Doc, DocAnalysis } from '@/services/ai.service';

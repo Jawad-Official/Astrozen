@@ -142,9 +142,22 @@ class BlueprintSaveRequest(BaseModel):
     user_flow_mermaid: str = Field(default="", max_length=20000)
 
 
-class DocGenerationRequest(BaseModel):
-    doc_type: AssetType
-    answers: Optional[List[Dict[str, str]]] = None
+class DocAnswer(BaseModel):
+    """One answered (or skipped) doc clarification question."""
+
+    model_config = {"extra": "ignore"}
+
+    question: str = Field(max_length=2000)
+    answer: Optional[str] = Field(default=None, max_length=10000)
+    suggestion: Optional[str] = Field(default=None, max_length=10000)
+
+
+class DocGenerateRequest(BaseModel):
+    """Body for POST /idea/{idea_id}/doc/{doc_type}. The frontend sends
+    `{"answers": [...]}`; every field is optional so an empty `{}` (no
+    questions were asked) is valid too."""
+
+    answers: Optional[List[DocAnswer]] = Field(default=None, max_length=50)
 
 
 class DocResponse(BaseModel):
@@ -152,10 +165,18 @@ class DocResponse(BaseModel):
     asset_type: AssetType
     content: str
     status: AssetStatus
-    r2_path: Optional[str]
-    chat_history: Optional[List[Dict[str, str]]] = None
+    r2_path: Optional[str] = None
+    chat_history: Optional[List[Dict[str, Any]]] = None
+    analysis_result: Optional[Dict[str, Any]] = None
+    has_enhancement: bool = False
 
     model_config = {"from_attributes": True}
+
+
+class DocUploadResponse(DocResponse):
+    """Upload response - the asset plus the quality analysis run on it."""
+
+    analysis: Optional[Dict[str, Any]] = None
 
 
 class DocumentMeta(BaseModel):
@@ -172,7 +193,7 @@ class DocumentMeta(BaseModel):
 
 
 class DocChatRequest(BaseModel):
-    message: str
+    message: str = Field(min_length=1, max_length=5000)
 
 
 class ApplyDocumentChangeRequest(BaseModel):
@@ -181,8 +202,10 @@ class ApplyDocumentChangeRequest(BaseModel):
 
 
 class DocQuestion(BaseModel):
+    id: str
     question: str
     suggestion: Optional[str] = None
+    optional: bool = False
 
 
 class DocQuestionsResponse(BaseModel):
@@ -203,8 +226,8 @@ class RegenerateFieldRequest(BaseModel):
 
 
 class RegenerateSectionRequest(BaseModel):
-    section_content: str
-    user_message: str
+    section_content: str = Field(min_length=1, max_length=20000)
+    user_message: str = Field(min_length=1, max_length=5000)
 
 
 class BlueprintNodeIssueSummary(BaseModel):

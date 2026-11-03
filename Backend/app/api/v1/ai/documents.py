@@ -1,7 +1,14 @@
 """Document routes: generation, chat/regeneration, upload, analysis, and enhancement of project docs."""
 
+import io
+import re
+import logging
+from typing import Any, List, Optional, Union
+from urllib.parse import quote
+
 from fastapi import (
     APIRouter,
+    Body,
     Depends,
     HTTPException,
     UploadFile,
@@ -10,12 +17,10 @@ from fastapi import (
 )
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from typing import Any, List, Dict, Optional
 import mammoth
 import markdown
 from html2docx import html2docx
-import logging
-import json
+
 from app.api import deps
 from app.schemas import ai as schemas
 from app.core.rate_limit import limiter
@@ -28,6 +33,7 @@ from app.services.doc_analyzer_service import doc_analyzer_service
 from app.models.project_idea import (
     AssetType,
     AssetStatus,
+    ProjectAsset,
     ProjectIdea,
 )
 from app.models.notification import NotificationType
@@ -38,8 +44,186 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+UPLOAD_EXTENSIONS = (".md", ".markdown", ".txt", ".docx")
+DOC_TYPES = set(DOC_ORDER)
 
-@router.post("/idea/{idea_id}/doc/upload", response_model=schemas.DocResponse)
+
+def _require_doc_type(doc_type: AssetType) -> None:
+    """The doc routes take an AssetType path param, which also admits the
+    PROJECT_MD / DIAGRAM_* asset types. Those are not user documents -
+    writing one here would clobber the blueprint or project.md."""
+    if doc_type.value not in DOC_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{doc_type.value} is not a document type. Use one of: {', '.join(DOC_ORDER)}",
+        )
+
+
+def _doc_label(doc_type: AssetType) -> str:
+    return doc_type.value.replace("_", " ").title()
+
+
+def _doc_payload(asset: ProjectAsset, **extra: Any) -> dict:
+    """Serialise a doc asset for the frontend. Built by hand (not
+    from_attributes) so the computed has_enhancement flag is included."""
+    return {
+        "id": str(asset.id),
+        "asset_type": asset.asset_type,
+        "content": asset.content or "",
+        "status": asset.status,
+        "r2_path": asset.r2_path,
+        "chat_history": asset.chat_history or [],
+        "analysis_result": asset.analysis_result,
+        "has_enhancement": bool(asset.enhanced_content),
+        **extra,
+    }
+
+
+def _idea_context(idea: ProjectIdea) -> dict:
+    report = idea.validation_report
+    return {
+        "idea": idea.raw_input,
+        "refined_description": idea.refined_description,
+        "validation": {
+            "market_feasibility": report.market_feasibility,
+            "core_features": report.core_features,
+            "tech_stack": report.tech_stack,
+            "pricing_model": report.pricing_model,
+            "improvements": report.improvements,
+        }
+        if report
+        else None,
+    }
+
+
+def _previous_docs(db: Session, idea_id: str, doc_type: AssetType) -> dict:
+    """Content of every doc that comes before doc_type in DOC_ORDER."""
+    docs = {}
+    for prev_type in DOC_ORDER[: ai_service.get_doc_index(doc_type.value)]:
+        prev_asset = crud_project_idea.project_idea.get_asset(
+            db, idea_id=idea_id, asset_type=prev_type
+        )
+        if prev_asset and prev_asset.content:
+            docs[prev_type] = prev_asset.content
+    return docs
+
+
+def _blueprint_context(db: Session, idea_id: str) -> Optional[dict]:
+    """User flow + kanban from the blueprint step, or None if there is
+    neither. Each half is optional on its own - the old inline code did
+    `context["blueprint"]["kanban"] = ...` when only the kanban existed,
+    which raised KeyError and 500'd the questions route."""
+    blueprint = {}
+    flow_asset = crud_project_idea.project_idea.get_asset(
+        db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_USER_FLOW
+    )
+    if flow_asset and flow_asset.content:
+        blueprint["user_flow"] = flow_asset.content
+
+    kanban_asset = crud_project_idea.project_idea.get_asset(
+        db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_KANBAN
+    )
+    if kanban_asset and kanban_asset.content:
+        try:
+            blueprint["kanban"] = _parse_asset_json(
+                kanban_asset.content, asset_id=kanban_asset.id
+            )
+        except AssetParseError:
+            blueprint["kanban"] = []
+
+    return blueprint or None
+
+
+async def _store_r2(key: Optional[str], content: str) -> None:
+    """Mirror doc content to R2. The DB row is the source of truth, so an
+    R2 outage must not fail a request whose (paid) AI call already
+    succeeded."""
+    if not key:
+        return
+    try:
+        await storage_service.upload_content(key, content)
+    except Exception:
+        logger.exception("Failed to mirror document to R2 at %s", key)
+
+
+async def _mirror_to_google_doc(
+    db: Session, idea: ProjectIdea, doc_type: AssetType, content: str, r2_key: str, user_email: str
+) -> None:
+    """Best-effort Google Docs copy of a generated doc.
+
+    Document.r2_path is UNIQUE and the R2 key is the same on every
+    regeneration, so the old code's blind INSERT failed with an
+    IntegrityError the second time a doc was generated. That error was
+    swallowed but the session was left needing a rollback, so the next
+    db.commit() in the route raised and the whole request 500'd - after
+    the doc had already been saved. Now the existing row is updated, and
+    all DB work runs in a SAVEPOINT so a failure can't poison the session.
+    """
+    from app.services.document_service import document_service
+    from app.models.document import Document
+
+    if not document_service.drive_service:
+        return  # Google Drive isn't configured on this server - nothing to mirror.
+
+    title = f"{idea.name if getattr(idea, 'name', None) else 'Project'} - {_doc_label(doc_type)}"
+    try:
+        drive_file_id = await document_service.create_google_doc(title, content, user_email=user_email)
+    except Exception:
+        logger.exception("Failed to create Google Doc for %s", doc_type.value)
+        return
+
+    old_drive_file_id = None
+    try:
+        with db.begin_nested():
+            existing = db.query(Document).filter(Document.r2_path == r2_key).first()
+            if existing:
+                old_drive_file_id = existing.drive_file_id
+                existing.drive_file_id = drive_file_id
+                existing.title = title
+            else:
+                db.add(
+                    Document(
+                        project_id=idea.project_id,
+                        idea_id=idea.id,
+                        drive_file_id=drive_file_id,
+                        r2_path=r2_key,
+                        title=title,
+                    )
+                )
+        db.commit()
+    except Exception:
+        logger.exception("Failed to record Google Doc for %s", doc_type.value)
+        try:
+            await document_service.delete_google_doc(drive_file_id)
+        except Exception:
+            logger.exception("Failed to clean up orphaned Google Doc %s", drive_file_id)
+        return
+
+    if old_drive_file_id and old_drive_file_id != drive_file_id:
+        try:
+            await document_service.delete_google_doc(old_drive_file_id)
+        except Exception:
+            logger.exception("Failed to delete superseded Google Doc %s", old_drive_file_id)
+
+
+async def _refresh_project_md(db: Session, idea: ProjectIdea) -> None:
+    try:
+        project_id = str(idea.project_id) if idea.project_id else None
+        await project_md_service.save_project_md(db, str(idea.id), project_id)
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to update project.md for idea %s", idea.id)
+
+
+def _get_doc_or_404(db: Session, idea_id: str, doc_type: AssetType) -> ProjectAsset:
+    asset = crud_project_idea.project_idea.get_asset(db, idea_id=idea_id, asset_type=doc_type)
+    if not asset or not asset.content:
+        raise HTTPException(status_code=404, detail=f"{_doc_label(doc_type)} has not been created yet")
+    return asset
+
+
+@router.post("/idea/{idea_id}/doc/upload", response_model=schemas.DocUploadResponse)
 @limiter.limit("20/hour")
 async def upload_document(
     request: Request,
@@ -51,49 +235,51 @@ async def upload_document(
     current_user: User = Depends(deps.get_current_active_user),
 ):
     """
-    Manual Upload - Uploads a .md or .docx file and saves it as an asset.
+    Manual Upload - Uploads a .md, .txt or .docx file and saves it as an asset.
     Also analyzes document quality and notifies user if improvements are needed.
     """
-    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+    _require_doc_type(doc_type)
 
+    filename = (file.filename or "").lower()
+    if not filename.endswith(UPLOAD_EXTENSIONS):
+        raise HTTPException(
+            status_code=400, detail="Only .md, .txt and .docx files are supported"
+        )
 
-    content = ""
-    filename = file.filename.lower() if file.filename else ""
-
-    # Validate file size before reading
     file_size = 0
-    chunk_size = 8192
     chunks = []
     while True:
-        chunk = await file.read(chunk_size)
+        chunk = await file.read(8192)
         if not chunk:
             break
         file_size += len(chunk)
-        if file_size > MAX_FILE_SIZE:
+        if file_size > MAX_UPLOAD_BYTES:
             raise HTTPException(
                 status_code=400, detail="File too large. Maximum size is 10 MB."
             )
         chunks.append(chunk)
+    raw = b"".join(chunks)
 
-    if filename.endswith(".md"):
-        content = b"".join(chunks).decode("utf-8")
-    elif filename.endswith(".docx"):
-        import io
-        file.file = io.BytesIO(b"".join(chunks))
-        result = mammoth.convert_to_markdown(file.file)
-        content = result.value
+    if filename.endswith(".docx"):
+        try:
+            content = mammoth.convert_to_markdown(io.BytesIO(raw)).value
+        except Exception:
+            logger.exception("Could not read uploaded .docx for idea %s", idea_id)
+            raise HTTPException(status_code=400, detail="Could not read that .docx file. Is it a valid Word document?")
     else:
-        raise HTTPException(
-            status_code=400, detail="Only .md and .docx files supported"
-        )
+        try:
+            content = raw.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            raise HTTPException(status_code=400, detail="Text files must be UTF-8 encoded.")
 
     if not content.strip():
         raise HTTPException(
             status_code=400, detail="Uploaded file is empty."
         )
 
-    r2_key = f"projects/{idea_id}/docs/{doc_type.value}_manual_{filename}.md"
-    await storage_service.upload_content(r2_key, content)
+    safe_name = re.sub(r"[^a-z0-9._-]+", "_", filename)[:80] or "upload"
+    r2_key = f"projects/{idea_id}/docs/{doc_type.value}_manual_{safe_name}.md"
+    await _store_r2(r2_key, content)
 
     analysis_result = None
     try:
@@ -110,17 +296,6 @@ async def upload_document(
         analysis_result = await doc_analyzer_service.analyze_document(
             doc_type.value, content, project_context
         )
-
-        if analysis_result.get("severity") in ["critical", "warning"]:
-            notification_service.notify_user(
-                db,
-                recipient_id=current_user.id,
-                type=NotificationType.AI_DOC_GENERATED,
-                title=f"Document Review: {doc_type.value}",
-                content=analysis_result.get("summary", "Document needs review"),
-                target_id=idea_id,
-                target_type="ai_idea",
-            )
     except Exception:
         logger.exception(f"Document analysis failed for {doc_type.value}")
 
@@ -132,18 +307,33 @@ async def upload_document(
         status=AssetStatus.COMPLETED,
         r2_path=r2_key,
     )
+    asset.analysis_result = analysis_result
+    asset.enhanced_content = None
+    db.commit()
+    db.refresh(asset)
 
-    if analysis_result:
-        asset.analysis_result = analysis_result
-        db.commit()
+    if analysis_result and analysis_result.get("severity") in ["critical", "warning"]:
+        try:
+            notification_service.notify_user(
+                db,
+                recipient_id=current_user.id,
+                type=NotificationType.AI_DOC_GENERATED,
+                title=f"Document Review: {_doc_label(doc_type)}",
+                content=analysis_result.get("summary", "Document needs review"),
+                target_id=idea_id,
+                target_type="ai_idea",
+            )
+        except Exception:
+            db.rollback()
+            logger.exception("Failed to send document review notification")
 
-    return {
-        **schemas.DocResponse.from_orm(asset).dict(),
-        "analysis": analysis_result,
-    }
+    await _refresh_project_md(db, idea)
+    db.refresh(asset)
+
+    return _doc_payload(asset, analysis=analysis_result)
 
 
-@router.get("/idea/{idea_id}/doc/{doc_type}/questions")
+@router.get("/idea/{idea_id}/doc/{doc_type}/questions", response_model=schemas.DocQuestionsResponse)
 @limiter.limit("20/hour")
 async def get_doc_questions(
     request: Request,
@@ -158,59 +348,16 @@ async def get_doc_questions(
     Returns empty if no questions are needed.
     Includes AI suggestions for skipping questions.
     """
+    _require_doc_type(doc_type)
 
-    # Build project context
-    project_context = {
-        "idea": idea.raw_input,
-        "refined_description": idea.refined_description,
-        "validation": {
-            "market_feasibility": idea.validation_report.market_feasibility,
-            "core_features": idea.validation_report.core_features,
-            "tech_stack": idea.validation_report.tech_stack,
-            "pricing_model": idea.validation_report.pricing_model,
-            "improvements": idea.validation_report.improvements,
-        }
-        if idea.validation_report
-        else None,
-    }
+    project_context = _idea_context(idea)
+    blueprint = _blueprint_context(db, idea_id)
+    if blueprint:
+        project_context["blueprint"] = blueprint
 
-    # Get previous docs
-    doc_index = ai_service.get_doc_index(doc_type.value)
-    previous_docs = {}
-
-    if doc_index > 0:
-        for i in range(doc_index):
-            prev_type = DOC_ORDER[i]
-            prev_asset = crud_project_idea.project_idea.get_asset(
-                db, idea_id=idea_id, asset_type=prev_type
-            )
-            if prev_asset and prev_asset.content:
-                previous_docs[prev_type] = prev_asset.content
-
-    # Also include blueprint context
-    if doc_index > 0:
-        blueprint_asset = crud_project_idea.project_idea.get_asset(
-            db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_USER_FLOW
-        )
-        kanban_asset = crud_project_idea.project_idea.get_asset(
-            db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_KANBAN
-        )
-        if blueprint_asset:
-            project_context["blueprint"] = {"user_flow": blueprint_asset.content}
-        if kanban_asset:
-            try:
-                project_context["blueprint"]["kanban"] = _parse_asset_json(
-                    kanban_asset.content or "[]", asset_id=kanban_asset.id
-                )
-            except AssetParseError:
-                project_context["blueprint"]["kanban"] = []
-
-    # Generate questions
-    questions = await ai_service.generate_doc_questions(
-        doc_type.value, project_context, previous_docs
+    return await ai_service.generate_doc_questions(
+        doc_type.value, project_context, _previous_docs(db, idea_id, doc_type)
     )
-
-    return questions
 
 
 @router.post("/idea/{idea_id}/doc/{doc_type}", response_model=schemas.DocResponse)
@@ -219,7 +366,7 @@ async def generate_document(
     request: Request,
     idea_id: str,
     doc_type: AssetType,
-    answers: Optional[List[Dict[str, str]]] = None,
+    payload: Optional[Union[schemas.DocGenerateRequest, List[schemas.DocAnswer]]] = Body(default=None),
     idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
@@ -227,10 +374,22 @@ async def generate_document(
     """
     Phase 4: Generate Doc - Generates a document with optional user answers.
     Checks if previous docs are completed before proceeding.
-    Answers are from the question flow that users answered (or skipped with AI suggestions).
-    """
 
-    # Check dependencies - previous doc must be completed
+    Body: `{"answers": [{"question": ..., "answer": ...}]}`, `{}`, or no
+    body. A bare list of answers is accepted too, for older clients. The
+    previous signature declared a bare `List[Dict]` body while the
+    frontend sent `{"answers": [...]}`, so every generation 422'd.
+    """
+    _require_doc_type(doc_type)
+
+    if isinstance(payload, list):
+        answer_models = payload
+    elif payload is not None:
+        answer_models = payload.answers or []
+    else:
+        answer_models = []
+    answers = [a.model_dump() for a in answer_models]
+
     doc_index = ai_service.get_doc_index(doc_type.value)
     if doc_index > 0:
         prev_type = DOC_ORDER[doc_index - 1]
@@ -239,78 +398,30 @@ async def generate_document(
         )
         if not prev_asset or prev_asset.status != AssetStatus.COMPLETED:
             raise HTTPException(
-                status_code=400, detail=f"Please complete {prev_type} document first"
+                status_code=400,
+                detail=f"Create the {prev_type.replace('_', ' ').title()} document first - documents build on each other in order.",
             )
 
-    # Construct context from all previous steps
-    context = {
-        "idea": idea.raw_input,
-        "refined_description": idea.refined_description,
-        "validation": {
-            "market_feasibility": idea.validation_report.market_feasibility,
-            "core_features": idea.validation_report.core_features,
-            "tech_stack": idea.validation_report.tech_stack,
-            "pricing_model": idea.validation_report.pricing_model,
-            "improvements": idea.validation_report.improvements,
-        }
-        if idea.validation_report
-        else None,
-    }
+    context = _idea_context(idea)
+    blueprint = _blueprint_context(db, idea_id)
+    if blueprint:
+        context["blueprint"] = blueprint
 
-    # Get previous docs
-    previous_docs = {}
-    for i in range(doc_index):
-        prev_type = DOC_ORDER[i]
-        prev_asset = crud_project_idea.project_idea.get_asset(
-            db, idea_id=idea_id, asset_type=prev_type
-        )
-        if prev_asset and prev_asset.content:
-            previous_docs[prev_type] = prev_asset.content
-
-    # Also include blueprint context
-    blueprint_asset = crud_project_idea.project_idea.get_asset(
-        db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_USER_FLOW
-    )
-    kanban_asset = crud_project_idea.project_idea.get_asset(
-        db, idea_id=idea_id, asset_type=AssetType.DIAGRAM_KANBAN
-    )
-    if blueprint_asset:
-        context["blueprint"] = {"user_flow": blueprint_asset.content}
-        if kanban_asset:
-            try:
-                context["blueprint"]["kanban"] = _parse_asset_json(
-                    kanban_asset.content or "[]", asset_id=kanban_asset.id
-                )
-            except AssetParseError:
-                context["blueprint"]["kanban"] = []
-
-    # Get chat history from existing asset
-    chat_history = []
     existing_asset = crud_project_idea.project_idea.get_asset(
-        db, idea_id=idea_id, asset_type=doc_type.value
+        db, idea_id=idea_id, asset_type=doc_type
     )
-    if existing_asset and existing_asset.chat_history:
-        chat_history = existing_asset.chat_history
-
-    # Build answers text for AI context
-    answers_text = ""
-    if answers:
-        answers_text = "\n\n=== User Provided Answers ===\n"
-        for ans in answers:
-            if ans.get("question"):
-                answers_text += f"Q: {ans['question']}\nA: {ans.get('answer', ans.get('suggestion', ''))}\n"
-
-    # Add answers to chat history for context
-    if answers:
-        chat_history.append({"role": "user", "content": answers_text})
+    # Earlier edit requests for this doc steer a regeneration. Answers are
+    # passed separately and are NOT folded into chat_history - the old code
+    # appended them on every generation, so they piled up and were sent to
+    # the model twice.
+    chat_history = list(existing_asset.chat_history or []) if existing_asset else []
 
     content = await ai_service.generate_doc(
-        doc_type.value, context, chat_history, previous_docs, answers
+        doc_type.value, context, chat_history, _previous_docs(db, idea_id, doc_type), answers
     )
 
-    # 1. Standard R2 Asset (Legacy/Fallback)
     r2_key = f"projects/{idea_id}/docs/{doc_type.value}.md"
-    await storage_service.upload_content(r2_key, content)
+    await _store_r2(r2_key, content)
 
     asset = crud_project_idea.project_idea.create_or_update_asset(
         db=db,
@@ -320,50 +431,31 @@ async def generate_document(
         status=AssetStatus.COMPLETED,
         r2_path=r2_key,
     )
+    # A freshly generated doc replaces any uploaded one, so its review and
+    # pending enhancement no longer apply.
+    asset.analysis_result = None
+    asset.enhanced_content = None
+    db.commit()
 
-    # 2. Dual-Source: Google Doc creation
+    await _mirror_to_google_doc(db, idea, doc_type, content, r2_key, current_user.email)
+    await _refresh_project_md(db, idea)
+
     try:
-        from app.services.document_service import document_service
-        from app.models.document import Document
-
-        title = f"{idea.name or 'Project'} - {doc_type.value.replace('_', ' ').title()}"
-        drive_file_id = await document_service.create_google_doc(title, content, user_email=current_user.email)
-
-        db_doc = Document(
-            project_id=idea.project_id,
-            idea_id=idea.id,
-            drive_file_id=drive_file_id,
-            r2_path=r2_key,
-            title=title
+        notification_service.notify_user(
+            db,
+            recipient_id=current_user.id,
+            type=NotificationType.AI_DOC_GENERATED,
+            title=f"{_doc_label(doc_type)} Generated",
+            content=f"The {_doc_label(doc_type)} for your project has been generated successfully.",
+            target_id=str(idea.id),
+            target_type="ai_idea",
         )
-        db.add(db_doc)
-        db.flush()
     except Exception:
-        logger.exception("Failed to create Google Doc")
-        # Don't fail the whole request if Drive fails
-    # Update chat history
-    if chat_history:
-        asset.chat_history = chat_history
-        db.commit()
+        db.rollback()
+        logger.exception("Failed to send doc generated notification")
 
-    try:
-        project_id = str(idea.project_id) if idea.project_id else None
-        await project_md_service.save_project_md(db, idea_id, project_id)
-    except Exception:
-        logger.exception("Failed to update project.md after doc generation")
-
-    # Notify user
-    notification_service.notify_user(
-        db,
-        recipient_id=current_user.id,
-        type=NotificationType.AI_DOC_GENERATED,
-        title=f"{doc_type.value.replace('_', ' ')} Generated",
-        content=f"The {doc_type.value} for your project has been generated successfully.",
-        target_id=str(idea.id),
-        target_type="ai_idea",
-    )
-
-    return asset
+    db.refresh(asset)
+    return _doc_payload(asset)
 
 
 @router.post("/idea/{idea_id}/doc/{doc_type}/chat", response_model=schemas.DocResponse)
@@ -381,54 +473,45 @@ async def chat_document(
     Phase 4: Chat about Doc - Regenerates/Edits doc based on user feedback.
     Each doc has its own chat session.
     """
+    _require_doc_type(doc_type)
+    asset = _get_doc_or_404(db, idea_id, doc_type)
 
-    asset = crud_project_idea.project_idea.get_asset(
-        db=db, idea_id=idea_id, asset_type=doc_type
-    )
-    if not asset:
-        raise HTTPException(status_code=404, detail="Doc not found")
-
-    # Get chat history
-    chat_history = asset.chat_history or []
-    chat_history.append({"role": "user", "content": chat_req.message})
-
-    context = {
-        "idea": idea.raw_input,
-        "refined_description": idea.refined_description,
-        "validation": {
-            "market_feasibility": idea.validation_report.market_feasibility,
-            "core_features": idea.validation_report.core_features,
-            "tech_stack": idea.validation_report.tech_stack,
-            "pricing_model": idea.validation_report.pricing_model,
-            "improvements": idea.validation_report.improvements,
-        }
-        if idea.validation_report
-        else None,
-    }
-
+    previous_history = list(asset.chat_history or [])
     updated_content = await ai_service.chat_about_doc(
-        doc_type.value, asset.content, chat_req.message, context, chat_history
+        doc_type.value,
+        asset.content,
+        chat_req.message,
+        _idea_context(idea),
+        previous_history + [{"role": "user", "content": chat_req.message}],
     )
 
-    # Update R2
-    await storage_service.upload_content(asset.r2_path, updated_content)
+    await _store_r2(asset.r2_path, updated_content)
 
     asset.content = updated_content
-    asset.chat_history = chat_history
+    # Assign a NEW list: chat_history is a plain JSON column, so mutating
+    # the loaded list in place is not reliably detected as a change.
+    asset.chat_history = (
+        previous_history
+        + [
+            {"role": "user", "content": chat_req.message},
+            {"role": "assistant", "content": "Updated the document."},
+        ]
+    )[-40:]
     db.commit()
     db.refresh(asset)
 
-    return asset
+    await _refresh_project_md(db, idea)
+    db.refresh(asset)
+    return _doc_payload(asset)
 
 
-@router.post("/idea/{idea_id}/doc/{doc_type}/regenerate-section")
+@router.post("/idea/{idea_id}/doc/{doc_type}/regenerate-section", response_model=schemas.DocResponse)
 @limiter.limit("20/hour")
 async def regenerate_doc_section(
     request: Request,
     idea_id: str,
     doc_type: AssetType,
-    section_content: str,
-    user_message: str,
+    section_req: schemas.RegenerateSectionRequest,
     idea: ProjectIdea = Depends(deps.get_owned_idea),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
@@ -436,40 +519,31 @@ async def regenerate_doc_section(
     """
     Phase 4: Regenerate a specific section of a document.
     User can select text and ask AI to regenerate a better version.
+
+    Takes a JSON body (`section_content`, `user_message`). These used to be
+    bare `str` params, which FastAPI reads from the query string, while the
+    frontend sent a JSON body - so every call 422'd.
     """
-
-    asset = crud_project_idea.project_idea.get_asset(
-        db=db, idea_id=idea_id, asset_type=doc_type
-    )
-    if not asset:
-        raise HTTPException(status_code=404, detail="Doc not found")
-
-    context = {
-        "idea": idea.raw_input,
-        "refined_description": idea.refined_description,
-        "validation": {
-            "market_feasibility": idea.validation_report.market_feasibility,
-            "core_features": idea.validation_report.core_features,
-            "tech_stack": idea.validation_report.tech_stack,
-            "pricing_model": idea.validation_report.pricing_model,
-            "improvements": idea.validation_report.improvements,
-        }
-        if idea.validation_report
-        else None,
-    }
+    _require_doc_type(doc_type)
+    asset = _get_doc_or_404(db, idea_id, doc_type)
 
     updated_content = await ai_service.regenerate_doc_section(
-        doc_type.value, asset.content, section_content, user_message, context
+        doc_type.value,
+        asset.content,
+        section_req.section_content,
+        section_req.user_message,
+        _idea_context(idea),
     )
 
-    # Update R2
-    await storage_service.upload_content(asset.r2_path, updated_content)
+    await _store_r2(asset.r2_path, updated_content)
 
     asset.content = updated_content
     db.commit()
     db.refresh(asset)
 
-    return asset
+    await _refresh_project_md(db, idea)
+    db.refresh(asset)
+    return _doc_payload(asset)
 
 
 @router.get("/idea/{idea_id}/doc/{doc_type}/download")
@@ -484,32 +558,37 @@ async def download_doc_as_docx(
     Downloads a document as a .docx file.
     Converts Markdown content to HTML, then to Docx in memory.
     """
+    _require_doc_type(doc_type)
+    asset = _get_doc_or_404(db, idea_id, doc_type)
 
-    asset = crud_project_idea.project_idea.get_asset(
-        db=db, idea_id=idea_id, asset_type=doc_type
+    # tables / fenced_code: generated docs lean on both, and without the
+    # extensions they came out of the .docx as raw pipes and backticks.
+    html_content = markdown.markdown(
+        asset.content, extensions=["tables", "fenced_code", "sane_lists"]
     )
-    if not asset or not asset.content:
-        raise HTTPException(status_code=404, detail="Document not found")
-
-    # Convert Markdown to HTML
-    html_content = markdown.markdown(asset.content)
-
-    # Wrap in basic HTML structure for better conversion
     full_html = f"<html><body>{html_content}</body></html>"
 
     # Strip any <img src="..."> that would make html2docx fetch an
     # external URL server-side (SSRF) - see _strip_unsafe_images.
     full_html = _strip_unsafe_images(full_html)
 
-    # Convert HTML to Docx in memory
-    docx_io = html2docx(full_html, title=doc_type.value)
+    try:
+        docx_io = html2docx(full_html, title=_doc_label(doc_type))
+    except Exception:
+        logger.exception("DOCX conversion failed for %s", doc_type.value)
+        raise HTTPException(
+            status_code=500,
+            detail="Could not convert this document to .docx. Use Copy Markdown instead.",
+        )
     docx_io.seek(0)
 
-    filename = f"{doc_type.value.replace('_', ' ')}.docx"
+    filename = f"{_doc_label(doc_type).replace(' ', '_')}.docx"
     return StreamingResponse(
         docx_io,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
+        headers={
+            "Content-Disposition": f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
+        },
     )
 
 
@@ -579,7 +658,15 @@ async def get_document_analysis(
             status_code=404, detail="No analysis available for this document"
         )
 
-    return asset.analysis_result
+    result = dict(asset.analysis_result)
+    if asset.enhanced_content:
+        result["enhanced_content"] = asset.enhanced_content
+        result["preview"] = (
+            asset.enhanced_content[:500] + "..."
+            if len(asset.enhanced_content) > 500
+            else asset.enhanced_content
+        )
+    return result
 
 
 @router.post("/idea/{idea_id}/doc/{doc_type}/enhance")
@@ -625,22 +712,24 @@ async def generate_document_enhancement(
         enhanced_content = await doc_analyzer_service.generate_enhanced_content(
             doc_type.value, asset.content, asset.analysis_result, project_context
         )
-
-        asset.enhanced_content = enhanced_content
-        db.commit()
-
-        return {
-            "success": True,
-            "enhanced_content": enhanced_content,
-            "preview": enhanced_content[:500] + "..."
-            if len(enhanced_content) > 500
-            else enhanced_content,
-        }
+    except HTTPException:
+        raise  # 502/503 from the AI layer already carry a clear message
     except Exception as e:
         logger.exception(f"Failed to generate enhancement for idea {idea_id}")
         raise HTTPException(
-            status_code=500, detail=f"Failed to generate enhancement: {str(e)}"
-        )
+            status_code=502, detail="The AI failed to generate an enhanced version. Please try again."
+        ) from e
+
+    asset.enhanced_content = enhanced_content
+    db.commit()
+
+    return {
+        "success": True,
+        "enhanced_content": enhanced_content,
+        "preview": enhanced_content[:500] + "..."
+        if len(enhanced_content) > 500
+        else enhanced_content,
+    }
 
 
 @router.post("/idea/{idea_id}/doc/{doc_type}/accept-enhancement")
@@ -667,19 +756,18 @@ async def accept_document_enhancement(
     asset.content = asset.enhanced_content
     asset.enhanced_content = None
     asset.analysis_result = None
-
-    if asset.r2_path:
-        await storage_service.upload_content(asset.r2_path, asset.content)
-
     db.commit()
+    db.refresh(asset)
 
-    try:
-        project_id = str(idea.project_id) if idea.project_id else None
-        await project_md_service.save_project_md(db, idea_id, project_id)
-    except Exception:
-        logger.exception(f"Failed to update project.md after enhancement for idea {idea_id}")
+    await _store_r2(asset.r2_path, asset.content)
+    await _refresh_project_md(db, idea)
+    db.refresh(asset)
 
-    return {"success": True, "message": "Enhancement accepted and applied"}
+    return {
+        "success": True,
+        "message": "Enhancement accepted and applied",
+        "doc": _doc_payload(asset),
+    }
 
 
 @router.post("/idea/{idea_id}/doc/{doc_type}/decline-enhancement")

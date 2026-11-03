@@ -96,8 +96,12 @@ export interface Doc {
   asset_type: string;
   content: string;
   status: string;
-  r2_path?: string;
+  r2_path?: string | null;
   chat_history?: Array<{ role: string; content: string }>;
+  /** Quality review of an uploaded doc, kept server-side so it survives a reload. */
+  analysis_result?: DocAnalysis | null;
+  /** True when an AI-enhanced version is waiting to be accepted or declined. */
+  has_enhancement?: boolean;
 }
 
 export interface DocQuestion {
@@ -167,7 +171,7 @@ export const aiService = {
     api.get<{ has_questions: boolean; questions: DocQuestion[] }>(`/ai/idea/${ideaId}/doc/${docType}/questions`),
 
   generateDoc: (ideaId: string, docType: string, answers?: Array<{ question: string; answer: string }>) =>
-    api.post<Doc>(`/ai/idea/${ideaId}/doc/${docType}`, { answers }),
+    api.post<Doc>(`/ai/idea/${ideaId}/doc/${docType}`, { answers: answers ?? [] }),
 
   downloadDoc: (ideaId: string, docType: string) =>
     api.get(`/ai/idea/${ideaId}/doc/${docType}/download`, { responseType: 'blob' }),
@@ -175,7 +179,8 @@ export const aiService = {
   uploadDoc: (ideaId: string, docType: string, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return api.post(`/ai/idea/${ideaId}/doc/upload?doc_type=${docType}`, formData, {
+    return api.post<Doc & { analysis?: DocAnalysis | null }>(`/ai/idea/${ideaId}/doc/upload`, formData, {
+      params: { doc_type: docType },
       headers: { 'Content-Type': 'multipart/form-data' }
     });
   },
@@ -244,7 +249,7 @@ export const aiService = {
     api.post<{ success: boolean; enhanced_content: string; preview: string }>(`/ai/idea/${ideaId}/doc/${docType}/enhance`),
 
   acceptDocEnhancement: (ideaId: string, docType: string) =>
-    api.post<{ success: boolean; message: string }>(`/ai/idea/${ideaId}/doc/${docType}/accept-enhancement`),
+    api.post<{ success: boolean; message: string; doc?: Doc }>(`/ai/idea/${ideaId}/doc/${docType}/accept-enhancement`),
 
   declineDocEnhancement: (ideaId: string, docType: string) =>
     api.post<{ success: boolean; message: string }>(`/ai/idea/${ideaId}/doc/${docType}/decline-enhancement`),
@@ -278,7 +283,11 @@ export const aiService = {
 
 export interface DocAnalysis {
   is_valid: boolean;
-  quality_score: number;
+  /** null when the AI review could not run (see analysis_available). */
+  quality_score: number | null;
+  analysis_available?: boolean;
+  enhanced_content?: string;
+  preview?: string;
   detected_sections: string[];
   missing_sections: string[];
   issues: string[];

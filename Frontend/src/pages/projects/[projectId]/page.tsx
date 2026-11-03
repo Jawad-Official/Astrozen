@@ -64,6 +64,13 @@ const ProjectDetailPage = () => {
   const initialTab = searchParams.get('tab') || 'overview';
   
   const [activeTab, setActiveTab] = useState(initialTab);
+  // Once opened, the Plans tab stays mounted (just hidden), so an AI request
+  // started there keeps its progress and result while the user works in
+  // another tab.
+  const [plansMounted, setPlansMounted] = useState(initialTab === 'plans');
+  useEffect(() => {
+    if (activeTab === 'plans') setPlansMounted(true);
+  }, [activeTab]);
   const [updateContent, setUpdateContent] = useState('');
   const [selectedHealth, setSelectedHealth] = useState<ProjectHealth>('on_track');
   const [showSidebar, setShowSidebar] = useState(true);
@@ -468,11 +475,13 @@ const ProjectDetailPage = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto bg-background">
-          {activeTab === 'plans' && (
-            <PlansTab 
-              projectId={project.id} 
-              initialIdeaId={searchParams.get('ideaId') || undefined} 
-            />
+          {plansMounted && (
+            <div className={activeTab === 'plans' ? 'contents' : 'hidden'}>
+              <PlansTab
+                projectId={project.id}
+                initialIdeaId={searchParams.get('ideaId') || undefined}
+              />
+            </div>
           )}
           {activeTab === 'overview' && (
             <ProjectOverviewTab

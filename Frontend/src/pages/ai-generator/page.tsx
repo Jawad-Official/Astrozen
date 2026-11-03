@@ -79,7 +79,6 @@ export default function AIGeneratorPage() {
     documents,
     activeDocumentId,
     isGenerating,
-    generationMessage,
     submitIdea,
     answerQuestion,
     validateIdea,
@@ -147,26 +146,7 @@ export default function AIGeneratorPage() {
         </div>
       </div>
 
-      {/* Non-blocking Progress Indicator */}
-      <AnimatePresence>
-        {isGenerating && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-6 right-6 z-50 flex items-center gap-4 p-4 pr-6 bg-background/80 backdrop-blur-md border border-primary/20 rounded-2xl shadow-2xl shadow-primary/10 ring-1 ring-white/5"
-          >
-            <div className="relative">
-              <div className="absolute inset-0 bg-primary/20 rounded-full blur-md animate-pulse" />
-              <ArrowClockwise className="animate-spin text-primary relative z-10" size={24} weight="bold" />
-            </div>
-            <div className="space-y-0.5">
-              <p className="text-sm font-bold text-primary">AI is working...</p>
-              <p className="text-xs text-muted-foreground">{generationMessage}</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Progress shows in the app-wide AIActivityIndicator (see store/aiStore.ts). */}
 
       <div className="flex-1 overflow-y-auto max-w-7xl mx-auto w-full space-y-8 pb-24">
         
