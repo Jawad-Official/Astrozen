@@ -54,7 +54,7 @@ describe('DocumentationSection', () => {
 
   it('shows progress on the busy card and blocks other actions', () => {
     renderSection([], { busyDocType: 'PRD' });
-    expect(screen.getByText(/Working on it/i)).toBeInTheDocument();
+    expect(screen.getByText(/Reading earlier documents/i)).toBeInTheDocument();
     const uploads = screen.getAllByRole('button', { name: /upload/i });
     expect(uploads.every((b) => (b as HTMLButtonElement).disabled)).toBe(true);
   });

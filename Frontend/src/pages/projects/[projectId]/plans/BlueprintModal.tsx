@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { aiService } from '@/services/ai.service';
+import { trackAI } from '@/store/aiActivityStore';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -261,7 +262,7 @@ export const BlueprintModal = ({
                       if (!ideaId || !selectedNode) return;
                       setGeneratingIssues(true);
                       try {
-                        const response = await aiService.generateIssuesForNode(ideaId, selectedNode.id);
+                        const response = await trackAI(`Generating issues for ${selectedNode.label}`, () => aiService.generateIssuesForNode(ideaId, selectedNode.id));
                         toast.success(response.data?.message || 'Issues generated successfully!');
                         setTimeout(() => {
                           setBlueprintModalOpen(false);

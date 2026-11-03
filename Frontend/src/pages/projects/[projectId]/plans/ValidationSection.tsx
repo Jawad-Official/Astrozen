@@ -27,6 +27,7 @@ import { Badge } from '@/components/ui/badge';
 import { aiService } from '@/services/ai.service';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { trackAI } from '@/store/aiActivityStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Tooltip,
@@ -60,6 +61,7 @@ export const ValidationSection = ({
   revalidating,
   setRevalidating,
   handleGenerateBlueprint,
+  generatingBlueprint = false,
 }: {
   validationReport: ValidationReport | null;
   setValidationReport: Dispatch<SetStateAction<ValidationReport | null>>;
@@ -81,6 +83,7 @@ export const ValidationSection = ({
   revalidating: boolean;
   setRevalidating: Dispatch<SetStateAction<boolean>>;
   handleGenerateBlueprint: () => Promise<void>;
+  generatingBlueprint?: boolean;
 }) => {
   if (!validationReport) return null;
   const isAccepted = !!blueprint;
@@ -96,7 +99,16 @@ export const ValidationSection = ({
   ];
 
   return (
-    <div className="space-y-0">
+    <div className="space-y-0 relative" aria-busy={revalidating}>
+      {revalidating && (
+        <div role="status" className="mb-3 flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2.5">
+          <ArrowClockwise className="animate-spin text-primary shrink-0" size={16} />
+          <p className="text-xs font-medium text-foreground/80">
+            Re-validating with your changes. The report below updates when it finishes.
+          </p>
+        </div>
+      )}
+      <div className={cn('transition-opacity', revalidating && 'opacity-60')}>
       {/* Header with Score */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 sm:p-6 bg-gradient-to-r from-emerald-500/10 via-transparent to-blue-500/10 rounded-t-2xl border border-border border-b-0">
          <div className="flex items-center gap-4">
@@ -976,7 +988,9 @@ export const ValidationSection = ({
                         const count = selectedImprovementIndices.length;
                         setRevalidating(true);
                         try {
-                          const res = await aiService.acceptImprovementsAndRevalidate(ideaId, selectedImprovementIndices);
+                          const res = await trackAI('Applying improvements and re-validating', () =>
+                            aiService.acceptImprovementsAndRevalidate(ideaId, selectedImprovementIndices)
+                          );
                           setValidationReport(res.data);
                           setSelectedImprovementIndices([]);
                           setImprovementStatus({});
@@ -1050,11 +1064,24 @@ export const ValidationSection = ({
       {/* Action Buttons */}
       {!isAccepted && (
           <div className="flex justify-end pt-4">
-             <Button onClick={handleGenerateBlueprint} className="w-full sm:w-auto bg-white text-black hover:bg-white/90 font-bold h-11 px-6 shadow-lg">
-                Accept Analysis <ArrowRight className="ml-2" weight="bold" />
+             <Button
+               onClick={handleGenerateBlueprint}
+               disabled={generatingBlueprint || revalidating}
+               className="w-full sm:w-auto bg-foreground text-background hover:bg-foreground/90 font-bold h-11 px-6 shadow-lg"
+             >
+                {generatingBlueprint ? (
+                  <>
+                    <ArrowClockwise className="mr-2 animate-spin" weight="bold" /> Building blueprint…
+                  </>
+                ) : (
+                  <>
+                    Accept Analysis <ArrowRight className="ml-2" weight="bold" />
+                  </>
+                )}
              </Button>
           </div>
       )}
+      </div>
     </div>
   );
 };

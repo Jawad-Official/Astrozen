@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { aiService, DocumentMeta } from '@/services/ai.service';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/utils';
+import { useAIActivityStore } from './aiActivityStore';
 
 export type Phase = 'INPUT' | 'CLARIFICATION' | 'VALIDATION' | 'BLUEPRINT' | 'DOCUMENTATION';
 
@@ -373,3 +374,17 @@ export const useAIStore = create<AIStore>((set, get) => ({
     }
   }
 }));
+
+// Mirror this store's single "isGenerating" flag into the app-wide AI
+// activity indicator, so the AI generator page shows the same non-blocking
+// progress pill as the rest of the app.
+let generatorActivityId: number | null = null;
+useAIStore.subscribe((state) => {
+  const activity = useAIActivityStore.getState();
+  if (state.isGenerating && generatorActivityId === null) {
+    generatorActivityId = activity.start(state.generationMessage || 'AI is working');
+  } else if (!state.isGenerating && generatorActivityId !== null) {
+    activity.finish(generatorActivityId);
+    generatorActivityId = null;
+  }
+});

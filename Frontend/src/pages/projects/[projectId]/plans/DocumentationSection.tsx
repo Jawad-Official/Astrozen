@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { DOC_ORDER } from '@/services/ai.service';
 import { Doc, DocAnalysis } from './types';
 import { DOC_INFO } from './constants';
+import { DocCardPlaceholder } from './AIPlaceholders';
 
 /** Docs build on each other, and the backend refuses to generate one
  * before the previous doc exists - mirror that here instead of letting
@@ -136,9 +137,7 @@ export const DocumentationSection = ({
                 <p className="text-[11px] sm:text-xs text-muted-foreground/80 line-clamp-2 sm:line-clamp-none sm:min-h-[40px]">
                   {info.summary}
                 </p>
-                {busy && (
-                  <p className="text-[10px] mt-2 text-primary font-medium">Working on it. Long documents can take a minute.</p>
-                )}
+                {busy && <DocCardPlaceholder />}
                 {!busy && locked && prev && (
                   <p className="text-[10px] mt-2 text-muted-foreground font-medium">
                     Create {DOC_INFO[prev].label} first, or upload your own.

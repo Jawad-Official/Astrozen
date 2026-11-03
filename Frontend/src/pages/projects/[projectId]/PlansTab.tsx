@@ -27,6 +27,8 @@ import { BlueprintModal } from './plans/BlueprintModal';
 import { DocQuestionsDialog } from './plans/DocQuestionsDialog';
 import { DocumentAnalysisModal } from './plans/DocumentAnalysisModal';
 import { DocViewerDialog } from './plans/DocViewerDialog';
+import { PlansPageSkeleton, ValidationPlaceholder, BlueprintPlaceholder } from './plans/AIPlaceholders';
+import { trackAI } from '@/store/aiActivityStore';
 
 interface PlansTabProps {
   projectId: string;
@@ -46,7 +48,13 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
   const [docs, setDocs] = useState<Doc[]>([]);
   
   // UI State
-  const [loading, setLoading] = useState(false);
+  // Each AI action has its own flag, so one running request only locks its
+  // own button - the rest of the page stays usable.
+  const [initialLoading, setInitialLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [generatingBlueprint, setGeneratingBlueprint] = useState(false);
   const [revalidating, setRevalidating] = useState(false);
   const [validationTab, setValidationTab] = useState<'overview' | 'features' | 'techstack' | 'pricing' | 'improvements'>('overview');
   const [selectedImprovementIndices, setSelectedImprovementIndices] = useState<number[]>([]);
@@ -187,7 +195,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
     const loadMostRecentIdea = async () => {
       if (!initialIdeaId && !ideaId && projectId) {
         try {
-          setLoading(true);
+          setInitialLoading(true);
           const res = await aiService.getProjectIdeas(projectId);
           const ideas = res.data.ideas;
           if (ideas && ideas.length > 0) {
@@ -196,7 +204,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
         } catch {
           // Ignore error
         } finally {
-          setLoading(false);
+          setInitialLoading(false);
         }
       }
     };
@@ -205,7 +213,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
 
   const loadIdea = useCallback(async (id: string) => {
     if (!id) return;
-    setLoading(true);
+    setInitialLoading(true);
     try {
       const res = await aiService.getIdea(id);
       const data = res.data;
@@ -347,7 +355,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
     } catch {
       toast.error("Failed to load project plans");
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
     }
   }, []);
 
@@ -361,9 +369,9 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
       if (!projectId) toast.error("Project context missing");
       return;
     }
-    setLoading(true);
+    setSubmitting(true);
     try {
-      const res = await aiService.submitIdea(rawInput, projectId);
+      const res = await trackAI('Reading your idea', () => aiService.submitIdea(rawInput, projectId));
       setIdeaId(res.data.id);
       if (res.data.status === 'CLARIFICATION_NEEDED') {
         setQuestions(res.data.clarification_questions || []);
@@ -372,10 +380,10 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
         setPhase('VALIDATION');
         handleValidate(res.data.id);
       }
-    } catch {
-      toast.error("Failed to submit project description");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to submit project description"));
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -396,14 +404,14 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
 
   const handleSuggestAnswer = async () => {
     if (!ideaId) return;
-    setLoading(true);
+    setSuggesting(true);
     try {
-      const res = await aiService.suggestAnswer(ideaId, currentQuestionIndex);
+      const res = await trackAI('Suggesting an answer', () => aiService.suggestAnswer(ideaId, currentQuestionIndex));
       setAiSuggestion(res.data.suggestion);
-    } catch {
-      toast.error("AI couldn't suggest an answer");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "AI couldn't suggest an answer"));
     } finally {
-      setLoading(false);
+      setSuggesting(false);
     }
   };
 
@@ -416,32 +424,35 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
     } else {
-      setLoading(true);
+      setSubmitting(true);
       try {
         const answers = updatedQuestions.map(q => ({ question: q.question, answer: q.answer }));
-        await aiService.answerQuestions(ideaId!, answers);
+        await trackAI('Saving your answers', () => aiService.answerQuestions(ideaId!, answers));
         setPhase('VALIDATION');
         handleValidate(ideaId!);
-      } catch {
-        toast.error("Failed to save answers");
+      } catch (error) {
+        toast.error(getErrorMessage(error, "Failed to save answers"));
       } finally {
-        setLoading(false);
+        setSubmitting(false);
       }
     }
   };
 
   const handleValidate = async (id: string, feedback?: string) => {
     if (feedback) setRevalidating(true);
-    else setLoading(true);
+    else setValidating(true);
 
     try {
-      const res = await aiService.validateIdea(id, feedback);
+      const res = await trackAI(
+        feedback ? 'Re-running the validation' : 'Validating your idea',
+        () => aiService.validateIdea(id, feedback)
+      );
       setValidationReport(res.data);
-      if (feedback) toast.success("Analysis regenerated");
-    } catch {
-      toast.error("Validation failed");
+      toast.success(feedback ? "Analysis regenerated" : "Validation ready");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Validation failed"));
     } finally {
-      setLoading(false);
+      setValidating(false);
       setRevalidating(false);
     }
   };
@@ -458,10 +469,11 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
 
   // Blueprint Generation
   const handleGenerateBlueprint = async () => {
-    setLoading(true);
+    if (!ideaId || generatingBlueprint) return;
+    setGeneratingBlueprint(true);
     try {
-      if (validationReport) await aiService.updateValidationReport(ideaId!, validationReport);
-      const res = await aiService.generateBlueprint(ideaId!);
+      if (validationReport) await aiService.updateValidationReport(ideaId, validationReport);
+      const res = await trackAI('Building the visual blueprint', () => aiService.generateBlueprint(ideaId));
       
       // Ensure nodes are set
       let nodes = res.data.nodes || [];
@@ -475,10 +487,11 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
 
       setBlueprint({ ...res.data, nodes });
       setPhase('BLUEPRINT');
-    } catch {
-      toast.error("Blueprint generation failed");
+      toast.success("Blueprint ready");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Blueprint generation failed"));
     } finally {
-      setLoading(false);
+      setGeneratingBlueprint(false);
     }
   };
 
@@ -498,7 +511,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
 
     setBusyDocType(docType);
     try {
-      const res = await aiService.uploadDoc(ideaId, docType, file);
+      const res = await trackAI(`Reviewing your ${DOC_INFO[docType].label}`, () => aiService.uploadDoc(ideaId, docType, file));
       const { analysis, ...doc } = res.data;
       updateDocState(docType, doc);
       toast.success(`${DOC_INFO[docType].label} uploaded`);
@@ -531,7 +544,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
     const docType = analysisDocType;
     setEnhancingDoc(true);
     try {
-      const res = await aiService.generateDocEnhancement(ideaId, docType);
+      const res = await trackAI(`Enhancing ${DOC_INFO[docType]?.label ?? 'document'}`, () => aiService.generateDocEnhancement(ideaId, docType));
       setDocAnalysis(prev => ({
         ...prev,
         [docType]: {
@@ -606,7 +619,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
 
     let askedQuestions = false;
     try {
-      const questionsRes = await aiService.getDocQuestions(ideaId, type);
+      const questionsRes = await trackAI(`Preparing questions for ${DOC_INFO[type]?.label ?? type}`, () => aiService.getDocQuestions(ideaId, type));
       if (questionsRes.data.has_questions && questionsRes.data.questions.length > 0) {
         askedQuestions = true;
         setGeneratingDocType(type);
@@ -634,7 +647,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
     if (!ideaId) return;
     setBusyDocType(type);
     try {
-      const res = await aiService.generateDoc(ideaId, type, answers);
+      const res = await trackAI(`Writing ${DOC_INFO[type]?.label ?? type}`, () => aiService.generateDoc(ideaId, type, answers));
       updateDocState(type, res.data);
       setDocAnalysis(prev => {
         const next = { ...prev };
@@ -705,7 +718,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
     const type = viewerDocType;
     setViewerBusy('chat');
     try {
-      const res = await aiService.chatDoc(ideaId, type, message);
+      const res = await trackAI(`Updating ${DOC_INFO[type]?.label ?? type}`, () => aiService.chatDoc(ideaId, type, message));
       updateDocState(type, res.data);
       toast.success("Document updated");
       return true;
@@ -722,7 +735,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
     const type = viewerDocType;
     setViewerBusy('chat');
     try {
-      const res = await aiService.regenerateDocSection(ideaId, type, selection, message);
+      const res = await trackAI(`Rewriting a section of ${DOC_INFO[type]?.label ?? type}`, () => aiService.regenerateDocSection(ideaId, type, selection, message));
       updateDocState(type, res.data);
       toast.success("Section rewritten");
       return true;
@@ -756,7 +769,7 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
     if (!ideaId) return;
     setIsRegeneratingTech(field);
     try {
-      const res = await aiService.regenerateValidationField(ideaId, `tech_stack.${field}`, techFeedback[field] || '');
+      const res = await trackAI(`Regenerating ${field} stack`, () => aiService.regenerateValidationField(ideaId, `tech_stack.${field}`, techFeedback[field] || ''));
       // The backend returns the updated field value in the result or we might need to update the whole report
       // Based on common patterns, we update the local report state
       if (res.data && validationReport) {
@@ -766,8 +779,8 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
           handleValidationEdit(updatedReport);
           toast.success(`${field} tech stack updated`);
       }
-    } catch {
-      toast.error(`Failed to regenerate ${field}`);
+    } catch (error) {
+      toast.error(getErrorMessage(error, `Failed to regenerate ${field}`));
     } finally {
       setIsRegeneratingTech(null);
       setEditingTech(null);
@@ -789,8 +802,13 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
       <div className="flex-1">
         <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 md:p-8 space-y-8 sm:space-y-12 pb-20">
           
+          {initialLoading && !validationReport && !blueprint && <PlansPageSkeleton />}
+
+          {/* Validation running for the first time: show where the report will land */}
+          {!initialLoading && validating && !validationReport && <ValidationPlaceholder />}
+
           {/* 1. Input / Clarification Section (Only if no Idea or Clarification Needed) */}
-          {!validationReport && !blueprint && (
+          {!initialLoading && !validating && !validationReport && !blueprint && (
              <div className="min-h-[300px] sm:min-h-[400px]">
                 {phase === 'CLARIFICATION' ? (
                    <Card className="border-primary/20 bg-primary/5">
@@ -803,12 +821,18 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                          <Textarea 
                             value={aiSuggestion || ''} 
                             onChange={e => setAiSuggestion(e.target.value)} 
-                            className="bg-muted/20 text-sm sm:text-base min-h-[120px]"
-                            placeholder="Your answer..."
+                            className={cn("bg-muted/20 text-sm sm:text-base min-h-[120px]", suggesting && "animate-pulse")}
+                            placeholder={suggesting ? "AI is drafting a suggestion…" : "Your answer..."}
                          />
                          <div className="flex flex-col sm:flex-row gap-3 sm:justify-between">
-                            <Button variant="ghost" size="sm" onClick={handleSuggestAnswer} disabled={loading} className="w-full sm:w-auto order-2 sm:order-1">Suggest Answer</Button>
-                            <Button onClick={() => handleAnswerQuestion(aiSuggestion || '')} disabled={!aiSuggestion} className="w-full sm:w-auto order-1 sm:order-2">Next</Button>
+                            <Button variant="ghost" size="sm" onClick={handleSuggestAnswer} disabled={suggesting || submitting} className="w-full sm:w-auto order-2 sm:order-1">
+                              {suggesting ? <ArrowClockwise className="animate-spin mr-2" /> : <MagicWand className="mr-2" />}
+                              {suggesting ? 'Thinking…' : 'Suggest Answer'}
+                            </Button>
+                            <Button onClick={() => handleAnswerQuestion(aiSuggestion || '')} disabled={!aiSuggestion || submitting || suggesting} className="w-full sm:w-auto order-1 sm:order-2">
+                              {submitting && <ArrowClockwise className="animate-spin mr-2" />}
+                              {currentQuestionIndex < questions.length - 1 ? 'Next' : submitting ? 'Saving…' : 'Finish'}
+                            </Button>
                          </div>
                       </CardContent>
                    </Card>
@@ -827,9 +851,9 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                          />
                       </CardContent>
                       <CardFooter className="p-4 sm:p-6">
-                         <Button onClick={handleSubmitIdea} disabled={loading || !rawInput.trim()} className="w-full bg-primary font-bold h-10 sm:h-12 text-primary-foreground">
-                            {loading ? <ArrowClockwise className="animate-spin mr-2" /> : <MagicWand className="mr-2" />}
-                            Start Project Architecture
+                         <Button onClick={handleSubmitIdea} disabled={submitting || !rawInput.trim()} className="w-full bg-primary font-bold h-10 sm:h-12 text-primary-foreground">
+                            {submitting ? <ArrowClockwise className="animate-spin mr-2" /> : <MagicWand className="mr-2" />}
+                            {submitting ? 'Reading your idea…' : 'Start Project Architecture'}
                          </Button>
                       </CardFooter>
                    </Card>
@@ -860,8 +884,12 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
               revalidating={revalidating}
               setRevalidating={setRevalidating}
               handleGenerateBlueprint={handleGenerateBlueprint}
+              generatingBlueprint={generatingBlueprint}
             />
           )}
+
+          {/* Blueprint being generated for the first time */}
+          {generatingBlueprint && !blueprint && <BlueprintPlaceholder />}
 
           {/* 3. Blueprint Section (Middle) */}
           {blueprint && (
@@ -885,10 +913,12 @@ export function PlansTab({ projectId, initialIdeaId }: PlansTabProps) {
                                 size="sm" 
                                 className="h-8 gap-2 text-muted-foreground/60 hover:text-foreground hover:bg-accent"
                                 onClick={handleGenerateBlueprint}
-                                disabled={loading}
+                                disabled={generatingBlueprint}
                             >
-                                <ArrowClockwise className={cn(loading && "animate-spin")} size={14} />
-                                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest hidden sm:inline">Regenerate</span>
+                                <ArrowClockwise className={cn(generatingBlueprint && "animate-spin text-primary")} size={14} />
+                                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest hidden sm:inline">
+                                  {generatingBlueprint ? 'Regenerating…' : 'Regenerate'}
+                                </span>
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent side="left" className="bg-popover border-border text-[10px] font-bold uppercase tracking-widest">
