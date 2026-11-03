@@ -29,7 +29,7 @@ import { toast } from 'sonner';
 import { AIDocChatPanel } from '@/components/AIDocChatPanel';
 import { DocumentCard } from '@/components/DocumentCard';
 import { cn } from '@/lib/utils';
-import { aiService, type DocumentMeta } from '@/services/ai.service';
+import { aiService } from '@/services/ai.service';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useIssueStore } from '@/store/issueStore';
 import { useAIStore, TechStack } from '@/store/aiStore';
@@ -37,30 +37,13 @@ import {
   Dialog, DialogContent 
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { lazy, Suspense, useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect, useRef } from 'react';
+import { DocViewerDialog } from '@/pages/projects/[projectId]/plans/DocViewerDialog';
+import { MarkdownView } from '@/pages/projects/[projectId]/plans/MarkdownView';
+import { getDocSlots } from './docState';
 import { AnimatePresence, motion } from 'framer-motion';
 
 const Mermaid = lazy(() => import('@/components/Mermaid'));
-
-const TECHNICAL_DOCS = [
-  { id: 'PRD', label: 'Product Requirements', description: 'Scope, goals, users, and acceptance criteria.' },
-  { id: 'APP_FLOW', label: 'App Flow', description: 'Screens, routes, and primary user journeys.' },
-  { id: 'TECH_STACK', label: 'Tech Stack', description: 'Frameworks, services, libraries, and constraints.' },
-  { id: 'FRONTEND_GUIDELINES', label: 'Frontend Guidelines', description: 'UI patterns, states, accessibility, and behavior.' },
-  { id: 'BACKEND_SCHEMA', label: 'Backend Schema', description: 'Data models, APIs, integrations, and storage.' },
-  { id: 'IMPLEMENTATION_PLAN', label: 'Implementation Plan', description: 'Milestones, dependencies, and execution order.' },
-];
-
-const normalizeDocText = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '');
-
-const getDocumentType = (document: DocumentMeta) => {
-  const haystack = normalizeDocText(`${document.title} ${document.r2_path}`);
-  return TECHNICAL_DOCS.find((doc) => {
-    const id = normalizeDocText(doc.id);
-    const label = normalizeDocText(doc.label);
-    return haystack.includes(id) || haystack.includes(label);
-  })?.id;
-};
 
 export default function AIGeneratorPage() {
   const navigate = useNavigate();
@@ -76,6 +59,7 @@ export default function AIGeneratorPage() {
     validationReport, 
     updateValidationReport,
     blueprint,
+    docs,
     documents,
     activeDocumentId,
     isGenerating,
@@ -84,6 +68,10 @@ export default function AIGeneratorPage() {
     validateIdea,
     generateBlueprint,
     generateDoc,
+    chatDoc,
+    rewriteDocSection,
+    replaceDoc,
+    fetchDocAssets,
     generateIssues,
     ideaId,
     projectId,
@@ -104,10 +92,118 @@ export default function AIGeneratorPage() {
   }, [queryIdeaId, validateIdea, ideaId]);
 
   useEffect(() => {
-    if (phase === 'DOCUMENTATION' && (projectId || ideaId)) {
-      fetchDocuments(projectId || undefined, ideaId || undefined);
+    if (phase !== 'DOCUMENTATION') return;
+    // Doc assets decide what is generated. The Google Docs list is only an
+    // optional mirror: it stays empty when Drive isn't configured.
+    if (ideaId) fetchDocAssets();
+    if (projectId || ideaId) fetchDocuments(projectId || undefined, ideaId || undefined);
+  }, [phase, projectId, ideaId, fetchDocuments, fetchDocAssets]);
+
+  // Documentation phase: which doc is selected, and the in-app viewer.
+  const [activeDocType, setActiveDocType] = useState<string | null>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerBusy, setViewerBusy] = useState<'chat' | 'regenerate' | 'download' | null>(null);
+  const [generatingDocType, setGeneratingDocType] = useState<string | null>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
+
+  const docSlots = getDocSlots(docs, documents);
+  const activeSlot = docSlots.find(s => s.id === activeDocType) ?? null;
+
+  const refreshGoogleDocs = async () => {
+    if (projectId || ideaId) await fetchDocuments(projectId || undefined, ideaId || undefined);
+  };
+
+  const selectDoc = (docType: string) => {
+    const slot = getDocSlots(useAIStore.getState().docs, useAIStore.getState().documents).find(s => s.id === docType);
+    setActiveDocType(docType);
+    setActiveDocument(slot?.googleDoc?.id ?? null);
+    // Without a Google Doc, the in-app viewer is the editor.
+    if (slot?.asset && !slot.googleDoc) setViewerOpen(true);
+  };
+
+  const handleGenerateDoc = async (docType: string) => {
+    if (generatingDocType || isGenerating) return;
+    setGeneratingDocType(docType);
+    try {
+      const doc = await generateDoc(docType);
+      if (!doc) return;
+      await refreshGoogleDocs();
+      selectDoc(docType);
+    } finally {
+      setGeneratingDocType(null);
     }
-  }, [phase, projectId, ideaId, fetchDocuments]);
+  };
+
+  const handleViewerChat = async (message: string) => {
+    if (!activeDocType) return false;
+    setViewerBusy('chat');
+    try {
+      return await chatDoc(activeDocType, message);
+    } finally {
+      setViewerBusy(null);
+    }
+  };
+
+  const handleViewerRewriteSelection = async (selection: string, message: string) => {
+    if (!activeDocType) return false;
+    setViewerBusy('chat');
+    try {
+      return await rewriteDocSection(activeDocType, selection, message);
+    } finally {
+      setViewerBusy(null);
+    }
+  };
+
+  const handleViewerRegenerate = async () => {
+    if (!activeSlot) return;
+    if (!window.confirm(`Regenerate ${activeSlot.label} from scratch? The current version will be replaced.`)) return;
+    setViewerBusy('regenerate');
+    try {
+      const doc = await generateDoc(activeSlot.id);
+      if (doc) await refreshGoogleDocs();
+    } finally {
+      setViewerBusy(null);
+    }
+  };
+
+  const handleDownloadDoc = async () => {
+    if (!ideaId || !activeSlot?.asset) return;
+    setViewerBusy(prev => prev ?? 'download');
+    try {
+      const res = await aiService.downloadDoc(ideaId, activeSlot.id);
+      const filename = `${activeSlot.label.replace(/\s+/g, '_')}.docx`;
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success(`Downloaded ${filename}`);
+    } catch {
+      toast.error("Failed to download as .docx. Open the document and use Copy Markdown instead.");
+    } finally {
+      setViewerBusy(prev => (prev === 'download' ? null : prev));
+    }
+  };
+
+  const handleReplaceClick = () => {
+    if (!replaceInputRef.current) return;
+    replaceInputRef.current.value = '';
+    replaceInputRef.current.click();
+  };
+
+  const handleReplaceFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeDocType) return;
+    setViewerBusy('regenerate');
+    try {
+      if (await replaceDoc(activeDocType, file)) await refreshGoogleDocs();
+    } finally {
+      setViewerBusy(null);
+    }
+  };
 
   const [isRefining, setIsRefining] = useState(false);
   const [refineFeedback, setRefineFeedback] = useState('');
@@ -869,28 +965,28 @@ export default function AIGeneratorPage() {
                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">Technical Assets</h3>
                  <p className="mt-2 text-sm leading-6 text-muted-foreground">Generate the six core docs in order, then review and edit the live document.</p>
                </div>
-               {TECHNICAL_DOCS.map((doc, i) => {
-                 const docMeta = documents.find(d => getDocumentType(d) === doc.id);
-                 const isGenerated = !!docMeta;
-                 const previousDoc = TECHNICAL_DOCS[i - 1];
-                 const isLocked = i > 0 && !documents.find(d => getDocumentType(d) === previousDoc.id);
+               {docSlots.map((slot) => {
+                 const { isGenerated, isLocked } = slot;
+                 const isActive = activeDocType === slot.id;
+                 const isBusy = generatingDocType === slot.id;
+                 const isDisabled = isLocked || (!isGenerated && (isGenerating || !!generatingDocType));
 
                  return (
                    <Card 
-                    key={doc.id} 
+                    key={slot.id} 
+                    data-testid={`doc-slot-${slot.id}`}
+                    aria-disabled={isDisabled}
                     className={cn(
                       "cursor-pointer border-border bg-card transition-all hover:border-primary/30 hover:bg-muted/40",
-                      activeDocumentId === docMeta?.id && "border-primary bg-primary/10 ring-1 ring-primary/20",
-                      isGenerated && activeDocumentId !== docMeta?.id && "border-emerald-500/25",
-                      isLocked && "pointer-events-none opacity-50"
+                      isActive && "border-primary bg-primary/10 ring-1 ring-primary/20",
+                      isGenerated && !isActive && "border-emerald-500/25",
+                      isDisabled && "pointer-events-none opacity-50"
                     )}
                     onClick={() => {
                       if (isGenerated) {
-                        setActiveDocument(docMeta.id);
+                        selectDoc(slot.id);
                       } else {
-                        generateDoc(doc.id).then(() => {
-                           if (projectId || ideaId) fetchDocuments(projectId || undefined, ideaId || undefined);
-                        });
+                        handleGenerateDoc(slot.id);
                       }
                     }}
                    >
@@ -900,16 +996,18 @@ export default function AIGeneratorPage() {
                             <FileText size={18} />
                          </div>
                          <div className="flex min-w-0 flex-col">
-                           <span className="font-bold text-[13px] tracking-tight">{doc.label}</span>
+                           <span className="font-bold text-[13px] tracking-tight">{slot.label}</span>
                            <span className="mt-1 text-xs leading-5 text-muted-foreground">
-                             {doc.description}
+                             {slot.description}
                            </span>
                            <span className="mt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                             {isGenerated ? 'Ready to edit' : isLocked ? 'Locked' : 'Click to generate'}
+                             {isBusy ? 'Generating…' : isGenerated ? 'Ready to edit' : isLocked ? 'Locked' : 'Click to generate'}
                            </span>
                          </div>
                        </div>
-                       {isGenerated ? (
+                       {isBusy ? (
+                         <ArrowClockwise size={18} className="shrink-0 animate-spin text-primary" />
+                       ) : isGenerated ? (
                          <CheckCircle size={18} className="shrink-0 text-emerald-500" weight="fill" />
                        ) : (
                          <ArrowRight size={18} className="shrink-0 text-muted-foreground/50" />
@@ -921,44 +1019,73 @@ export default function AIGeneratorPage() {
              </div>
 
              <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background shadow-sm">
-                {activeDocumentId ? (
+                {activeSlot?.googleDoc && activeDocumentId === activeSlot.googleDoc.id ? (
                   <div className="flex h-full flex-1 flex-col overflow-hidden xl:flex-row">
                     <div className="flex min-w-0 flex-1 flex-col">
-                      {documents.find(d => d.id === activeDocumentId) && (
-                        <DocumentCard 
-                          document={documents.find(d => d.id === activeDocumentId)!}
-                          onChat={(id) => setActiveDocument(id)}
-                          onSync={(id) => syncDocument(id)}
-                          onDelete={(id) => {
-                             if (confirm('Are you sure you want to delete this document?')) {
-                               deleteDocument(id);
-                             }
-                          }}
-                          onUpload={(id) => {
-                            const input = document.createElement('input');
-                            input.type = 'file';
-                            input.accept = '.docx';
-                            input.onchange = async (e) => {
-                              const file = (e.target as HTMLInputElement).files?.[0];
-                              if (file) {
-                                await aiService.uploadDocumentReplacement(id, file);
-                                fetchDocuments(projectId || undefined, ideaId || undefined);
-                                toast.success("Document replaced successfully");
-                              }
-                            };
-                            input.click();
-                          }}
-                        />
+                      <DocumentCard 
+                        document={activeSlot.googleDoc}
+                        onChat={(id) => setActiveDocument(id)}
+                        onSync={(id) => syncDocument(id)}
+                        onDelete={(id) => {
+                           if (confirm('Are you sure you want to delete this document?')) {
+                             deleteDocument(id);
+                           }
+                        }}
+                        onUpload={(id) => {
+                          const input = document.createElement('input');
+                          input.type = 'file';
+                          input.accept = '.docx';
+                          input.onchange = async (e) => {
+                            const file = (e.target as HTMLInputElement).files?.[0];
+                            if (file) {
+                              await aiService.uploadDocumentReplacement(id, file);
+                              fetchDocuments(projectId || undefined, ideaId || undefined);
+                              toast.success("Document replaced successfully");
+                            }
+                          };
+                          input.click();
+                        }}
+                      />
+                      {activeSlot.asset && (
+                        <div className="border-t border-border px-4 py-3">
+                          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setViewerOpen(true)}>
+                            <FileText className="mr-1.5" /> Open in-app viewer
+                          </Button>
+                        </div>
                       )}
                     </div>
                     
                     <div className="min-h-[420px] xl:min-h-0">
                       <AIDocChatPanel 
-                        docId={activeDocumentId} 
-                        title={documents.find(d => d.id === activeDocumentId)?.title || 'document'}
+                        docId={activeSlot.googleDoc.id} 
+                        title={activeSlot.googleDoc.title || 'document'}
                         onClose={() => setActiveDocument(null)} 
                       />
                     </div>
+                  </div>
+                ) : activeSlot?.asset ? (
+                  <div className="flex h-full min-h-0 flex-1 flex-col" data-testid="doc-preview">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-base font-bold">{activeSlot.label}</h3>
+                        <p className="text-xs text-muted-foreground">Stored in Astrozen. Open the editor to change it with AI.</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {activeSlot.googleDoc && (
+                          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setActiveDocument(activeSlot.googleDoc!.id)}>
+                            Open in Google Docs
+                          </Button>
+                        )}
+                        <Button size="sm" className="h-8 text-xs" onClick={() => setViewerOpen(true)}>
+                          <MagicWand className="mr-1.5" /> Open editor
+                        </Button>
+                      </div>
+                    </div>
+                    <ScrollArea className="min-h-0 flex-1">
+                      <div className="px-4 py-4 sm:px-8 sm:py-6">
+                        <MarkdownView content={activeSlot.asset.content} />
+                      </div>
+                    </ScrollArea>
                   </div>
                 ) : (
                   <div className="flex flex-1 flex-col items-center justify-center space-y-6 p-12 text-center">
@@ -968,7 +1095,7 @@ export default function AIGeneratorPage() {
                     <div className="space-y-2 max-w-sm">
                       <h3 className="text-xl font-bold">Document Generator</h3>
                       <p className="text-muted-foreground text-sm leading-relaxed">
-                        Select a technical document from the sidebar to generate it. Once ready, you can edit it directly in Google Docs or chat with AI to refine the content.
+                        Select a technical document from the sidebar to generate it. Once ready, open it to review, edit with AI, or download it.
                       </p>
                     </div>
                   </div>
@@ -977,6 +1104,26 @@ export default function AIGeneratorPage() {
           </div>
         )}
       </div>
+
+      <input
+        type="file"
+        ref={replaceInputRef}
+        className="hidden"
+        accept=".md,.markdown,.txt,.docx"
+        onChange={handleReplaceFile}
+      />
+
+      <DocViewerDialog
+        doc={activeSlot?.asset ?? null}
+        open={viewerOpen && !!activeSlot?.asset}
+        onOpenChange={(open) => { if (!open && !viewerBusy) setViewerOpen(false); }}
+        busy={viewerBusy}
+        onChat={handleViewerChat}
+        onRewriteSelection={handleViewerRewriteSelection}
+        onRegenerate={handleViewerRegenerate}
+        onDownload={handleDownloadDoc}
+        onReplace={handleReplaceClick}
+      />
     </div>
   );
 }

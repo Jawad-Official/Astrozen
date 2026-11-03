@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { aiService, DocumentMeta } from '@/services/ai.service';
+import { aiService, type Doc, type DocumentMeta } from '@/services/ai.service';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/utils';
 import { useAIActivityStore } from './aiActivityStore';
@@ -69,11 +69,10 @@ export interface Blueprint {
   kanban_parse_error?: boolean;
 }
 
-export interface Doc {
-  id: string;
-  asset_type: string;
-  content: string;
-}
+export type { Doc };
+
+/** Insert or replace the doc of the same asset_type. */
+const upsertDoc = (docs: Doc[], doc: Doc) => [...docs.filter(d => d.asset_type !== doc.asset_type), doc];
 
 interface AIStore {
   phase: Phase;
@@ -102,8 +101,14 @@ interface AIStore {
   answerQuestion: (answer: string) => Promise<void>;
   validateIdea: (feedback?: string) => Promise<void>;
   generateBlueprint: () => Promise<void>;
-  generateDoc: (type: string) => Promise<void>;
-  chatDoc: (type: string, message: string) => Promise<void>;
+  /** Resolves to the generated doc, or null when generation failed. */
+  generateDoc: (type: string) => Promise<Doc | null>;
+  /** Resolves to true when the doc was updated. */
+  chatDoc: (type: string, message: string) => Promise<boolean>;
+  rewriteDocSection: (type: string, selection: string, message: string) => Promise<boolean>;
+  replaceDoc: (type: string, file: File) => Promise<boolean>;
+  /** Load the idea's doc assets (the source of truth for generated docs). */
+  fetchDocAssets: () => Promise<void>;
   generateIssues: (nodeId: string) => Promise<void>;
   updateValidationReport: (report: ValidationReport) => void;
   acceptImprovements: (acceptedIndices: number[]) => Promise<void>;
@@ -251,41 +256,106 @@ export const useAIStore = create<AIStore>((set, get) => ({
 
   generateDoc: async (type) => {
     const { ideaId } = get();
-    if (!ideaId) return;
+    if (!ideaId) return null;
 
-    set({ isGenerating: true, generationMessage: `Generating ${type.replace('_', ' ')}...` });
+    set({ isGenerating: true, generationMessage: `Generating ${type.replace(/_/g, ' ')}...` });
     try {
       const res = await aiService.generateDoc(ideaId, type);
       set((state) => ({
         // Regenerating replaces the doc instead of appending a duplicate.
-        docs: [...state.docs.filter(d => d.asset_type !== res.data.asset_type), res.data],
+        docs: upsertDoc(state.docs, res.data),
         isGenerating: false,
         generationMessage: null
       }));
+      return res.data;
     } catch (error) {
       const errorMessage = getErrorMessage(error, `Failed to generate ${type}`);
       toast.error(errorMessage);
       set({ isGenerating: false, generationMessage: null });
+      return null;
     }
   },
 
   chatDoc: async (type, message) => {
     const { ideaId } = get();
-    if (!ideaId) return;
+    if (!ideaId) return false;
 
     set({ isGenerating: true, generationMessage: 'Updating document...' });
     try {
       const res = await aiService.chatDoc(ideaId, type, message);
       set((state) => ({
-        docs: state.docs.map(d => d.asset_type === type ? res.data : d),
+        docs: upsertDoc(state.docs, res.data),
         isGenerating: false,
         generationMessage: null
       }));
       toast.success("Document updated");
+      return true;
     } catch (error) {
       const errorMessage = getErrorMessage(error, "Failed to update document");
       toast.error(errorMessage);
       set({ isGenerating: false, generationMessage: null });
+      return false;
+    }
+  },
+
+  rewriteDocSection: async (type, selection, message) => {
+    const { ideaId } = get();
+    if (!ideaId) return false;
+
+    set({ isGenerating: true, generationMessage: 'Rewriting a section...' });
+    try {
+      const res = await aiService.regenerateDocSection(ideaId, type, selection, message);
+      set((state) => ({
+        docs: upsertDoc(state.docs, res.data),
+        isGenerating: false,
+        generationMessage: null
+      }));
+      toast.success("Section rewritten");
+      return true;
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to rewrite section"));
+      set({ isGenerating: false, generationMessage: null });
+      return false;
+    }
+  },
+
+  replaceDoc: async (type, file) => {
+    const { ideaId } = get();
+    if (!ideaId) return false;
+
+    // Upload runs an AI quality review on the file, so it shows as AI work.
+    set({ isGenerating: true, generationMessage: 'Reviewing your document...' });
+    try {
+      const res = await aiService.uploadDoc(ideaId, type, file);
+      const { analysis, ...doc } = res.data;
+      set((state) => ({
+        docs: upsertDoc(state.docs, doc),
+        isGenerating: false,
+        generationMessage: null
+      }));
+      toast.success("Document replaced");
+      if (analysis && (analysis.severity === 'critical' || analysis.severity === 'warning') && analysis.summary) {
+        toast.warning(analysis.summary);
+      }
+      return true;
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Upload failed"));
+      set({ isGenerating: false, generationMessage: null });
+      return false;
+    }
+  },
+
+  fetchDocAssets: async () => {
+    const { ideaId } = get();
+    if (!ideaId) return;
+    try {
+      const res = await aiService.getIdea(ideaId);
+      // Ignore a stale response if the user switched ideas meanwhile.
+      if (get().ideaId !== ideaId) return;
+      const assets = (res.data.assets ?? []).filter(a => !!a.content?.trim());
+      set({ docs: assets });
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to load documents"));
     }
   },
 
