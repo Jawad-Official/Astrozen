@@ -8,6 +8,7 @@ from app.models.project_idea import ProjectIdea, AssetType
 from app.models.feature import Feature
 from app.models.issue import Issue
 from app.crud import crud_project_idea
+from app.crud.base import _coerce_uuid
 import logging
 
 logger = logging.getLogger(__name__)
@@ -272,15 +273,23 @@ class ProjectMDService:
             from app.models.feature import Feature as ProjectFeature
             from app.models.issue import Issue as ProjectIssue
 
+            # Callers pass the id as str; UUID columns need a uuid.UUID
+            # (SQLite raises on a str, Postgres would compare uuid to text).
+            project_uuid = _coerce_uuid(project_id)
+
             features = (
                 db.query(ProjectFeature)
-                .filter(ProjectFeature.project_id == project_id)
+                .filter(ProjectFeature.project_id == project_uuid)
                 .all()
             )
 
+            # Issue has no project_id column: an issue belongs to a project
+            # through its feature. (Filtering on the missing column raised
+            # AttributeError on every doc generation.)
             issues = (
                 db.query(ProjectIssue)
-                .filter(ProjectIssue.project_id == project_id)
+                .join(ProjectFeature, ProjectIssue.feature_id == ProjectFeature.id)
+                .filter(ProjectFeature.project_id == project_uuid)
                 .all()
             )
 

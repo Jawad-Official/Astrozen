@@ -1243,15 +1243,25 @@ class AIService:
         {compact_json(existing_features)}
 
         Requirements:
-        1. STRATEGIC LINKING: If the component matches an existing feature, use it. If not, create a New Feature. 
-        2. MILESTONES: Define major milestones for this component.
-        3. DETAILED ISSUES: Create all primary technical issues needed.
+        1. STRATEGIC LINKING: If the component matches an existing feature, reuse its exact name. If not, add it to new_features.
+        2. MILESTONES: 2-4 milestones for this component, each tied to a feature by name.
+        3. DETAILED ISSUES: 4-10 primary technical issues, each tied to a feature and a milestone by name, with 0-4 sub_issues.
 
-        Return a JSON object:
+        Return a JSON object with EXACTLY this shape and these key names:
         {{
-            "new_features": [...],
-            "milestones": [...],
-            "issues": [...]
+            "new_features": [
+                {{"name": "Feature name", "description": "What it does", "type": "new_capability|enhancement|integration",
+                  "priority": "low|medium|high|urgent", "parent_feature_name": null}}
+            ],
+            "milestones": [
+                {{"name": "Milestone name", "description": "Outcome", "feature_name": "Feature name"}}
+            ],
+            "issues": [
+                {{"title": "Issue title", "description": "What to build", "type": "task|bug|story",
+                  "priority": "low|medium|high|urgent", "feature_name": "Feature name",
+                  "milestone_name": "Milestone name",
+                  "sub_issues": [{{"title": "Sub-task", "type": "task", "priority": "medium"}}]}}
+            ]
         }}
         """
         try:
