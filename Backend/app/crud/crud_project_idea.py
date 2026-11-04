@@ -35,6 +35,15 @@ class CRUDProjectIdea(CRUDBase[ProjectIdea, IdeaSubmit, IdeaUpdate]):
             ProjectAsset.asset_type == asset_type
         ).first()
 
+    def get_assets(self, db: Session, *, idea_id: str) -> List[ProjectAsset]:
+        """Every asset of an idea (docs, blueprint, kanban, project.md)."""
+        return (
+            db.query(ProjectAsset)
+            .filter(ProjectAsset.project_idea_id == _coerce_uuid(idea_id))
+            .order_by(ProjectAsset.created_at)
+            .all()
+        )
+
     def create_or_update_asset(self, db: Session, *, idea_id: str, asset_type: str, content: str, status: str, r2_path: str = None) -> ProjectAsset:
         asset = self.get_asset(db, idea_id=idea_id, asset_type=asset_type)
         if asset:

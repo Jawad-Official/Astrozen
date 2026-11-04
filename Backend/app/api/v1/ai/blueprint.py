@@ -7,7 +7,7 @@ from fastapi import (
     Request,
 )
 from sqlalchemy.orm import Session
-from typing import Any
+from typing import Any, Optional
 import logging
 import json
 from app.api import deps
@@ -39,6 +39,91 @@ from app.models.issue import Issue, IssuePriority, IssueStatus, IssueType
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _first_str(data: dict, *keys: str) -> Optional[str]:
+    for key in keys:
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _normalize_issue_plan(plan: dict) -> dict:
+    """Coerce the model's plan into the shape the route expects.
+
+    Even with an explicit schema in the prompt, models drift: "title" for a
+    feature's "name", "feature" for "feature_name", a bare string instead of
+    an object, a missing milestone. Each of those used to be a KeyError and
+    a 500 after the (paid) AI call had already succeeded. Entries that have
+    no usable name are dropped rather than crashing the whole plan.
+    """
+    def _items(key: str) -> list:
+        value = plan.get(key)
+        return value if isinstance(value, list) else []
+
+    features = []
+    for raw in _items("new_features"):
+        if isinstance(raw, str):
+            raw = {"name": raw}
+        if not isinstance(raw, dict):
+            continue
+        name = _first_str(raw, "name", "title", "feature_name", "feature")
+        if not name:
+            continue
+        features.append(
+            {
+                **raw,
+                "name": name,
+                "description": _first_str(raw, "description", "problem_statement", "summary"),
+                "parent_feature_name": _first_str(raw, "parent_feature_name", "parent", "parent_name"),
+            }
+        )
+
+    milestones = []
+    for raw in _items("milestones"):
+        if isinstance(raw, str):
+            raw = {"name": raw}
+        if not isinstance(raw, dict):
+            continue
+        name = _first_str(raw, "name", "title", "milestone_name", "milestone")
+        if not name:
+            continue
+        milestones.append(
+            {
+                **raw,
+                "name": name,
+                "description": _first_str(raw, "description", "summary"),
+                "feature_name": _first_str(raw, "feature_name", "feature", "parent_feature_name"),
+            }
+        )
+
+    def _normalize_issue(raw) -> Optional[dict]:
+        if isinstance(raw, str):
+            raw = {"title": raw}
+        if not isinstance(raw, dict):
+            return None
+        title = _first_str(raw, "title", "name", "summary")
+        if not title:
+            return None
+        subs = []
+        raw_subs = raw.get("sub_issues") or raw.get("subtasks") or raw.get("sub_tasks")
+        for sub in (raw_subs if isinstance(raw_subs, list) else []):
+            normalized = _normalize_issue(sub)
+            if normalized:
+                normalized["sub_issues"] = []  # one level deep only
+                subs.append(normalized)
+        return {
+            **raw,
+            "title": title,
+            "description": _first_str(raw, "description", "details", "summary"),
+            "feature_name": _first_str(raw, "feature_name", "feature"),
+            "milestone_name": _first_str(raw, "milestone_name", "milestone"),
+            "sub_issues": subs,
+        }
+
+    issues = [i for i in (_normalize_issue(r) for r in _items("issues")) if i]
+    return {"new_features": features, "milestones": milestones, "issues": issues}
 
 
 @router.post("/idea/{idea_id}/blueprint/node/{node_id}/issues")
@@ -113,9 +198,16 @@ async def generate_issues_for_node(
     }
 
     # Generate plan
-    plan = await ai_service.generate_issues_for_blueprint_node(
-        node_details, project_context, features_list
+    plan = _normalize_issue_plan(
+        await ai_service.generate_issues_for_blueprint_node(
+            node_details, project_context, features_list
+        )
     )
+    if not plan["issues"] and not plan["new_features"]:
+        raise HTTPException(
+            status_code=502,
+            detail="The AI returned an empty plan for this component. Try again.",
+        )
 
     # 1. Create New Features (Handle parents first, then children)
     feature_map = {f.name: f for f in existing_features}
@@ -141,7 +233,7 @@ async def generate_issues_for_node(
             )
 
             # Map type safely
-            raw_type = f_data.get("type", "new_capability").lower()
+            raw_type = str(f_data.get("type") or "new_capability").lower()
             if (
                 raw_type == "sub_feature"
             ):  # Common AI hallucination based on field names
@@ -154,13 +246,13 @@ async def generate_issues_for_node(
 
             # Map status safely
             try:
-                f_status = FeatureStatus(f_data.get("status", "validated").lower())
+                f_status = FeatureStatus(str(f_data.get("status") or "validated").lower())
             except ValueError:
                 f_status = FeatureStatus.VALIDATED
 
             # Map priority safely
             try:
-                f_priority = IssuePriority(f_data.get("priority", "medium").lower())
+                f_priority = IssuePriority(str(f_data.get("priority") or "medium").lower())
             except ValueError:
                 f_priority = IssuePriority.MEDIUM
 
@@ -188,7 +280,7 @@ async def generate_issues_for_node(
     # 2. Create Milestones
     milestone_map = {}
     for m_data in plan.get("milestones", []):
-        target_f = feature_map.get(m_data["feature_name"])
+        target_f = feature_map.get(m_data.get("feature_name") or "")
         if target_f:
             new_m = Milestone(
                 feature_id=target_f.id,
@@ -211,18 +303,18 @@ async def generate_issues_for_node(
     current_issue_num = crud_issue.get_max_identifier_num(db, team_prefix)
 
     for i_data in plan.get("issues", []):
-        target_f = feature_map.get(i_data["feature_name"])
-        target_m = milestone_map.get(i_data["milestone_name"])
+        target_f = feature_map.get(i_data.get("feature_name") or "")
+        target_m = milestone_map.get(i_data.get("milestone_name") or "")
 
         # Map issue_type safely
         try:
-            i_type = IssueType(i_data.get("type", "task").lower())
+            i_type = IssueType(str(i_data.get("type") or "task").lower())
         except ValueError:
             i_type = IssueType.TASK
 
         # Map priority safely
         try:
-            i_priority = IssuePriority(i_data.get("priority", "medium").lower())
+            i_priority = IssuePriority(str(i_data.get("priority") or "medium").lower())
         except ValueError:
             i_priority = IssuePriority.MEDIUM
 
@@ -251,12 +343,12 @@ async def generate_issues_for_node(
         # Create Sub-issues
         for sub_idx, s_data in enumerate(i_data.get("sub_issues", [])):
             try:
-                si_type = IssueType(s_data.get("type", "task").lower())
+                si_type = IssueType(str(s_data.get("type") or "task").lower())
             except ValueError:
                 si_type = IssueType.TASK
 
             try:
-                si_priority = IssuePriority(s_data.get("priority", "medium").lower())
+                si_priority = IssuePriority(str(s_data.get("priority") or "medium").lower())
             except ValueError:
                 si_priority = IssuePriority.MEDIUM
 

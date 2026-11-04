@@ -86,9 +86,36 @@ class Settings(BaseSettings):
     # Encryption key for OAuth tokens at rest
     ENCRYPTION_KEY: str | None = None
 
-    # AI (Google AI Studio / Gemini) & Cloudflare R2
+    # AI provider. Any OpenAI-compatible chat-completions endpoint works:
+    #   Gemini (default)  https://generativelanguage.googleapis.com/v1beta/openai/
+    #   OpenRouter        https://openrouter.ai/api/v1
+    #   Groq              https://api.groq.com/openai/v1
+    # AI_API_KEY is the key for that endpoint; GEMINI_API_KEY still works as
+    # the key when AI_API_KEY is unset, so existing deployments keep running.
+    AI_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
+    AI_API_KEY: str | None = None
     GEMINI_API_KEY: str | None = None
     MODEL_NAME: str = "gemini-3.6-flash"
+
+    @property
+    def ai_api_key(self) -> str | None:
+        return self.AI_API_KEY or self.GEMINI_API_KEY
+
+    @property
+    def ai_provider_name(self) -> str:
+        host = self.AI_BASE_URL.lower()
+        if "googleapis" in host:
+            return "Gemini"
+        if "openrouter" in host:
+            return "OpenRouter"
+        if "groq" in host:
+            return "Groq"
+        return "the AI provider"
+
+    @property
+    def ai_key_var(self) -> str:
+        """Name of the env var the operator should set for this provider."""
+        return "GEMINI_API_KEY" if not self.AI_API_KEY and "googleapis" in self.AI_BASE_URL.lower() else "AI_API_KEY"
     # Send a per-task reasoning_effort (see AI_TASK_BUDGETS in
     # app/services/ai_service.py). Thinking tokens are billed as output and
     # count against max_tokens, so tuning it per task keeps short calls cheap

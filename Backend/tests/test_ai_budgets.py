@@ -147,3 +147,38 @@ async def test_doc_questions_can_be_turned_off(ai, monkeypatch):
     result = await ai.generate_doc_questions("PRD", {"idea": "x"}, {})
     assert result == {"has_questions": False, "questions": []}
     assert calls == []
+
+
+def test_provider_switch_via_base_url(monkeypatch):
+    """AI_BASE_URL + AI_API_KEY select another OpenAI-compatible provider;
+    GEMINI_API_KEY stays the fallback key so old deployments keep working."""
+    from app.core import config
+
+    monkeypatch.setattr(config.settings, "AI_BASE_URL", "https://openrouter.ai/api/v1")
+    monkeypatch.setattr(config.settings, "AI_API_KEY", "sk-or-test")
+    monkeypatch.setattr(config.settings, "GEMINI_API_KEY", None)
+    ai = AIService()
+    assert str(ai.client.base_url).startswith("https://openrouter.ai/api/v1")
+    assert ai.provider == "OpenRouter"
+    assert ai.key_var == "AI_API_KEY"
+
+    monkeypatch.setattr(config.settings, "AI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
+    monkeypatch.setattr(config.settings, "AI_API_KEY", None)
+    monkeypatch.setattr(config.settings, "GEMINI_API_KEY", "gem-test")
+    ai = AIService()
+    assert ai.provider == "Gemini"
+    assert ai.key_var == "GEMINI_API_KEY"
+
+
+@pytest.mark.asyncio
+async def test_free_tier_unavailable_gets_a_specific_hint(ai, monkeypatch):
+    _recording_client(
+        ai, monkeypatch,
+        errors=["Error code: 403 - [{'error': {'code': 403, 'message': 'The Gemini API free "
+                "tier is not available for this project. To use the Gemini API, please set "
+                "up billing', 'status': 'PERMISSION_DENIED'}}]"],
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        await ai._call_ai("prompt", task="blueprint")
+    assert exc_info.value.status_code == 503
+    assert "not eligible for the Gemini free tier" in exc_info.value.detail
