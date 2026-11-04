@@ -39,6 +39,12 @@ services:
         generateValue: true
       - key: GEMINI_API_KEY
         sync: false
+      # Optional: point at another OpenAI-compatible provider (OpenRouter,
+      # Groq). Leave AI_BASE_URL as is and AI_API_KEY empty to use Gemini.
+      - key: AI_BASE_URL
+        value: https://generativelanguage.googleapis.com/v1beta/openai/
+      - key: AI_API_KEY
+        sync: false
       - key: MODEL_NAME
         value: gemini-3.6-flash
       - key: AI_REASONING_EFFORT_ENABLED

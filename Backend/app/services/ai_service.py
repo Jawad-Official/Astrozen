@@ -205,11 +205,14 @@ GUARDRAIL = (
 
 class AIService:
     def __init__(self):
-        api_key = settings.GEMINI_API_KEY
+        api_key = settings.ai_api_key
+        self.base_url = settings.AI_BASE_URL.strip()
+        self.provider = settings.ai_provider_name
+        self.key_var = settings.ai_key_var
         if api_key:
             api_key = api_key.strip().strip('"').strip("'")
             self.client = OpenAI(
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                base_url=self.base_url,
                 api_key=api_key,
                 # The SDK retries 429/5xx twice on its own by default. Stacked
                 # on _call_ai's retry loop that was up to 9 attempts per
@@ -221,8 +224,8 @@ class AIService:
         else:
             self.client = None
             logger.warning(
-                "GEMINI_API_KEY is missing. Every AI-backed route will return "
-                "503 until it is set."
+                "%s is missing. Every AI-backed route will return 503 until it is set.",
+                self.key_var,
             )
 
         self.model = settings.MODEL_NAME
@@ -244,9 +247,9 @@ class AIService:
             raise HTTPException(
                 status_code=503,
                 detail=(
-                    "AI is not configured on this server: GEMINI_API_KEY is not set. "
-                    "Add a Google AI Studio key as GEMINI_API_KEY (see Backend/.env.example) "
-                    "and restart the backend."
+                    f"AI is not configured on this server: {self.key_var} is not set. "
+                    f"Add an API key for {self.provider} as {self.key_var} (see "
+                    f"Backend/.env.example) and restart the backend."
                 ),
             )
 
@@ -344,28 +347,36 @@ class AIService:
             # wording (API_KEY_INVALID vs PERMISSION_DENIED vs a leaked
             # key) is what the operator needs, so put it in the logs.
             logger.error(
-                "Provider rejected GEMINI_API_KEY for model %s. Provider said: %s",
+                "%s rejected %s for model %s. Provider said: %s",
+                self.provider,
+                self.key_var,
                 self.model,
                 error_msg,
             )
             haystack = error_msg.lower()
-            if "permission_denied" in haystack or "403" in haystack:
+            if "free tier is not available" in haystack:
                 hint = (
-                    "The key exists but is not allowed to use this API: enable the "
-                    "'Generative Language API' for its Google Cloud project, remove any "
-                    "API/referrer restrictions on the key, and check MODEL_NAME is "
-                    "available on your tier."
+                    "Google says this Google Cloud project is not eligible for the "
+                    "Gemini free tier. Either link a billing account to it, create the "
+                    "key in a different project/account, or point AI_BASE_URL and "
+                    "AI_API_KEY at another OpenAI-compatible provider (OpenRouter, Groq)."
+                )
+            elif "permission_denied" in haystack or "403" in haystack:
+                hint = (
+                    "The key exists but is not allowed to make this call: check the "
+                    "provider's API is enabled for the key's project, that the key has "
+                    "no IP/referrer restrictions, and that MODEL_NAME is available on "
+                    "your tier."
                 )
             else:
                 hint = (
-                    "The key itself was not accepted: it was deleted, regenerated, or "
-                    "pasted incorrectly. Create one at https://aistudio.google.com/apikey, "
-                    "set GEMINI_API_KEY on the server, and make sure the deploy that "
-                    "picks it up actually succeeds."
+                    f"The key itself was not accepted: it was deleted, regenerated, or "
+                    f"pasted incorrectly. Create a new one, set {self.key_var} on the "
+                    f"server, and make sure the deploy that picks it up succeeds."
                 )
             raise HTTPException(
                 status_code=503,
-                detail=f"AI is misconfigured on this server: the provider rejected GEMINI_API_KEY. {hint}",
+                detail=f"AI is misconfigured on this server: {self.provider} rejected {self.key_var}. {hint}",
             )
         if self._is_model_error(error_msg):
             logger.error(
@@ -719,7 +730,7 @@ class AIService:
             if self._is_auth_error(error_msg):
                 raise HTTPException(
                     status_code=400,
-                    detail="AI API Configuration Error: The Gemini API key provided in the backend is invalid. Please check GEMINI_API_KEY in the .env file.",
+                    detail=f"AI API Configuration Error: {self.provider} rejected {self.key_var}. Check the key on the server.",
                 )
             return []
 
@@ -1047,7 +1058,7 @@ class AIService:
             if self._is_auth_error(error_msg):
                 raise HTTPException(
                     status_code=400,
-                    detail="AI API Configuration Error: The Gemini API key provided in the backend is invalid. Please check GEMINI_API_KEY in the .env file.",
+                    detail=f"AI API Configuration Error: {self.provider} rejected {self.key_var}. Check the key on the server.",
                 )
 
             raise HTTPException(
@@ -1202,7 +1213,7 @@ class AIService:
             if self._is_auth_error(error_msg):
                 raise HTTPException(
                     status_code=400,
-                    detail="AI API Configuration Error: The Gemini API key provided in the backend is invalid. Please check GEMINI_API_KEY in the .env file.",
+                    detail=f"AI API Configuration Error: {self.provider} rejected {self.key_var}. Check the key on the server.",
                 )
 
             raise HTTPException(
@@ -1262,7 +1273,7 @@ class AIService:
             if self._is_auth_error(error_msg):
                 raise HTTPException(
                     status_code=400,
-                    detail="AI API Configuration Error: The Gemini API key provided in the backend is invalid. Please check GEMINI_API_KEY in the .env file.",
+                    detail=f"AI API Configuration Error: {self.provider} rejected {self.key_var}. Check the key on the server.",
                 )
 
             raise HTTPException(
